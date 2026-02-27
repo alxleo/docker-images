@@ -82,5 +82,11 @@
     "dockerfile": "Dockerfile.python",
     "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@7afc7c1cc96e23992c8f105f960132c657883bb1\nMCP_ENTRYPOINT=pal-mcp-server",
     "tag": "7afc7c1"
+  },
+  {
+    "name": "mcp-karakeep",
+    "dockerfile": "Dockerfile.npm",
+    "build_args": "MCP_PACKAGE=@karakeep/mcp@0.31.0",
+    "tag": "0.31.0"
   }
 ]
