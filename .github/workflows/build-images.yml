@@ -1,13 +1,14 @@
 # Build custom Docker images and push to ghcr.io
 #
 # Triggers:
-#   - Push to main when Dockerfiles or configs change
-#   - Manual dispatch (workflow_dispatch)
+#   - Pull requests: build-only (no push) + security scan — gates merge
+#   - Push to main: build + push to ghcr.io
+#   - Manual dispatch: build + push
 #
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
-#   - mcp-*: 13 MCP service images (npm + python based)
+#   - mcp-*: 14 MCP service images (npm + python based)
 
 name: Build Custom Images
 
@@ -19,6 +20,13 @@ on:
       - 'cadvisor/**'
       - 'mcp/**'
       - 'mcp-images.json'
+  pull_request:
+    paths:
+      - 'caddy-cloudflare/**'
+      - 'cadvisor/**'
+      - 'mcp/**'
+      - 'mcp-images.json'
+      - '.github/workflows/build-images.yml'
   workflow_dispatch:
 
 env:
@@ -26,6 +34,17 @@ env:
   OWNER: alxleo
 
 jobs:
+  security-scan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   caddy-cloudflare:
     runs-on: ubuntu-latest
     permissions:
@@ -34,6 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -42,7 +62,7 @@ jobs:
         with:
           context: caddy-cloudflare
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ghcr.io/alxleo/caddy-cloudflare:2.10
             ghcr.io/alxleo/caddy-cloudflare:latest
@@ -55,6 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -63,7 +84,7 @@ jobs:
         with:
           context: cadvisor
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ghcr.io/alxleo/cadvisor:v0.56.2
             ghcr.io/alxleo/cadvisor:latest
@@ -90,6 +111,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -100,7 +122,7 @@ jobs:
           file: mcp/${{ matrix.dockerfile }}
           build-args: ${{ matrix.build_args }}
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest
