@@ -1,0 +1,66 @@
+# Build custom Docker images and push to ghcr.io
+#
+# Triggers:
+#   - Push to main when Dockerfiles change
+#   - Manual dispatch (workflow_dispatch)
+#
+# Images:
+#   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
+#   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
+
+name: Build Custom Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'caddy-cloudflare/**'
+      - 'cadvisor/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: alxleo
+
+jobs:
+  caddy-cloudflare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: caddy-cloudflare
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/alxleo/caddy-cloudflare:2.10
+            ghcr.io/alxleo/caddy-cloudflare:latest
+
+  cadvisor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: cadvisor
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/alxleo/cadvisor:v0.56.2
+            ghcr.io/alxleo/cadvisor:latest
