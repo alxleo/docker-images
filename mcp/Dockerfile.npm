@@ -1,0 +1,77 @@
+# MCP HTTP Wrapper - npm-based MCPs
+# Pre-installs specific npm MCP package for fast startup
+#
+# Build args:
+#   MCP_PACKAGE: npm package to pre-install (e.g., "mcp-hacker-news@1.0.3")
+#
+# Runtime env vars:
+#   MCP_SERVER_COMMAND: Command override (optional, defaults to pre-installed package)
+#   MCP_API_KEY: Optional API key for authentication
+#   MCP_PORT: Port to listen on (default: 8080)
+#   Plus any package-specific env vars (REDDIT_CLIENT_ID, BRAVE_API_KEY, etc.)
+#
+# Example build:
+#   docker build -f Dockerfile.npm --build-arg MCP_PACKAGE="mcp-hacker-news@1.0.3" -t mcp-hackernews .
+#
+# Example run:
+#   docker run -p 8080:8080 -e BRAVE_API_KEY=xxx mcp-hackernews
+
+FROM node:24-slim
+
+# Install system dependencies for entrypoint
+RUN apt-get update && \
+    apt-get install -y unzip jq python3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Healthcheck binary: 75KB static C/musl, localhost-only by design
+# Replaces curl (9MB + full network attack surface) for container health probes
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+
+# Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
+# mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)
+RUN npm install -g mcp-proxy@6.4.0 mcp-filter@0.6.0
+
+# Install MCP package globally so the binary lives in /usr/local/bin/
+# (image layer, unaffected by tmpfs on /root/.npm and /root/.cache)
+ARG MCP_PACKAGE
+RUN if [ -n "$MCP_PACKAGE" ]; then \
+        echo "Installing $MCP_PACKAGE globally..." && \
+        npm install -g "$MCP_PACKAGE" && \
+        # Discover the binary name installed by the package and save it.
+        # Strip version (@x.y.z) then strip scope (@org/) to get the npm package dir name,
+        # then read the bin field from its package.json.
+        pkg_dir=$(echo "$MCP_PACKAGE" | sed 's/@[0-9][^/]*$//') && \
+        bin_name=$(node -e " \
+            const p = require('/usr/local/lib/node_modules/${pkg_dir}/package.json'); \
+            const b = p.bin || {}; \
+            if (typeof b === 'string') { console.log(p.name.split('/').pop()); } \
+            else { console.log(Object.keys(b)[0]); } \
+        ") && \
+        echo "$bin_name" > /usr/local/share/mcp-bin-name && \
+        echo "Installed binary: $bin_name ($(which $bin_name))"; \
+    else \
+        echo "WARNING: No MCP_PACKAGE specified, will download on first request"; \
+    fi
+
+# Copy entrypoint script (handles tool filtering and server startup)
+COPY entrypoint.py /entrypoint.py
+RUN chmod +x /entrypoint.py
+
+EXPOSE 8080
+
+# Save the build arg as an ENV variable for runtime access
+ARG MCP_PACKAGE
+ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
+    MCP_SERVER_COMMAND="" \
+    MCP_PORT=8080
+
+# Startup via entrypoint.py (Python-based orchestration)
+# The entrypoint handles:
+#   - Tool filtering (FILTER_INCLUDE / FILTER_EXCLUDE)
+#   - MCP server command construction
+#   - Clear error messages and validation
+# Secrets are injected via env_file at compose level (secret injection)
+# See /entrypoint.py for implementation
+ENTRYPOINT ["/entrypoint.py"]
+CMD []
