@@ -1,12 +1,13 @@
 # Build custom Docker images and push to ghcr.io
 #
 # Triggers:
-#   - Push to main when Dockerfiles change
+#   - Push to main when Dockerfiles or configs change
 #   - Manual dispatch (workflow_dispatch)
 #
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
+#   - mcp-*: 13 MCP service images (npm + python based)
 
 name: Build Custom Images
 
@@ -16,6 +17,8 @@ on:
     paths:
       - 'caddy-cloudflare/**'
       - 'cadvisor/**'
+      - 'mcp/**'
+      - 'mcp-images.json'
   workflow_dispatch:
 
 env:
@@ -64,3 +67,40 @@ jobs:
           tags: |
             ghcr.io/alxleo/cadvisor:v0.56.2
             ghcr.io/alxleo/cadvisor:latest
+
+  load-mcp-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set-matrix
+        run: echo "matrix=$(cat mcp-images.json | jq -c '.')" >> "$GITHUB_OUTPUT"
+
+  mcp-images:
+    needs: load-mcp-matrix
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.load-mcp-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: mcp
+          file: mcp/${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
+            ghcr.io/alxleo/${{ matrix.name }}:latest
