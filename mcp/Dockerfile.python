@@ -1,0 +1,95 @@
+# MCP HTTP Wrapper - Python-based MCPs
+# Pre-installs specific Python MCP package for fast startup
+#
+# Build args:
+#   MCP_PACKAGE: Python package to pre-install
+#     - PyPI: "mcp-server-name==1.0.0"
+#     - Git: "git+https://github.com/user/repo@v1.0.0"
+#   MCP_ENTRYPOINT: Command to run (e.g., "mcp-youtube-transcript")
+#
+# Runtime env vars:
+#   MCP_SERVER_COMMAND: Command override (optional)
+#   MCP_API_KEY: Optional API key for authentication
+#   MCP_PORT: Port to listen on (default: 8080)
+#   Plus any package-specific env vars
+#
+# Example build:
+#   docker build -f Dockerfile.python \
+#     --build-arg MCP_PACKAGE="git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.9" \
+#     --build-arg MCP_ENTRYPOINT="mcp-youtube-transcript" \
+#     -t mcp-youtube .
+#
+# Example run:
+#   docker run -p 8080:8080 mcp-youtube
+
+# Stage 1: Install uv (needs curl)
+FROM node:24-slim AS build
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Stage 2: Runtime (no curl)
+FROM node:24-slim
+
+# Install Python 3.11+, git (for git+ packages), and entrypoint deps
+# No curl needed — uv copied from build stage, healthcheck uses microcheck
+RUN apt-get update && \
+    apt-get install -y python3 git unzip jq && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy uv from build stage (uvx no longer needed — packages are system-installed)
+COPY --from=build /root/.local/bin/uv /root/.local/bin/uv
+
+# Healthcheck binary: 75KB static C/musl, localhost-only by design
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+
+# Add uv to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
+# mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)
+RUN npm install -g mcp-proxy@6.4.0 mcp-filter@0.6.0
+
+# Build arguments for the Python MCP package
+ARG MCP_PACKAGE
+ARG MCP_ENTRYPOINT
+
+# Pre-install the Python MCP package into the system Python site-packages.
+# Using `uv pip install --system` puts everything in /usr/local/lib/python3/
+# and scripts in /usr/local/bin/ — both in the image layer, unaffected by
+# tmpfs mounts on ~/.cache and ~/.local/share.
+RUN if [ -n "$MCP_PACKAGE" ]; then \
+        echo "Pre-installing Python package: $MCP_PACKAGE..." && \
+        uv pip install --system --break-system-packages "$MCP_PACKAGE" && \
+        echo "Installed. Verifying entrypoint '$MCP_ENTRYPOINT' exists..." && \
+        which "$MCP_ENTRYPOINT"; \
+    else \
+        echo "WARNING: No MCP_PACKAGE specified"; \
+    fi
+
+# Copy entrypoint script (handles tool filtering and server startup)
+COPY entrypoint.py /entrypoint.py
+RUN chmod +x /entrypoint.py
+
+EXPOSE 8080
+
+# Store the entrypoint command for runtime
+# For Python MCPs, MCP_SERVER_COMMAND is constructed from MCP_PACKAGE + MCP_ENTRYPOINT
+ARG MCP_PACKAGE
+ARG MCP_ENTRYPOINT
+ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
+    MCP_ENTRYPOINT_NAME="$MCP_ENTRYPOINT" \
+    MCP_PORT=8080
+
+# Startup via entrypoint.py (Python-based orchestration)
+# The entrypoint handles:
+#   - Tool filtering (FILTER_INCLUDE / FILTER_EXCLUDE)
+#   - MCP server command construction (system-installed Python scripts)
+#   - Clear error messages and validation
+# Secrets are injected via Docker Compose native secrets (/run/secrets/)
+# See /entrypoint.py for implementation
+ENTRYPOINT ["/entrypoint.py"]
+CMD []
