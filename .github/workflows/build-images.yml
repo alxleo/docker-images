@@ -8,7 +8,8 @@
 # Change detection: each image only builds when its own files change.
 # This avoids pushing identical images that cause unnecessary pulls downstream.
 #
-# Security: Trivy scans every image BEFORE push. Vulnerable images never reach GHCR.
+# Security: Trivy scans every image BEFORE push. Blocks on CRITICAL CVEs with
+# available fixes (ignore-unfixed: true skips base-image CVEs without patches).
 #
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
@@ -137,6 +138,7 @@ jobs:
           image-ref: ghcr.io/alxleo/caddy-cloudflare:2.11
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
       - name: Validate test Caddyfile
         env:
           WORKSPACE: ${{ github.workspace }}
@@ -191,6 +193,7 @@ jobs:
           image-ref: ghcr.io/alxleo/cadvisor:v0.56.2
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -232,6 +235,7 @@ jobs:
           image-ref: ghcr.io/alxleo/mcp-git:2.8.4
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -273,6 +277,7 @@ jobs:
           image-ref: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -336,6 +341,7 @@ jobs:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         env:
