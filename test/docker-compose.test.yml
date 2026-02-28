@@ -1,0 +1,9 @@
+services:
+  caddy:
+    build: ../caddy-cloudflare
+    ports: ["8080:80"]
+    volumes:
+      - ./Caddyfile.test:/etc/caddy/Caddyfile
+  echo:
+    image: hashicorp/http-echo
+    command: ["-text=pong", "-listen=:8080"]

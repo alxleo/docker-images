@@ -1,0 +1,19 @@
+{
+	admin off
+}
+
+(mcp-routes) {
+	handle_path /echo/* {
+		reverse_proxy echo:8080
+	}
+}
+
+:80 {
+	handle /health {
+		respond "OK\n" 200
+	}
+	import mcp-routes
+	handle {
+		redir https://localhost{uri} permanent
+	}
+}

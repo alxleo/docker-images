@@ -22,3 +22,8 @@ repos:
         entry: "Found a file that should never be committed to a public repo"
         language: fail
         files: '\.(env|secrets|key|pem|age)$|\.secrets\.|sops\.yaml'
+      - id: caddy-fmt
+        name: caddy fmt
+        entry: caddy fmt --diff
+        language: system
+        files: 'Caddyfile'
