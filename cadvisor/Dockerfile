@@ -9,7 +9,7 @@
 #
 # Remove when: ghcr.io publishes v0.57+ (or any >= v0.56.2)
 
-FROM golang:1.24-alpine AS build
+FROM golang:1.26-alpine AS build
 
 RUN apk --no-cache add bash build-base device-mapper findutils git \
                        libc6-compat linux-headers pkgconfig thin-provisioning-tools zfs
