@@ -58,7 +58,7 @@ check "GET /ping returns pong" test "$PING_BODY" = "pong"
 extract_json() {
     local raw="$1"
     local sse_json
-    sse_json=$(echo "$raw" | grep '^data: ' | head -1 | sed 's/^data: //')
+    sse_json=$(echo "$raw" | grep '^data: ' | head -1 | sed 's/^data: //' || true)
     if [[ -n "$sse_json" ]] && echo "$sse_json" | jq -e . >/dev/null 2>&1; then
         echo "$sse_json"
         return

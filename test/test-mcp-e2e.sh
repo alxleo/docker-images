@@ -34,7 +34,7 @@ extract_json() {
     local raw="$1"
     # Try SSE format first: extract from "data: {...}" line
     local sse_json
-    sse_json=$(echo "$raw" | grep '^data: ' | head -1 | sed 's/^data: //')
+    sse_json=$(echo "$raw" | grep '^data: ' | head -1 | sed 's/^data: //' || true)
     if [[ -n "$sse_json" ]] && echo "$sse_json" | jq -e . >/dev/null 2>&1; then
         echo "$sse_json"
         return
