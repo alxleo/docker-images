@@ -6,7 +6,7 @@
 #
 # Remove when: upstream merges a fix for #111, then switch back to ghcr.io/sigbit/
 
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 WORKDIR /src
 RUN git clone --branch v2.5.3 --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
 
