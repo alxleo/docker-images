@@ -23,7 +23,7 @@
 #   docker run -p 8080:8080 mcp-youtube
 
 # Stage 1: Install uv (needs curl)
-FROM node:24-slim AS build
+FROM node:25-slim AS build
 RUN apt-get update && \
     apt-get install -y curl && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
@@ -31,7 +31,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Runtime (no curl)
-FROM node:24-slim
+FROM node:25-slim
 
 # Install Python 3.11+, git (for git+ packages), and entrypoint deps
 # No curl needed — uv copied from build stage, healthcheck uses microcheck
