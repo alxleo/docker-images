@@ -139,6 +139,7 @@ jobs:
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
+          scanners: vuln
       - name: Validate test Caddyfile
         env:
           WORKSPACE: ${{ github.workspace }}
@@ -194,6 +195,7 @@ jobs:
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -236,6 +238,7 @@ jobs:
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -278,6 +281,7 @@ jobs:
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -342,6 +346,7 @@ jobs:
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         env:
