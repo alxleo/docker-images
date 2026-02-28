@@ -2,11 +2,13 @@
 #
 # Triggers:
 #   - Pull requests: build-only (no push) + security scan — gates merge
-#   - Push to main: build + push to ghcr.io
-#   - Manual dispatch: build + push (all images)
+#   - Push to main: build + scan + push to ghcr.io
+#   - Manual dispatch: build + scan + push (all images)
 #
 # Change detection: each image only builds when its own files change.
 # This avoids pushing identical images that cause unnecessary pulls downstream.
+#
+# Security: Trivy scans every image BEFORE push. Vulnerable images never reach GHCR.
 #
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
@@ -106,11 +108,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
-        id: build
         with:
           context: caddy-cloudflare
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           tags: |
             ghcr.io/alxleo/caddy-cloudflare:2.11
@@ -132,6 +133,11 @@ jobs:
           docker compose -f docker-compose.test.yml up -d --build --wait
           bash test-caddy-routing.sh
           docker compose -f docker-compose.test.yml down
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/alxleo/caddy-cloudflare:2.11
+          docker push ghcr.io/alxleo/caddy-cloudflare:latest
 
   cadvisor:
     needs: changes
@@ -154,7 +160,7 @@ jobs:
         with:
           context: cadvisor
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           tags: |
             ghcr.io/alxleo/cadvisor:v0.56.2
@@ -165,6 +171,11 @@ jobs:
           image-ref: ghcr.io/alxleo/cadvisor:v0.56.2
           exit-code: '1'
           severity: CRITICAL
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/alxleo/cadvisor:v0.56.2
+          docker push ghcr.io/alxleo/cadvisor:latest
 
   git-mcp-server:
     needs: changes
@@ -187,7 +198,7 @@ jobs:
         with:
           context: git-mcp-server
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           tags: |
             ghcr.io/alxleo/mcp-git:2.8.4
@@ -198,6 +209,11 @@ jobs:
           image-ref: ghcr.io/alxleo/mcp-git:2.8.4
           exit-code: '1'
           severity: CRITICAL
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/alxleo/mcp-git:2.8.4
+          docker push ghcr.io/alxleo/mcp-git:latest
 
   mcp-auth-proxy:
     needs: changes
@@ -220,7 +236,7 @@ jobs:
         with:
           context: mcp-auth-proxy
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           tags: |
             ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
@@ -231,6 +247,11 @@ jobs:
           image-ref: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
           exit-code: '1'
           severity: CRITICAL
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+          docker push ghcr.io/alxleo/mcp-auth-proxy:latest
 
   load-mcp-matrix:
     needs: changes
@@ -272,7 +293,7 @@ jobs:
           file: mcp/${{ matrix.dockerfile }}
           build-args: ${{ matrix.build_args }}
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           tags: |
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
@@ -283,3 +304,8 @@ jobs:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
           exit-code: '1'
           severity: CRITICAL
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
+          docker push ghcr.io/alxleo/${{ matrix.name }}:latest
