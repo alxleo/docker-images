@@ -1,0 +1,58 @@
+version: 2
+
+updates:
+  # Keep GHA action versions current
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Base image updates — one entry per Dockerfile directory
+  - package-ecosystem: docker
+    directory: /caddy-cloudflare
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+
+  - package-ecosystem: docker
+    directory: /cadvisor
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+
+  - package-ecosystem: docker
+    directory: /git-mcp-server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+
+  - package-ecosystem: docker
+    directory: /mcp-auth-proxy
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+
+  - package-ecosystem: docker
+    directory: /mcp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "docker"
+      include: "scope"
