@@ -1,5 +1,5 @@
 # Custom Caddy with Cloudflare DNS plugin for ACME DNS-01 challenges.
-# Enables automatic HTTPS with Let's Encrypt wildcard certs on LAN
+# Enables automatic HTTPS with Let's Encrypt wildcard certs via DNS-01
 # (no port 80 challenge needed — DNS validation via Cloudflare API).
 #
 # Remove when: never (Cloudflare DNS plugin isn't in upstream Caddy)

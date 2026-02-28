@@ -16,8 +16,8 @@ Environment Variables:
   FILTER_EXCLUDE: Space-separated tools to exclude (e.g., "delete_post create_post")
 
 Secrets can be provided via:
-  - Docker Compose native secrets (/run/secrets/ files, preferred)
-  - env_file at compose level (SOPS decrypt, backwards compat)
+  - Docker secrets (/run/secrets/ files, preferred)
+  - Environment variables (via env_file or direct injection)
 No runtime secret fetching - all secrets are pre-injected before container start.
 """
 
