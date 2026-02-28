@@ -1,0 +1,15 @@
+# Secrets — never commit these
+.env
+.env.*
+*.key
+*.pem
+*.age
+.secrets.*
+sops.yaml
+
+# OS
+.DS_Store
+
+# Language artifacts
+node_modules/
+__pycache__/

@@ -6,7 +6,7 @@ Pre-built Docker images for self-hosted services where upstream images are broke
 
 | Image | Why | Remove when |
 |-------|-----|-------------|
-| `ghcr.io/alxleo/caddy-cloudflare:2.10` | Caddy + Cloudflare DNS plugin for ACME DNS-01 challenges | Never (plugin isn't in upstream Caddy) |
+| `ghcr.io/alxleo/caddy-cloudflare:2.11` | Caddy + Cloudflare DNS plugin for ACME DNS-01 challenges | Never (plugin isn't in upstream Caddy) |
 | `ghcr.io/alxleo/cadvisor:v0.56.2` | cAdvisor built from source — upstream stuck at v0.53.0 which crashes with Docker 29+ | ghcr.io publishes v0.57+ |
 
 ## MCP Service Images
