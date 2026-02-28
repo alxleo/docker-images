@@ -5,7 +5,7 @@
 # container image.
 #
 # Simplified from upstream deploy/Dockerfile — strips libpfm4, ipmctl, and
-# other extras not needed for homelab container metrics.
+# other extras not needed for basic container metrics.
 #
 # Remove when: ghcr.io publishes v0.57+ (or any >= v0.56.2)
 

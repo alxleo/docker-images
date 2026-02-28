@@ -1,0 +1,55 @@
+# Lint Dockerfiles, shell scripts, YAML, GHA workflows, and links
+#
+# Runs on all PRs and pushes to main — not path-filtered,
+# so linting always gates merge regardless of what changed.
+
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  hadolint:
+    name: Hadolint (Dockerfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: .
+          severity: warning
+
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install yamllint
+      - run: yamllint .
+
+  actionlint:
+    name: actionlint (GHA workflows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: reviewdog/action-actionlint@v1
+
+  lychee:
+    name: lychee (link checker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress '**/*.md'

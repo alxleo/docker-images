@@ -1,0 +1,7 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "docker-images gitleaks config"
+
+# No allowlists needed — this repo should never contain secrets.
+# If false positives appear, add path or regex allowlists here.

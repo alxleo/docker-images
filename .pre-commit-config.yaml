@@ -17,6 +17,17 @@ repos:
 
   - repo: local
     hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck --severity=warning
+        language: system
+        types: [shell]
+      - id: hadolint
+        name: hadolint
+        entry: hadolint
+        language: system
+        files: 'Dockerfile'
+        types: [dockerfile]
       - id: block-secret-files
         name: Block secret/env files
         entry: "Found a file that should never be committed to a public repo"

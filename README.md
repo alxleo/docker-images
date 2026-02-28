@@ -1,6 +1,6 @@
 # docker-images
 
-Pre-built Docker images for homelab services where upstream images are broken, stale, or missing needed plugins.
+Pre-built Docker images for self-hosted services where upstream images are broken, stale, or missing needed plugins.
 
 ## Images
 
