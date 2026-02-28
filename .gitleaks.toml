@@ -3,5 +3,8 @@
 
 title = "docker-images gitleaks config"
 
+[extend]
+useDefault = true
+
 # No allowlists needed — this repo should never contain secrets.
 # If false positives appear, add path or regex allowlists here.
