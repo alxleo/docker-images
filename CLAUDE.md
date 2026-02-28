@@ -42,8 +42,23 @@ This repo is fully automated — there are no manual build or deploy steps.
 
 - **Pre-commit hooks** (`.pre-commit-config.yaml`): gitleaks, shellcheck, hadolint, secret file blocking, caddy fmt
 - **Lint workflow** (`.github/workflows/lint.yml`): hadolint, shellcheck, yamllint, actionlint, lychee link checker — runs on all PRs and pushes to main
-- **Build workflow** (`.github/workflows/build-images.yml`): builds all images on PR (no push), builds + pushes to ghcr.io on merge to main
+- **Build workflow** (`.github/workflows/build-images.yml`): builds only changed images on PR (no push), builds + pushes to ghcr.io on merge to main. Change detection via `dorny/paths-filter` — unchanged images are skipped to avoid unnecessary pulls downstream.
+- **Trivy CVE scanning**: every built image is scanned for CRITICAL vulnerabilities before push. Fails the build if any are found.
 - **Dependabot** (`.github/dependabot.yml`): weekly PRs for GHA action versions and base image updates — manual review required
 - **Branch ruleset**: main requires PRs, force push blocked
 
 Do NOT add `justfile`, `Makefile`, or wrapper scripts — there are no manual commands to automate. If you need to test a build locally, just `docker build` the relevant directory.
+
+## Development Workflow
+
+All changes go through PRs. The standard loop:
+
+1. Create a branch, make changes, commit (pre-commit hooks run locally)
+2. Push branch, open PR
+3. Watch CI: `gh pr checks <number> --watch`
+4. Check for reviewer comments (Codex auto-reviews): `gh pr view <number> --comments`
+5. Fix any failures or address feedback, push again
+6. Repeat 3-4 until all checks pass and feedback is addressed
+7. Merge
+
+This push → watch → fix loop is the defacto workflow. No manual builds, no local Docker required for CI — GitHub Actions handles everything.

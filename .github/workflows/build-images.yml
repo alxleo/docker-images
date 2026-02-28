@@ -115,6 +115,12 @@ jobs:
           tags: |
             ghcr.io/alxleo/caddy-cloudflare:2.10
             ghcr.io/alxleo/caddy-cloudflare:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/alxleo/caddy-cloudflare:2.10
+          exit-code: '1'
+          severity: CRITICAL
       - name: Validate test Caddyfile
         run: |
           docker run --rm -v ${{ github.workspace }}/test:/test \
@@ -149,9 +155,16 @@ jobs:
           context: cadvisor
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
             ghcr.io/alxleo/cadvisor:v0.56.2
             ghcr.io/alxleo/cadvisor:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/alxleo/cadvisor:v0.56.2
+          exit-code: '1'
+          severity: CRITICAL
 
   git-mcp-server:
     needs: changes
@@ -175,9 +188,16 @@ jobs:
           context: git-mcp-server
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
             ghcr.io/alxleo/mcp-git:2.8.4
             ghcr.io/alxleo/mcp-git:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/alxleo/mcp-git:2.8.4
+          exit-code: '1'
+          severity: CRITICAL
 
   mcp-auth-proxy:
     needs: changes
@@ -201,9 +221,16 @@ jobs:
           context: mcp-auth-proxy
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
             ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
             ghcr.io/alxleo/mcp-auth-proxy:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+          exit-code: '1'
+          severity: CRITICAL
 
   load-mcp-matrix:
     needs: changes
@@ -246,6 +273,13 @@ jobs:
           build-args: ${{ matrix.build_args }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
+          exit-code: '1'
+          severity: CRITICAL
