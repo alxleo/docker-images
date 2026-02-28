@@ -33,6 +33,17 @@ repos:
         language: system
         files: 'Dockerfile'
         types: [dockerfile]
+      - id: actionlint
+        name: actionlint
+        entry: actionlint
+        language: system
+        files: '\.github/workflows/'
+        types: [yaml]
+      - id: yamllint
+        name: yamllint
+        entry: yamllint
+        language: system
+        types: [yaml]
       - id: block-secret-files
         name: Block secret/env files
         entry: "Found a file that should never be committed to a public repo"

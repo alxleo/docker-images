@@ -5,18 +5,27 @@
 #   - Push to main: build + scan + push to ghcr.io
 #   - Manual dispatch: build + scan + push (all images)
 #
+# Bot PRs (Dependabot, etc): Only lint + change detection run.
+# Image builds are skipped — they're expensive and only matter on merge.
+#
 # Change detection: each image only builds when its own files change.
 # This avoids pushing identical images that cause unnecessary pulls downstream.
 #
-# Security: Trivy scans every image BEFORE push. Blocks on CRITICAL CVEs with
-# available fixes (ignore-unfixed: true skips base-image CVEs without patches).
+# Security: Trivy scans every image BEFORE push.
+#   - scanners: vuln — vulnerability scanning only (gitleaks handles secrets)
+#   - severity: CRITICAL — only block on critical CVEs
+#   - ignore-unfixed: true — skip base-image CVEs without patches
+#     Known unfixable (as of 2026-02): CVE-2025-7458 (libsqlite3, Debian 12),
+#     CVE-2023-45853 (zlib1g, Debian 12 will_not_fix).
+#     Revisit when: Debian 13 (trixie) base images are available, or when
+#     node:XX-slim moves to a newer Debian release.
 #
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
 #   - git-mcp-server: Git repo management with native HTTP transport
 #   - mcp-auth-proxy: OAuth proxy with VARCHAR(255) fix (sigbit/mcp-auth-proxy#111)
-#   - mcp-*: 14 MCP service images (npm + python based)
+#   - mcp-*: 15 MCP service images (npm + python based)
 
 name: Build Custom Images
 
@@ -108,7 +117,8 @@ jobs:
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.caddy-cloudflare == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.caddy-cloudflare == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
       contents: read   # checkout
@@ -164,7 +174,8 @@ jobs:
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.cadvisor == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.cadvisor == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
       contents: read   # checkout
@@ -207,7 +218,8 @@ jobs:
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.git-mcp-server == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.git-mcp-server == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
       contents: read   # checkout
@@ -250,7 +262,8 @@ jobs:
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.mcp-auth-proxy == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.mcp-auth-proxy == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
       contents: read   # checkout
@@ -293,7 +306,8 @@ jobs:
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}

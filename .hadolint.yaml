@@ -1,8 +1,40 @@
+# Hadolint suppressions — each rule documents what triggers it and when to revisit.
+#
+# Run `hadolint --no-fail */Dockerfile*` to see all findings including suppressed ones.
+
 ignored:
-  - DL3008  # pin apt versions — impractical, old versions removed from repos on base image update
-  - DL3016  # pin npm versions — version comes from ARG, pinned in mcp-images.json
-  - DL3018  # pin apk versions — same as DL3008
-  - DL3059  # consecutive RUN — intentional for Docker cache layers
+  # DL3008: Pin versions in apt-get install (e.g., curl=7.88.1-10+deb12u8)
+  # Triggered by: mcp/Dockerfile.npm (unzip, jq, python3),
+  #   mcp/Dockerfile.python (curl, python3, git, unzip, jq),
+  #   mcp-auth-proxy/Dockerfile (ca-certificates, curl),
+  #   git-mcp-server/Dockerfile (git, openssh-client)
+  # Why ignored: Debian removes old package versions from repos on each point
+  #   release. Pinned versions break silently when the base image updates.
+  #   apt-get install --no-install-recommends is used where possible.
+  # Revisit when: Using a lockfile-based approach (e.g., apt-lock or
+  #   reproducible builds with snapshot.debian.org)
+  - DL3008
+
+  # DL3016: Pin versions in npm install (e.g., npm install -g foo@1.2.3)
+  # Triggered by: mcp/Dockerfile.npm line 39 (`npm install -g "$MCP_PACKAGE"`)
+  # Why ignored: The version IS pinned — it comes from the MCP_PACKAGE build arg
+  #   (e.g., "mcp-hacker-news@1.0.3"), set in mcp-images.json. Hadolint can't
+  #   see through the ARG indirection.
+  # Revisit when: Hadolint gains ARG-aware version detection
+  - DL3016
+
+  # DL3018: Pin versions in apk add (e.g., apk add curl=8.5.0-r0)
+  # Triggered by: cadvisor/Dockerfile (bash, build-base, git, etc.)
+  # Why ignored: Same as DL3008 — Alpine removes old versions from repos.
+  # Revisit when: Same as DL3008
+  - DL3018
+
+  # DL3059: Multiple consecutive RUN instructions (should merge for smaller image)
+  # Triggered by: cadvisor/Dockerfile (separate go mod download + WORKDIR steps)
+  # Why ignored: Intentional — separate RUN commands create distinct Docker cache
+  #   layers. Merging them would bust the cache on any change.
+  # Revisit when: Never — this is by design for build performance
+  - DL3059
 
 trustedRegistries:
   - docker.io

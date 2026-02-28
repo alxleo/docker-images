@@ -40,11 +40,11 @@ GHA runs `caddy validate` + the E2E suite on every push and PR. Pre-commit runs 
 
 This repo is fully automated — there are no manual build or deploy steps.
 
-- **Pre-commit hooks** (`.pre-commit-config.yaml`): gitleaks, shellcheck, hadolint, secret file blocking, caddy fmt
-- **Lint workflow** (`.github/workflows/lint.yml`): hadolint, shellcheck, yamllint, actionlint, lychee link checker — runs on all PRs and pushes to main
-- **Build workflow** (`.github/workflows/build-images.yml`): builds only changed images on PR (no push), builds + pushes to ghcr.io on merge to main. Change detection via `dorny/paths-filter` — unchanged images are skipped to avoid unnecessary pulls downstream.
-- **Trivy CVE scanning**: every built image is scanned for CRITICAL vulnerabilities before push. Fails the build if any are found.
-- **Dependabot** (`.github/dependabot.yml`): weekly PRs for GHA action versions and base image updates — manual review required
+- **Pre-commit hooks** (`.pre-commit-config.yaml`): gitleaks, shellcheck, hadolint, actionlint, yamllint, zizmor, secret file blocking, caddy fmt. These run locally on every commit — catch issues before pushing.
+- **Lint workflow** (`.github/workflows/lint.yml`): same linters as pre-commit plus lychee link checker. Runs on all PRs and pushes to main as a safety net.
+- **Build workflow** (`.github/workflows/build-images.yml`): builds only changed images on PR (no push), builds + pushes to ghcr.io on merge to main. Change detection via `dorny/paths-filter` — unchanged images are skipped to avoid unnecessary pulls downstream. **Bot PRs (Dependabot, etc.) skip image builds** — only lint runs, saving CI minutes.
+- **Trivy CVE scanning**: every built image is scanned for CRITICAL vulnerabilities before push. Uses `ignore-unfixed: true` to skip base-image CVEs without patches (see workflow header comments for specific CVEs and revisit timeline).
+- **Dependabot** (`.github/dependabot.yml`): weekly PRs for GHA action versions and base image updates — manual review required, no auto-merge
 - **Branch ruleset**: main requires PRs, force push blocked
 
 Do NOT add `justfile`, `Makefile`, or wrapper scripts — there are no manual commands to automate. If you need to test a build locally, just `docker build` the relevant directory.
