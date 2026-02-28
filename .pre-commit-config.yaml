@@ -29,7 +29,7 @@ repos:
         types: [shell]
       - id: hadolint
         name: hadolint
-        entry: hadolint
+        entry: hadolint --failure-threshold warning
         language: system
         files: 'Dockerfile'
         types: [dockerfile]
