@@ -90,7 +90,7 @@ ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
 #   - Tool filtering (FILTER_INCLUDE / FILTER_EXCLUDE)
 #   - MCP server command construction (system-installed Python scripts)
 #   - Clear error messages and validation
-# Secrets are injected via Docker Compose native secrets (/run/secrets/)
+# Secrets are injected via environment variables or Docker secrets
 # See /entrypoint.py for implementation
 ENTRYPOINT ["/entrypoint.py"]
 CMD []
