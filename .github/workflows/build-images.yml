@@ -8,6 +8,7 @@
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
+#   - git-mcp-server: Git repo management with native HTTP transport
 #   - mcp-*: 14 MCP service images (npm + python based)
 
 name: Build Custom Images
@@ -18,12 +19,14 @@ on:
     paths:
       - 'caddy-cloudflare/**'
       - 'cadvisor/**'
+      - 'git-mcp-server/**'
       - 'mcp/**'
       - 'mcp-images.json'
   pull_request:
     paths:
       - 'caddy-cloudflare/**'
       - 'cadvisor/**'
+      - 'git-mcp-server/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - '.github/workflows/build-images.yml'
@@ -88,6 +91,28 @@ jobs:
           tags: |
             ghcr.io/alxleo/cadvisor:v0.56.2
             ghcr.io/alxleo/cadvisor:latest
+
+  git-mcp-server:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: git-mcp-server
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/alxleo/mcp-git:2.8.4
+            ghcr.io/alxleo/mcp-git:latest
 
   load-mcp-matrix:
     runs-on: ubuntu-latest
