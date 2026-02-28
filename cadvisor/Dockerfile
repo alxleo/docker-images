@@ -18,7 +18,10 @@ WORKDIR /src
 RUN git clone --branch v0.56.2 --depth 1 https://github.com/google/cadvisor.git .
 
 # Cache Go module downloads
-RUN go mod download && cd cmd && go mod download
+RUN go mod download
+WORKDIR /src/cmd
+RUN go mod download
+WORKDIR /src
 
 # Build using upstream build script (outputs to _output/cadvisor)
 RUN GO_FLAGS="-tags=netgo" ./build/build.sh
