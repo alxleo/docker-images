@@ -1,0 +1,7 @@
+rules:
+  # Weekly Dependabot updates are acceptable for a small personal repo.
+  # The "insufficient cooldown" rule is designed for orgs where rapid
+  # Dependabot PRs could be a supply chain attack vector.
+  dependabot-cooldown:
+    ignore:
+      - dependabot.yml

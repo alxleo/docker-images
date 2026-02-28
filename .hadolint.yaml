@@ -1,0 +1,11 @@
+ignored:
+  - DL3003  # use WORKDIR to switch dirs — not applicable inside chained RUN
+  - DL3008  # pin apt package versions — not practical for builder stages
+  - DL3016  # pin npm versions — version comes from ARG, pinned in mcp-images.json
+  - DL3018  # pin apk package versions — same reason
+  - DL3059  # consecutive RUN instructions — intentional for Docker cache layers
+  - DL4006  # set -o pipefail — not available in all shells (node:slim uses dash)
+
+trustedRegistries:
+  - docker.io
+  - ghcr.io
