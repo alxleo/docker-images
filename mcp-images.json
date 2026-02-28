@@ -20,8 +20,8 @@
   {
     "name": "mcp-slack",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=slack-mcp-server@1.1.28",
-    "tag": "1.1.28"
+    "build_args": "MCP_PACKAGE=slack-mcp-server@1.2.2",
+    "tag": "1.2.2"
   },
   {
     "name": "mcp-tavily",
