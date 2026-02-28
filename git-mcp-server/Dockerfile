@@ -11,7 +11,7 @@
 #
 # Docker secrets: /run/secrets/git_token → GIT_TOKEN (for private repo cloning)
 
-FROM node:24-slim
+FROM node:25-slim
 
 # Git + SSH for clone/pull operations, openssh-client for SSH-based remotes
 RUN apt-get update && \
