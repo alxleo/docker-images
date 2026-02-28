@@ -35,6 +35,37 @@ Image list is driven by [`mcp-images.json`](mcp-images.json). All images follow 
 | `ghcr.io/alxleo/mcp-arxiv` | `arxiv-mcp-server` | 0.3.2 |
 | `ghcr.io/alxleo/mcp-zen` | `zen-mcp-server` | 7afc7c1 |
 
+## Deployment Examples
+
+[`examples/`](examples/) contains reference deployment patterns:
+
+- **`docker-compose.yml`** — Hardened MCP service deployment with read-only filesystem, capability dropping, resource limits, healthchecks, Docker secrets, and tool filtering
+- **`Caddyfile.mcp-routing`** — Caddy reverse proxy patterns for MCP services: `handle_path` prefix stripping, `flush_interval -1` for SSE, CORS, Chrome Private Network Access preflight, service discovery
+
+## Testing
+
+Three test suites validate the images:
+
+| Suite | What it validates | Trigger |
+|-------|-------------------|---------|
+| **Caddy routing** (`test/test-caddy-routing.sh`) | Snippet imports, handle_path, redirect fallback | caddy-cloudflare changes |
+| **MCP E2E** (`test/test-mcp-e2e.sh`) | Full Caddy → mcp-proxy → MCP server chain: routing, prefix stripping, MCP handshake, session headers, TLS | caddy-cloudflare or mcp changes |
+| **MCP smoke** (`test/test-mcp-smoke.sh`) | Standalone mcp-proxy health + MCP initialize + tools/list | mcp changes (2 canaries: npm + Python) |
+
+Run locally:
+```bash
+# Full-stack E2E (Caddy + MCP)
+cd test && docker compose -f docker-compose.mcp-e2e.yml up -d --build --wait
+bash test-mcp-e2e.sh
+docker compose -f docker-compose.mcp-e2e.yml down -v
+
+# Standalone smoke test
+docker build -f mcp/Dockerfile.npm --build-arg MCP_PACKAGE="mcp-hacker-news@1.0.3" -t test-hn mcp/
+docker run -d --name test-hn -e MCP_STARTUP_JITTER=0 -p 8080:8080 test-hn
+bash test/test-mcp-smoke.sh test-hn 8080
+docker rm -f test-hn
+```
+
 ## How it works
 
 GitHub Actions builds and pushes images to ghcr.io on push to `main`. Images are public — no auth needed to pull.

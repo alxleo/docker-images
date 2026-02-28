@@ -1,0 +1,41 @@
+{
+	local_certs
+	skip_install_trust
+	auto_https disable_redirects
+	admin off
+}
+
+(mcp-routes) {
+	handle_path /hackernews/* {
+		reverse_proxy mcp-hackernews:8080 {
+			health_uri /ping
+			health_interval 10s
+			flush_interval -1
+		}
+	}
+}
+
+:80 {
+	handle /health {
+		respond "OK" 200
+	}
+
+	handle /.well-known/mcp.json {
+		header Content-Type "application/json"
+		respond `{"services":{"hackernews":"/hackernews/"}}` 200
+	}
+
+	import mcp-routes
+
+	handle {
+		redir https://github.com/alxleo/docker-images 302
+	}
+}
+
+https://localhost {
+	handle /health {
+		respond "OK" 200
+	}
+
+	import mcp-routes
+}

@@ -98,6 +98,7 @@ jobs:
             mcp:
               - 'mcp/**'
               - 'mcp-images.json'
+              - 'test/**'
 
   security-scan:
     name: Gitleaks secret scan
@@ -369,3 +370,98 @@ jobs:
         run: |
           docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
           docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
+
+  # Smoke test: validates entrypoint.py → mcp-proxy → MCP server chain
+  # Runs 2 canary images (1 npm, 1 Python) through the full MCP handshake.
+  # No API keys needed — initialize and tools/list work without auth.
+  mcp-smoke-test:
+    name: MCP smoke (${{ matrix.name }})
+    needs: [changes, load-mcp-matrix, mcp-images]
+    if: >-
+      always() &&
+      needs.mcp-images.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mcp-hackernews
+            dockerfile: Dockerfile.npm
+            build_args: "MCP_PACKAGE=mcp-hacker-news@1.0.3"
+          - name: mcp-arxiv
+            dockerfile: Dockerfile.python
+            build_args: "MCP_PACKAGE=arxiv-mcp-server==0.3.2\nMCP_ENTRYPOINT=arxiv-mcp-server"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Build test image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: mcp
+          file: mcp/${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: test-${{ matrix.name }}:latest
+      - name: Start container
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: |
+          docker run -d --name "${IMAGE_NAME}" \
+            -e MCP_STARTUP_JITTER=0 \
+            -p 8080:8080 \
+            "test-${IMAGE_NAME}:latest"
+      - name: Run smoke tests
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080
+      - name: Dump logs on failure
+        if: failure()
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: docker logs "${IMAGE_NAME}"
+      - name: Cleanup
+        if: always()
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: docker rm -f "${IMAGE_NAME}" || true
+
+  # E2E test: validates full Caddy → mcp-proxy → MCP server routing chain
+  # Tests: prefix stripping, health passthrough, MCP protocol handshake,
+  # session header preservation, TLS with internal certs, service discovery.
+  mcp-e2e-test:
+    name: MCP E2E (Caddy routing)
+    needs: changes
+    if: >-
+      always() &&
+      (needs.changes.outputs.caddy-cloudflare == 'true' || needs.changes.outputs.mcp == 'true'
+       || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Validate MCP E2E Caddyfile
+        run: |
+          docker run --rm -v "${{ github.workspace }}/test:/test" \
+            caddy:2.11 \
+            caddy validate --config /test/Caddyfile.mcp-e2e --adapter caddyfile
+      - name: Start E2E stack
+        run: |
+          cd test
+          docker compose -f docker-compose.mcp-e2e.yml up -d --build --wait --wait-timeout 120
+      - name: Run E2E tests
+        run: bash test/test-mcp-e2e.sh
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          cd test
+          docker compose -f docker-compose.mcp-e2e.yml logs
+      - name: Cleanup
+        if: always()
+        run: |
+          cd test
+          docker compose -f docker-compose.mcp-e2e.yml down -v

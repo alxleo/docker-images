@@ -1,0 +1,78 @@
+# Hardened MCP service deployment example
+# Battle-tested pattern from 18+ production services
+#
+# Security: read-only filesystem, all capabilities dropped, no privilege escalation
+# Health: mcp-proxy built-in /ping endpoint checked every 30s
+# Resources: CPU and memory limits prevent runaway processes
+#
+# Usage:
+#   docker compose up -d
+#   curl http://localhost:8080/ping   # → "pong"
+
+x-common: &common
+  restart: unless-stopped
+  read_only: true                        # Immutable root filesystem
+  security_opt: [no-new-privileges:true] # Block privilege escalation via setuid/setgid
+  cap_drop: [ALL]                        # Drop all Linux capabilities
+  tmpfs:                                 # Writable ephemeral mounts (lost on restart)
+    - /tmp:exec
+    - /root/.npm:exec                    # npm cache (npm-based images)
+    - /root/.cache:exec                  # General cache
+    - /root/.local/share:exec            # Node modules
+  healthcheck:
+    test: ["CMD", "httpcheck", "http://localhost:8080/ping"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 30s
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: 256M
+      reservations:
+        memory: 128M
+
+services:
+  # Simple service — no API key needed
+  mcp-hackernews:
+    <<: *common
+    image: ghcr.io/alxleo/mcp-hackernews:1.0.3
+    container_name: mcp-hackernews
+    ports: ["8080:8080"]
+
+  # Service with API key via Docker secret
+  # entrypoint.py reads /run/secrets/* into environment automatically
+  mcp-brave:
+    <<: *common
+    image: ghcr.io/alxleo/mcp-brave:2.0.1
+    container_name: mcp-brave
+    secrets:
+      - brave_api_key
+
+  # Service with tool filtering — restrict which tools are exposed
+  # FILTER_EXCLUDE: block dangerous write operations
+  # FILTER_INCLUDE: allow only specific tools (alternative)
+  mcp-jira:
+    <<: *common
+    image: ghcr.io/alxleo/mcp-jira:3.3.0
+    container_name: mcp-jira
+    environment:
+      FILTER_EXCLUDE: "delete_issue create_issue update_issue"
+    secrets:
+      - atlassian_api_token
+      - atlassian_user_email
+      - atlassian_site_name
+
+# Secrets reference files on the host (not checked into git)
+# Create these files with your API keys before running:
+#   echo "your-key-here" > secrets/brave_api_key
+secrets:
+  brave_api_key:
+    file: ./secrets/brave_api_key
+  atlassian_api_token:
+    file: ./secrets/atlassian_api_token
+  atlassian_user_email:
+    file: ./secrets/atlassian_user_email
+  atlassian_site_name:
+    file: ./secrets/atlassian_site_name

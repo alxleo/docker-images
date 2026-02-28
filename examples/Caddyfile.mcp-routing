@@ -1,0 +1,98 @@
+# Caddy reverse proxy patterns for MCP services
+# Battle-tested across 18+ services in production
+#
+# Key patterns:
+#   1. handle_path for prefix stripping (path-based routing)
+#   2. flush_interval -1 to prevent SSE/streaming buffering
+#   3. health_uri /ping for backend health checks
+#   4. CORS + Private Network Access for browser-based MCP clients
+#   5. Accept header fix for MCP SDK quirk
+#
+# TLS: Uses Cloudflare DNS-01 for wildcard certs (caddy-cloudflare image)
+# Health: /health endpoint not shadowed by routes (handle {} ordering)
+
+# --- 1. Basic MCP route with health check ---
+#
+# handle_path strips the prefix before forwarding:
+#   GET /hackernews/ping → GET /ping on backend
+#   POST /hackernews/mcp → POST /mcp on backend
+
+handle_path /hackernews/* {
+	reverse_proxy mcp-hackernews:8080 {
+		health_uri /ping
+		health_interval 60s
+		health_timeout 2s
+		health_status 2xx
+		max_fails 8
+		fail_duration 10s
+		flush_interval -1
+	}
+}
+
+# --- 2. CORS headers for browser-based MCP clients ---
+#
+# Required for Claude.ai, Cursor, or any browser-based client connecting
+# to self-hosted MCP services. Mcp-Session-Id must be exposed.
+
+header {
+	Access-Control-Allow-Origin "*"
+	Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE"
+	Access-Control-Allow-Headers "Content-Type, Accept, Authorization, Mcp-Session-Id"
+	Access-Control-Expose-Headers "Mcp-Session-Id"
+}
+
+# --- 3. Chrome Private Network Access (PNA) preflight ---
+#
+# Chrome 104+ blocks HTTPS pages from accessing private network resources
+# unless the server explicitly allows it. This handles the preflight.
+# Ref: https://wicg.github.io/private-network-access/
+
+@pna_preflight {
+	method OPTIONS
+	header Access-Control-Request-Private-Network true
+}
+handle @pna_preflight {
+	header Access-Control-Allow-Private-Network "true"
+	respond "" 204
+}
+
+# --- 4. Accept header fix for MCP SDK quirk ---
+#
+# Some MCP SDKs send Accept: */* which can cause mcp-proxy to return
+# plain JSON instead of SSE streams. Force the correct Accept header.
+
+@mcp_post {
+	method POST
+	not header Accept application/json*
+	not header Accept text/event-stream*
+}
+header @mcp_post Accept "application/json, text/event-stream"
+
+# --- 5. Service discovery ---
+#
+# .well-known/mcp.json lists all available MCP services and their paths.
+# Clients can discover services without hardcoding URLs.
+
+handle /.well-known/mcp.json {
+	header Content-Type "application/json"
+	respond `{"services":{"hackernews":"/hackernews/","brave":"/brave/"}}` 200
+}
+
+# --- 6. Health endpoint ---
+#
+# Must be inside a handle {} block to avoid being shadowed by redir.
+# Caddy directive ordering: respond (pos 7) < handle (pos 27) < redir (pos 10)
+# Using handle {} ensures mutual exclusivity with the fallback.
+
+handle /health {
+	respond "OK" 200
+}
+
+# --- 7. Fallback redirect ---
+#
+# Bare handle {} catches everything not matched above.
+# Must be last — handle blocks are mutually exclusive.
+
+handle {
+	redir https://github.com/your-org/your-repo 302
+}
