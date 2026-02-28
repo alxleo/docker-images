@@ -5,19 +5,33 @@
 #   - Push to main: build + scan + push to ghcr.io
 #   - Manual dispatch: build + scan + push (all images)
 #
+# Bot PRs (Dependabot, etc): Only lint + change detection run.
+# Image builds are skipped — they're expensive and only matter on merge.
+#
 # Change detection: each image only builds when its own files change.
 # This avoids pushing identical images that cause unnecessary pulls downstream.
 #
-# Security: Trivy scans every image BEFORE push. Vulnerable images never reach GHCR.
+# Security: Trivy scans every image BEFORE push.
+#   - scanners: vuln — vulnerability scanning only (gitleaks handles secrets)
+#   - severity: CRITICAL — only block on critical CVEs
+#   - ignore-unfixed: true — skip base-image CVEs without patches
+#     Known unfixable (as of 2026-02): CVE-2025-7458 (libsqlite3, Debian 12),
+#     CVE-2023-45853 (zlib1g, Debian 12 will_not_fix).
+#     Revisit when: Debian 13 (trixie) base images are available, or when
+#     node:XX-slim moves to a newer Debian release.
 #
 # Images:
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
 #   - git-mcp-server: Git repo management with native HTTP transport
 #   - mcp-auth-proxy: OAuth proxy with VARCHAR(255) fix (sigbit/mcp-auth-proxy#111)
-#   - mcp-*: 14 MCP service images (npm + python based)
+#   - mcp-*: 15 MCP service images (npm + python based)
 
 name: Build Custom Images
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -53,10 +67,11 @@ jobs:
   # Detect which image directories actually changed.
   # workflow_dispatch skips detection and builds everything.
   changes:
+    name: Detect changed images
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
+      pull-requests: read  # dorny/paths-filter needs PR file list
     outputs:
       caddy-cloudflare: ${{ steps.filter.outputs.caddy-cloudflare }}
       cadvisor: ${{ steps.filter.outputs.cadvisor }}
@@ -85,6 +100,7 @@ jobs:
               - 'mcp-images.json'
 
   security-scan:
+    name: Gitleaks secret scan
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -97,14 +113,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   caddy-cloudflare:
+    name: Caddy + Cloudflare DNS
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.caddy-cloudflare == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.caddy-cloudflare == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read   # checkout
+      packages: write  # push to GHCR
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -130,9 +148,13 @@ jobs:
           image-ref: ghcr.io/alxleo/caddy-cloudflare:2.11
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
       - name: Validate test Caddyfile
+        env:
+          WORKSPACE: ${{ github.workspace }}
         run: |
-          docker run --rm -v ${{ github.workspace }}/test:/test \
+          docker run --rm -v "${WORKSPACE}/test:/test" \
             ghcr.io/alxleo/caddy-cloudflare:2.11 \
             caddy validate --config /test/Caddyfile.test --adapter caddyfile
       - name: Run Caddy routing E2E tests
@@ -148,14 +170,16 @@ jobs:
           docker push ghcr.io/alxleo/caddy-cloudflare:latest
 
   cadvisor:
+    name: cAdvisor (Docker 29+ build)
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.cadvisor == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.cadvisor == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read   # checkout
+      packages: write  # push to GHCR
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -181,6 +205,8 @@ jobs:
           image-ref: ghcr.io/alxleo/cadvisor:v0.56.2
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -188,14 +214,16 @@ jobs:
           docker push ghcr.io/alxleo/cadvisor:latest
 
   git-mcp-server:
+    name: Git MCP Server
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.git-mcp-server == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.git-mcp-server == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read   # checkout
+      packages: write  # push to GHCR
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -221,6 +249,8 @@ jobs:
           image-ref: ghcr.io/alxleo/mcp-git:2.8.4
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -228,14 +258,16 @@ jobs:
           docker push ghcr.io/alxleo/mcp-git:latest
 
   mcp-auth-proxy:
+    name: MCP Auth Proxy (VARCHAR fix)
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.mcp-auth-proxy == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.mcp-auth-proxy == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read   # checkout
+      packages: write  # push to GHCR
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -261,6 +293,8 @@ jobs:
           image-ref: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -268,10 +302,12 @@ jobs:
           docker push ghcr.io/alxleo/mcp-auth-proxy:latest
 
   load-mcp-matrix:
+    name: Load MCP build matrix
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -283,14 +319,15 @@ jobs:
         run: echo "matrix=$(cat mcp-images.json | jq -c '.')" >> "$GITHUB_OUTPUT"
 
   mcp-images:
+    name: MCP ${{ matrix.name }}
     needs: load-mcp-matrix
     if: >-
       always() &&
       needs.load-mcp-matrix.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read   # checkout
+      packages: write  # push to GHCR
     strategy:
       fail-fast: false
       matrix:
@@ -322,8 +359,13 @@ jobs:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
           exit-code: '1'
           severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_TAG: ${{ matrix.tag }}
         run: |
-          docker push ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
-          docker push ghcr.io/alxleo/${{ matrix.name }}:latest
+          docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
+          docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
