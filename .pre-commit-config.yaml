@@ -51,6 +51,6 @@ repos:
         files: '\.(env|secrets|key|pem|age)$|\.secrets\.|sops\.yaml'
       - id: caddy-fmt
         name: caddy fmt
-        entry: caddy fmt --diff
+        entry: bash -c 'for f in "$@"; do caddy fmt --diff "$f" || exit 1; done' --
         language: system
         files: 'Caddyfile'

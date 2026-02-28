@@ -12,6 +12,8 @@ This repo contains ONLY: Dockerfiles, entrypoint scripts, build configs, CI work
 | Type | Pattern | Example |
 |------|---------|---------|
 | **MCP images** (matrix) | `mcp-images.json` → `Dockerfile.npm` or `Dockerfile.python` | mcp-reddit, mcp-arxiv |
+
+`mcp-images.json` is the single source of truth for MCP images. CI reads it for builds. It also carries runtime metadata (`description`, `secrets`) that downstream deployment repos can consume for generating compose files, health checks, and service catalogs. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional). Omitted `secrets` means no API key needed. Default healthcheck is `/ping` (mcp-proxy built-in).
 | **Patched upstream** | `git clone --tag` + `sed` fix + build | mcp-auth-proxy (VARCHAR fix), cadvisor (Docker 29 compat) |
 | **Custom build** | Standard Dockerfile | caddy-cloudflare (xcaddy + DNS plugin), git-mcp-server |
 
@@ -27,14 +29,19 @@ RUN go build ...
 
 Each patched Dockerfile has a header comment with: upstream repo, issue link, what's fixed, and when to remove (upstream merges the fix → delete sed line → switch back to upstream image).
 
-## Caddy E2E Tests
+## Tests
 
-`test/` contains a compose stack that validates Caddy routing patterns before deploy:
-- `docker-compose.test.yml` — Caddy + echo service
-- `Caddyfile.test` — exercises snippets, handle_path, handle mutual exclusivity
-- `test-caddy-routing.sh` — 5 checks (routes, health, prefix strip, redirect fallback)
+`test/` contains three test suites:
 
-GHA runs `caddy validate` + the E2E suite on every push and PR. Pre-commit runs `caddy fmt --diff`.
+**Caddy routing** (`test-caddy-routing.sh`): Validates Caddy config patterns (snippets, handle_path, handle mutual exclusivity). Compose: `docker-compose.test.yml` + `Caddyfile.test`. 5 curl-based checks.
+
+**MCP E2E** (`test-mcp-e2e.sh`): Full-stack Caddy → mcp-proxy → MCP server validation. Compose: `docker-compose.mcp-e2e.yml` + `Caddyfile.mcp-e2e`. Tests: prefix stripping, MCP protocol handshake (initialize + tools/list), session header passthrough, TLS with internal certs, service discovery.
+
+**MCP smoke** (`test-mcp-smoke.sh`): Standalone MCP image validation (no Caddy). Tests: container health via `/ping`, MCP initialize handshake, tools/list. Takes container name and port as args. CI runs 2 canaries: mcp-hackernews (npm) + mcp-arxiv (Python).
+
+MCP protocol testing works without API keys — initialize and tools/list succeed without auth. Only tools/call needs keys.
+
+Pre-commit runs `caddy fmt --diff`. GHA runs `caddy validate` + all three suites.
 
 ## CI & Automation
 

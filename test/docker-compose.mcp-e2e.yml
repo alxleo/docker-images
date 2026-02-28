@@ -1,0 +1,22 @@
+services:
+  caddy:
+    build: ../caddy-cloudflare
+    ports: ["8080:80", "8443:443"]
+    volumes:
+      - ./Caddyfile.mcp-e2e:/etc/caddy/Caddyfile
+      - caddy-data:/data
+    depends_on:
+      mcp-hackernews:
+        condition: service_started
+
+  mcp-hackernews:
+    build:
+      context: ../mcp
+      dockerfile: Dockerfile.npm
+      args:
+        MCP_PACKAGE: mcp-hacker-news@1.0.3
+    environment:
+      MCP_STARTUP_JITTER: "0"
+
+volumes:
+  caddy-data:
