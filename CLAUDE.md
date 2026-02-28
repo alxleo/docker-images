@@ -35,3 +35,15 @@ Each patched Dockerfile has a header comment with: upstream repo, issue link, wh
 - `test-caddy-routing.sh` — 5 checks (routes, health, prefix strip, redirect fallback)
 
 GHA runs `caddy validate` + the E2E suite on every push and PR. Pre-commit runs `caddy fmt --diff`.
+
+## CI & Automation
+
+This repo is fully automated — there are no manual build or deploy steps.
+
+- **Pre-commit hooks** (`.pre-commit-config.yaml`): gitleaks, shellcheck, hadolint, secret file blocking, caddy fmt
+- **Lint workflow** (`.github/workflows/lint.yml`): hadolint, shellcheck, yamllint, actionlint, lychee link checker — runs on all PRs and pushes to main
+- **Build workflow** (`.github/workflows/build-images.yml`): builds all images on PR (no push), builds + pushes to ghcr.io on merge to main
+- **Dependabot** (`.github/dependabot.yml`): weekly PRs for GHA action versions and base image updates — manual review required
+- **Branch ruleset**: main requires PRs, force push blocked
+
+Do NOT add `justfile`, `Makefile`, or wrapper scripts — there are no manual commands to automate. If you need to test a build locally, just `docker build` the relevant directory.
