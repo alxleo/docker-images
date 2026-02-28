@@ -9,6 +9,7 @@
 #   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
 #   - git-mcp-server: Git repo management with native HTTP transport
+#   - mcp-auth-proxy: OAuth proxy with VARCHAR(255) fix (sigbit/mcp-auth-proxy#111)
 #   - mcp-*: 14 MCP service images (npm + python based)
 
 name: Build Custom Images
@@ -20,15 +21,19 @@ on:
       - 'caddy-cloudflare/**'
       - 'cadvisor/**'
       - 'git-mcp-server/**'
+      - 'mcp-auth-proxy/**'
       - 'mcp/**'
       - 'mcp-images.json'
+      - 'test/**'
   pull_request:
     paths:
       - 'caddy-cloudflare/**'
       - 'cadvisor/**'
       - 'git-mcp-server/**'
+      - 'mcp-auth-proxy/**'
       - 'mcp/**'
       - 'mcp-images.json'
+      - 'test/**'
       - '.github/workflows/build-images.yml'
   workflow_dispatch:
 
@@ -62,13 +67,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
+        id: build
         with:
           context: caddy-cloudflare
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
             ghcr.io/alxleo/caddy-cloudflare:2.10
             ghcr.io/alxleo/caddy-cloudflare:latest
+      - name: Validate test Caddyfile
+        run: |
+          docker run --rm -v ${{ github.workspace }}/test:/test \
+            ghcr.io/alxleo/caddy-cloudflare:2.10 \
+            caddy validate --config /test/Caddyfile.test --adapter caddyfile
+      - name: Run Caddy routing E2E tests
+        run: |
+          cd test
+          docker compose -f docker-compose.test.yml up -d --build --wait
+          bash test-caddy-routing.sh
+          docker compose -f docker-compose.test.yml down
 
   cadvisor:
     runs-on: ubuntu-latest
@@ -113,6 +131,28 @@ jobs:
           tags: |
             ghcr.io/alxleo/mcp-git:2.8.4
             ghcr.io/alxleo/mcp-git:latest
+
+  mcp-auth-proxy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: mcp-auth-proxy
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+            ghcr.io/alxleo/mcp-auth-proxy:latest
 
   load-mcp-matrix:
     runs-on: ubuntu-latest
