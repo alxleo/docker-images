@@ -3,90 +3,116 @@
     "name": "mcp-hackernews",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=mcp-hacker-news@1.0.3",
-    "tag": "1.0.3"
+    "tag": "1.0.3",
+    "description": "Hacker News stories, comments, and discussions"
   },
   {
     "name": "mcp-reddit",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=reddit-mcp-server@1.3.2",
-    "tag": "1.3.2"
+    "tag": "1.3.2",
+    "description": "Reddit posts, comments, and subreddit browsing",
+    "secrets": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
   },
   {
     "name": "mcp-brave",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=brave-search-mcp@2.0.1",
-    "tag": "2.0.1"
+    "tag": "2.0.1",
+    "description": "Web search via Brave Search API",
+    "secrets": ["BRAVE_API_KEY"]
   },
   {
     "name": "mcp-slack",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=slack-mcp-server@1.2.2",
-    "tag": "1.2.2"
+    "tag": "1.2.2",
+    "description": "Slack channel messages and search",
+    "secrets": ["SLACK_MCP_XOXP_TOKEN"]
   },
   {
     "name": "mcp-tavily",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=tavily-mcp@0.2.17",
-    "tag": "0.2.17"
+    "tag": "0.2.17",
+    "description": "AI-optimized web search and content extraction",
+    "secrets": ["TAVILY_API_KEY"]
   },
   {
     "name": "mcp-context7",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@upstash/context7-mcp@2.1.1",
-    "tag": "2.1.1"
+    "tag": "2.1.1",
+    "description": "Library documentation lookup with version awareness",
+    "secrets": ["CONTEXT7_API_KEY"]
   },
   {
     "name": "mcp-sequential-thinking",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2025.12.18",
-    "tag": "2025.12.18"
+    "tag": "2025.12.18",
+    "description": "Structured reasoning and chain-of-thought enhancement"
   },
   {
     "name": "mcp-firecrawl",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=firecrawl-mcp@3.9.0",
-    "tag": "3.9.0"
+    "tag": "3.9.0",
+    "description": "Web scraping and crawling with JS rendering",
+    "secrets": ["FIRECRAWL_API_KEY"]
   },
   {
     "name": "mcp-jina",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=mcp-remote@0.1.38",
-    "tag": "0.1.38"
+    "tag": "0.1.38",
+    "description": "URL to clean markdown conversion",
+    "secrets": ["JINA_API_KEY"]
   },
   {
     "name": "mcp-confluence",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@aashari/mcp-server-atlassian-confluence@3.3.0",
-    "tag": "3.3.0"
+    "tag": "3.3.0",
+    "description": "Atlassian Confluence space and page search",
+    "secrets": ["ATLASSIAN_API_TOKEN", "ATLASSIAN_SITE_NAME", "ATLASSIAN_USER_EMAIL"]
   },
   {
     "name": "mcp-jira",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@aashari/mcp-server-atlassian-jira@3.3.0",
-    "tag": "3.3.0"
+    "tag": "3.3.0",
+    "description": "Atlassian Jira issues and project search",
+    "secrets": ["ATLASSIAN_API_TOKEN", "ATLASSIAN_SITE_NAME", "ATLASSIAN_USER_EMAIL"]
   },
   {
     "name": "mcp-youtube",
     "dockerfile": "Dockerfile.python",
     "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.9\nMCP_ENTRYPOINT=mcp-youtube-transcript",
-    "tag": "0.5.9"
+    "tag": "0.5.9",
+    "description": "YouTube transcript and video metadata extraction"
   },
   {
     "name": "mcp-arxiv",
     "dockerfile": "Dockerfile.python",
     "build_args": "MCP_PACKAGE=arxiv-mcp-server==0.3.2\nMCP_ENTRYPOINT=arxiv-mcp-server",
-    "tag": "0.3.2"
+    "tag": "0.3.2",
+    "description": "Search and retrieve academic papers from arXiv"
   },
   {
     "name": "mcp-zen",
     "dockerfile": "Dockerfile.python",
     "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@7afc7c1cc96e23992c8f105f960132c657883bb1\nMCP_ENTRYPOINT=pal-mcp-server",
-    "tag": "7afc7c1"
+    "tag": "7afc7c1",
+    "description": "Multi-model AI orchestrator (Gemini, OpenAI)",
+    "secrets": ["GOOGLE_API_KEY", "OPENAI_API_KEY"]
   },
   {
     "name": "mcp-karakeep",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@karakeep/mcp@0.31.0",
-    "tag": "0.31.0"
+    "tag": "0.31.0",
+    "description": "Karakeep bookmark and note management",
+    "secrets": ["KARAKEEP_API_KEY", "KARAKEEP_ADDR"]
   }
 ]

@@ -12,6 +12,8 @@ This repo contains ONLY: Dockerfiles, entrypoint scripts, build configs, CI work
 | Type | Pattern | Example |
 |------|---------|---------|
 | **MCP images** (matrix) | `mcp-images.json` → `Dockerfile.npm` or `Dockerfile.python` | mcp-reddit, mcp-arxiv |
+
+`mcp-images.json` is the single source of truth for MCP images. CI reads it for builds. It also carries runtime metadata (`description`, `secrets`) that downstream deployment repos can consume for generating compose files, health checks, and service catalogs. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional). Omitted `secrets` means no API key needed. Default healthcheck is `/ping` (mcp-proxy built-in).
 | **Patched upstream** | `git clone --tag` + `sed` fix + build | mcp-auth-proxy (VARCHAR fix), cadvisor (Docker 29 compat) |
 | **Custom build** | Standard Dockerfile | caddy-cloudflare (xcaddy + DNS plugin), git-mcp-server |
 
