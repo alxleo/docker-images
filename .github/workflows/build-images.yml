@@ -25,6 +25,7 @@
 #   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
 #   - git-mcp-server: Git repo management with native HTTP transport
 #   - mcp-auth-proxy: OAuth proxy with VARCHAR(255) fix (sigbit/mcp-auth-proxy#111)
+#   - pr-reviewer: AI PR reviewer with Claude/Gemini/Codex CLIs + GitHub CLI
 #   - mcp-*: 15 MCP service images (npm + python based)
 
 name: Build Custom Images
@@ -41,6 +42,7 @@ on:
       - 'cadvisor/**'
       - 'git-mcp-server/**'
       - 'mcp-auth-proxy/**'
+      - 'pr-reviewer/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - 'test/**'
@@ -50,6 +52,7 @@ on:
       - 'cadvisor/**'
       - 'git-mcp-server/**'
       - 'mcp-auth-proxy/**'
+      - 'pr-reviewer/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - 'images.json'
@@ -78,6 +81,7 @@ jobs:
       cadvisor: ${{ steps.filter.outputs.cadvisor }}
       git-mcp-server: ${{ steps.filter.outputs.git-mcp-server }}
       mcp-auth-proxy: ${{ steps.filter.outputs.mcp-auth-proxy }}
+      pr-reviewer: ${{ steps.filter.outputs.pr-reviewer }}
       mcp: ${{ steps.filter.outputs.mcp }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -96,6 +100,8 @@ jobs:
               - 'git-mcp-server/**'
             mcp-auth-proxy:
               - 'mcp-auth-proxy/**'
+            pr-reviewer:
+              - 'pr-reviewer/**'
             mcp:
               - 'mcp/**'
               - 'mcp-images.json'
@@ -302,6 +308,58 @@ jobs:
         run: |
           docker push ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
           docker push ghcr.io/alxleo/mcp-auth-proxy:latest
+
+  pr-reviewer:
+    name: PR Reviewer
+    needs: changes
+    if: >-
+      always() &&
+      (needs.changes.outputs.pr-reviewer == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # checkout
+      packages: write  # push to GHCR
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: pr-reviewer
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: |
+            ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
+            ghcr.io/alxleo/pr-reviewer:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        with:
+          image-ref: ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+      - name: Smoke test — CLIs installed
+        run: |
+          docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
+            sh -c "claude --version && gh --version && gemini --version"
+      - name: Smoke test — watcher imports
+        run: |
+          docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
+            python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
+          docker push ghcr.io/alxleo/pr-reviewer:latest
 
   load-mcp-matrix:
     name: Load MCP build matrix
