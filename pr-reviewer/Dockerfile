@@ -33,8 +33,8 @@ RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 # Pinned version — update when new features needed, Dependabot doesn't track this
 ARG CODEX_VERSION=0.106.0
 RUN ARCH=$(dpkg --print-architecture) \
-    && if [ "$ARCH" = "amd64" ]; then CODEX_ARCH="x86_64-unknown-linux-gnu"; \
-       elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-gnu"; \
+    && if [ "$ARCH" = "amd64" ]; then CODEX_ARCH="x86_64-unknown-linux-musl"; \
+       elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-musl"; \
        else echo "Unsupported architecture: ${ARCH}" >&2; exit 1; fi \
     && curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-${CODEX_ARCH}.tar.gz" \
        | tar xz -C /usr/local/bin/ \
