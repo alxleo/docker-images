@@ -213,12 +213,12 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
     """Run review via Claude Code CLI."""
     cmd = [
         "claude",
-        "-p", prompt,
+        "-p",
         "--output-format", "json",
         "--allowedTools", "Read,Glob,Grep",
         "--max-turns", str(max_turns),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     if result.returncode != 0:
         return ""
     try:
@@ -232,8 +232,8 @@ def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
     """Run review via Gemini CLI."""
     if not os.environ.get("GEMINI_API_KEY"):
         return ""
-    cmd = ["gemini", "-p", prompt]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    cmd = ["gemini", "-p"]
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
@@ -243,8 +243,8 @@ def run_lens_codex(prompt: str, repo_dir: Path) -> str:
     """Run review via Codex CLI."""
     if not os.environ.get("OPENAI_API_KEY"):
         return ""
-    cmd = ["codex", "exec", prompt]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    cmd = ["codex", "exec"]
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
