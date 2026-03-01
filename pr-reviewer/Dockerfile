@@ -8,10 +8,12 @@
 #   /app/prompts/      — review lens prompt files (*.md)
 #
 # Secrets (Docker secrets at /run/secrets/):
-#   claude_code_oauth_token — Claude Max subscription token (required)
-#   gh_token                — GitHub PAT with repo scope (required)
-#   gemini_api_key          — Gemini API key (optional)
-#   openai_api_key          — OpenAI/Codex API key (optional)
+#   claude_code_oauth_token    — Claude Max subscription token (required)
+#   gh_app_id                  — GitHub App numeric ID (required)
+#   gh_app_installation_id     — GitHub App installation ID (required)
+#   gh_app_private_key         — GitHub App PEM private key (required)
+#   gemini_api_key             — Gemini API key (optional)
+#   openai_api_key             — OpenAI/Codex API key (optional)
 
 FROM node:22-slim
 
@@ -25,6 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# PyJWT for GitHub App authentication (RS256 JWT signing)
+RUN pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0"
 
 # Install AI CLI tools (npm)
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli

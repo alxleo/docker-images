@@ -2,10 +2,10 @@
 """Poll GitHub for PR events and dispatch AI reviews.
 
 Watches allowlisted private repos for:
-- New non-draft PRs → auto-review at default depth
-- Updated PRs (new commits) → re-review
-- @review commands in PR comments → targeted review
-- @claude questions → interactive follow-up (session resume)
+- @pr-reviewer commands in PR comments → on-demand review
+- @pr-reviewer stop → stops processing for a PR
+
+Auth: GitHub App (installation token, auto-rotates hourly).
 """
 
 import json
@@ -14,6 +14,8 @@ import os
 import subprocess
 import sys
 import time
+import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -32,15 +34,61 @@ PROMPTS_DIR = Path("/app/prompts")
 
 # Commands recognized in PR comments (no freeform prompts — injection risk)
 COMMANDS = {
-    "@review quick": "quick",
-    "@review deep": "deep",
-    "@review security": "security",
-    "@review standards": "standards",
-    "@review drift": "drift",
-    "@review simplification": "simplification",
-    "@review stop": "stop",
-    "@review": "standard",  # must be last — prefix match
+    "@pr-reviewer quick": "quick",
+    "@pr-reviewer deep": "deep",
+    "@pr-reviewer security": "security",
+    "@pr-reviewer standards": "standards",
+    "@pr-reviewer drift": "drift",
+    "@pr-reviewer simplification": "simplification",
+    "@pr-reviewer stop": "stop",
+    "@pr-reviewer": "standard",  # must be last — prefix match
 }
+
+
+class GitHubAppAuth:
+    """Manages GitHub App JWT → installation token lifecycle."""
+
+    def __init__(self, app_id: int, installation_id: int, private_key: str):
+        self.app_id = app_id
+        self.installation_id = installation_id
+        self.private_key = private_key
+        self._token: str | None = None
+        self._expires_at: float = 0
+
+    def get_token(self) -> str:
+        """Return cached installation token, refreshing if expired."""
+        if self._token and time.time() < self._expires_at - 300:  # 5min buffer
+            return self._token
+        self._refresh()
+        assert self._token is not None
+        return self._token
+
+    def _generate_jwt(self) -> str:
+        """Generate short-lived JWT signed with App private key."""
+        import jwt  # PyJWT
+
+        now = int(time.time())
+        payload = {"iss": self.app_id, "iat": now - 60, "exp": now + 600}
+        return jwt.encode(payload, self.private_key, algorithm="RS256")
+
+    def _refresh(self):
+        """Exchange JWT for 1-hour installation token."""
+        jwt_token = self._generate_jwt()
+        url = f"https://api.github.com/app/installations/{self.installation_id}/access_tokens"
+        req = urllib.request.Request(
+            url,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        resp = json.loads(urllib.request.urlopen(req).read())
+        self._token = resp["token"]
+        expires_str = resp["expires_at"].replace("Z", "+00:00")
+        self._expires_at = datetime.fromisoformat(expires_str).timestamp()
+        log.info("GitHub App token refreshed, expires at %s", resp["expires_at"])
 
 
 def load_config() -> dict:
@@ -66,12 +114,19 @@ def read_secret(path: str, required: bool = True) -> str:
     return val
 
 
-def setup_auth():
-    """Configure authentication from secrets."""
+def setup_auth() -> GitHubAppAuth:
+    """Configure authentication from secrets. Returns GitHub App auth manager."""
     claude_token = read_secret("claude_code_oauth_token")
-    gh_token = read_secret("gh_token")
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
-    os.environ["GH_TOKEN"] = gh_token
+
+    # GitHub App auth — installation tokens rotate hourly
+    app_id = read_secret("gh_app_id")
+    installation_id = read_secret("gh_app_installation_id")
+    private_key = read_secret("gh_app_private_key")
+    app_auth = GitHubAppAuth(int(app_id), int(installation_id), private_key)
+
+    # Set initial token so gh CLI works immediately
+    os.environ["GH_TOKEN"] = app_auth.get_token()
 
     # Optional: Gemini and Codex for multi-model review
     gemini_key = read_secret("gemini_api_key", required=False)
@@ -86,7 +141,9 @@ def setup_auth():
         models.append("gemini")
     if openai_key:
         models.append("codex")
-    log.info("Auth configured: %s + GitHub PAT", " + ".join(models))
+    log.info("Auth configured: %s + GitHub App", " + ".join(models))
+
+    return app_auth
 
 
 def gh(args: list[str], repo: str | None = None) -> str:
@@ -342,18 +399,6 @@ def get_head_sha(repo: str, pr_number: int) -> str:
     return ""
 
 
-def needs_review(repo: str, pr: dict, state: dict) -> bool:
-    """Check if a PR needs (re-)review based on state."""
-    if not state:
-        return True  # Never reviewed
-
-    last_sha = state.get("last_head_sha", "")
-    current_sha = pr.get("headRefOid", "")
-    if current_sha and current_sha != last_sha:
-        return True  # New commits since last review
-
-    return False
-
 
 def parse_command(comment_body: str) -> str | None:
     """Parse a review command from a comment body. Returns depth or None."""
@@ -425,18 +470,10 @@ def poll(config: dict):
                 log.debug("Skipping draft PR %s#%d", repo, pr_number)
                 continue
 
-            # Check for @review commands in comments
+            # Check for @pr-reviewer commands in comments (on-demand only)
             comments = pr.get("comments", [])
             if comments:
                 check_comments(config, repo, pr_number, comments)
-
-            # Reload state — check_comments/dispatch_review may have updated it
-            state = load_state(repo, pr_number)
-
-            # Auto-review if new or updated
-            if needs_review(repo, pr, state):
-                depth = config.get("default_depth", "standard")
-                dispatch_review(config, repo, pr_number, depth)
 
     save_poll_timestamp()
 
@@ -445,19 +482,20 @@ def main():
     log.info("PR Reviewer starting")
 
     config = load_config()
-    setup_auth()
+    app_auth = setup_auth()
 
     log.info(
-        "Watching %d repos, polling every %ds, default depth: %s",
+        "Watching %d repos, polling every %ds (on-demand only)",
         len(config.get("repos", [])),
         config.get("polling_interval", 60),
-        config.get("default_depth", "standard"),
     )
 
     interval = config.get("polling_interval", 60)
 
     while True:
         try:
+            # Refresh GitHub App token (auto-rotates hourly, cached otherwise)
+            os.environ["GH_TOKEN"] = app_auth.get_token()
             poll(config)
         except Exception:
             log.exception("Poll cycle failed")

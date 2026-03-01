@@ -50,40 +50,40 @@ def config():
 
 class TestParseCommand:
     def test_bare_review(self):
-        assert w.parse_command("@review") == "standard"
+        assert w.parse_command("@pr-reviewer") == "standard"
 
     def test_deep(self):
-        assert w.parse_command("@review deep") == "deep"
+        assert w.parse_command("@pr-reviewer deep") == "deep"
 
     def test_security(self):
-        assert w.parse_command("@review security") == "security"
+        assert w.parse_command("@pr-reviewer security") == "security"
 
     def test_standards(self):
-        assert w.parse_command("@review standards") == "standards"
+        assert w.parse_command("@pr-reviewer standards") == "standards"
 
     def test_drift(self):
-        assert w.parse_command("@review drift") == "drift"
+        assert w.parse_command("@pr-reviewer drift") == "drift"
 
     def test_simplification(self):
-        assert w.parse_command("@review simplification") == "simplification"
+        assert w.parse_command("@pr-reviewer simplification") == "simplification"
 
     def test_quick(self):
-        assert w.parse_command("@review quick") == "quick"
+        assert w.parse_command("@pr-reviewer quick") == "quick"
 
     def test_stop(self):
-        assert w.parse_command("@review stop") == "stop"
+        assert w.parse_command("@pr-reviewer stop") == "stop"
 
     def test_random_text_returns_none(self):
         assert w.parse_command("just a regular comment") is None
 
     def test_whitespace_stripped(self):
-        assert w.parse_command("  @review  ") == "standard"
+        assert w.parse_command("  @pr-reviewer  ") == "standard"
 
     def test_trailing_text_still_matches(self):
-        assert w.parse_command("@review deep please look at auth") == "deep"
+        assert w.parse_command("@pr-reviewer deep please look at auth") == "deep"
 
     def test_case_insensitive(self):
-        assert w.parse_command("@Review Deep") == "deep"
+        assert w.parse_command("@PR-Reviewer Deep") == "deep"
 
     def test_empty_string(self):
         assert w.parse_command("") is None
@@ -91,34 +91,6 @@ class TestParseCommand:
     def test_partial_prefix_no_match(self):
         assert w.parse_command("@rev") is None
 
-
-# ---------------------------------------------------------------------------
-# needs_review
-# ---------------------------------------------------------------------------
-
-class TestNeedsReview:
-    def test_empty_state_needs_review(self):
-        assert w.needs_review("r", {"headRefOid": "abc"}, {}) is True
-
-    def test_same_sha_no_review(self):
-        state = {"last_head_sha": "abc123"}
-        pr = {"headRefOid": "abc123"}
-        assert w.needs_review("r", pr, state) is False
-
-    def test_different_sha_needs_review(self):
-        state = {"last_head_sha": "old"}
-        pr = {"headRefOid": "new"}
-        assert w.needs_review("r", pr, state) is True
-
-    def test_pr_missing_sha_no_review(self):
-        state = {"last_head_sha": "abc"}
-        pr = {}
-        assert w.needs_review("r", pr, state) is False
-
-    def test_state_missing_sha_key(self):
-        state = {"last_reviewed_at": 123}
-        pr = {"headRefOid": "abc"}
-        assert w.needs_review("r", pr, state) is True
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +211,7 @@ class TestStateRace:
         _clone.return_value = tmp_path / "repos" / "fake"
         _clone.return_value.mkdir(parents=True, exist_ok=True)
 
-        comments = [{"id": "c1", "body": "@review security"}]
+        comments = [{"id": "c1", "body": "@pr-reviewer security"}]
         w.check_comments(config, "owner/repo", 1, comments)
 
         state = w.load_state("owner/repo", 1)
@@ -257,7 +229,7 @@ class TestStateRace:
     def test_poll_reloads_state_after_check_comments(
         self, mock_gh_json, _run, _sha, _diff, _checkout, _clone, config, tmp_path
     ):
-        """poll must reload state after check_comments to avoid double review."""
+        """poll dispatches exactly once for a single @pr-reviewer command."""
         _clone.return_value = tmp_path / "repos" / "fake"
         _clone.return_value.mkdir(parents=True, exist_ok=True)
 
@@ -265,11 +237,11 @@ class TestStateRace:
             "number": 1,
             "isDraft": False,
             "headRefOid": "sha_new",
-            "comments": [{"id": "c1", "body": "@review"}],
+            "comments": [{"id": "c1", "body": "@pr-reviewer"}],
         }]
         mock_gh_json.return_value = pr_data
 
-        # check_comments dispatches once (for @review command).
+        # check_comments dispatches once (for @pr-reviewer command).
         # poll should NOT dispatch again because state was updated.
         with patch.object(w, "dispatch_review", wraps=w.dispatch_review) as mock_dispatch:
             w.poll(config)
@@ -323,19 +295,19 @@ class TestCheckComments:
     @patch.object(w, "dispatch_review")
     def test_skips_already_processed(self, mock_dispatch, config):
         w.save_state("o/r", 1, {"processed_comment_ids": ["c1"]})
-        comments = [{"id": "c1", "body": "@review"}]
+        comments = [{"id": "c1", "body": "@pr-reviewer"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
 
     @patch.object(w, "dispatch_review")
     def test_dispatches_new_command(self, mock_dispatch, config):
-        comments = [{"id": "c1", "body": "@review security"}]
+        comments = [{"id": "c1", "body": "@pr-reviewer security"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_called_once_with(config, "o/r", 1, "security")
 
     @patch.object(w, "dispatch_review")
     def test_stop_no_dispatch(self, mock_dispatch, config):
-        comments = [{"id": "c1", "body": "@review stop"}]
+        comments = [{"id": "c1", "body": "@pr-reviewer stop"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
         state = w.load_state("o/r", 1)
@@ -350,8 +322,8 @@ class TestCheckComments:
     @patch.object(w, "dispatch_review")
     def test_multiple_commands_all_processed(self, mock_dispatch, config):
         comments = [
-            {"id": "c1", "body": "@review security"},
-            {"id": "c2", "body": "@review standards"},
+            {"id": "c1", "body": "@pr-reviewer security"},
+            {"id": "c2", "body": "@pr-reviewer standards"},
             {"id": "c3", "body": "random"},
         ]
         w.check_comments(config, "o/r", 1, comments)
@@ -396,17 +368,8 @@ class TestPoll:
 
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_auto_reviews_new_pr(self, mock_gh_json, mock_dispatch, config):
-        mock_gh_json.return_value = [
-            {"number": 7, "isDraft": False, "headRefOid": "sha1", "comments": []},
-        ]
-        w.poll(config)
-        mock_dispatch.assert_called_once_with(config, "owner/repo-a", 7, "standard")
-
-    @patch.object(w, "dispatch_review")
-    @patch.object(w, "gh_json")
-    def test_skips_reviewed_pr_same_sha(self, mock_gh_json, mock_dispatch, config):
-        w.save_state("owner/repo-a", 7, {"last_head_sha": "sha1"})
+    def test_no_auto_review_without_command(self, mock_gh_json, mock_dispatch, config):
+        """On-demand only: new PRs without @pr-reviewer are NOT auto-reviewed."""
         mock_gh_json.return_value = [
             {"number": 7, "isDraft": False, "headRefOid": "sha1", "comments": []},
         ]
@@ -415,13 +378,18 @@ class TestPoll:
 
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_re_reviews_on_new_commits(self, mock_gh_json, mock_dispatch, config):
-        w.save_state("owner/repo-a", 7, {"last_head_sha": "old_sha"})
+    def test_reviews_when_command_present(self, mock_gh_json, mock_dispatch, config):
+        """On-demand: reviews only when @pr-reviewer comment exists."""
         mock_gh_json.return_value = [
-            {"number": 7, "isDraft": False, "headRefOid": "new_sha", "comments": []},
+            {
+                "number": 7,
+                "isDraft": False,
+                "headRefOid": "sha1",
+                "comments": [{"id": "c1", "body": "@pr-reviewer"}],
+            },
         ]
         w.poll(config)
-        mock_dispatch.assert_called_once()
+        mock_dispatch.assert_called_once_with(config, "owner/repo-a", 7, "standard")
 
 
 # ---------------------------------------------------------------------------
@@ -529,3 +497,42 @@ class TestSavePollTimestamp:
         ts_file = w.STATE_DIR / "last_poll.json"
         data = json.loads(ts_file.read_text())
         assert abs(data["last_poll"] - time.time()) < 2
+
+
+# ---------------------------------------------------------------------------
+# GitHubAppAuth
+# ---------------------------------------------------------------------------
+
+class TestGitHubAppAuth:
+    def test_get_token_calls_refresh_when_no_token(self):
+        auth = w.GitHubAppAuth(123, 456, "fake-key")
+        with patch.object(auth, "_refresh") as mock_refresh:
+            def set_token():
+                auth._token = "tok123"
+                auth._expires_at = time.time() + 3600
+            mock_refresh.side_effect = set_token
+            token = auth.get_token()
+            mock_refresh.assert_called_once()
+            assert token == "tok123"
+
+    def test_get_token_uses_cache_when_valid(self):
+        auth = w.GitHubAppAuth(123, 456, "fake-key")
+        auth._token = "cached"
+        auth._expires_at = time.time() + 3600  # valid for another hour
+        with patch.object(auth, "_refresh") as mock_refresh:
+            token = auth.get_token()
+            mock_refresh.assert_not_called()
+            assert token == "cached"
+
+    def test_get_token_refreshes_when_near_expiry(self):
+        auth = w.GitHubAppAuth(123, 456, "fake-key")
+        auth._token = "old"
+        auth._expires_at = time.time() + 100  # within 5min buffer
+        with patch.object(auth, "_refresh") as mock_refresh:
+            def set_token():
+                auth._token = "new"
+                auth._expires_at = time.time() + 3600
+            mock_refresh.side_effect = set_token
+            token = auth.get_token()
+            mock_refresh.assert_called_once()
+            assert token == "new"
