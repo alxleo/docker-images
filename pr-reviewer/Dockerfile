@@ -58,4 +58,4 @@ RUN mkdir -p state repos
 HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
   CMD ["python3", "scripts/healthcheck.py"]
 
-CMD ["python3", "scripts/gh-watcher.py"]
+CMD ["python3", "scripts/gh_watcher.py"]
