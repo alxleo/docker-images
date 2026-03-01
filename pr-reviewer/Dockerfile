@@ -30,10 +30,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # Install Codex CLI (Rust binary from GitHub releases)
+# Pinned version — update when new features needed, Dependabot doesn't track this
+ARG CODEX_VERSION=0.106.0
 RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "amd64" ]; then CODEX_ARCH="x86_64-unknown-linux-gnu"; \
-       elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-gnu"; fi \
-    && curl -fsSL "https://github.com/openai/codex/releases/latest/download/codex-${CODEX_ARCH}.tar.gz" \
+       elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-gnu"; \
+       else echo "Unsupported architecture: ${ARCH}" >&2; exit 1; fi \
+    && curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-${CODEX_ARCH}.tar.gz" \
        | tar xz -C /usr/local/bin/
 
 # Install gh CLI
@@ -50,5 +53,8 @@ COPY scripts/ scripts/
 
 # State and repos dirs created at runtime via volumes
 RUN mkdir -p state repos
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
+  CMD ["python3", "scripts/healthcheck.py"]
 
 CMD ["python3", "scripts/gh-watcher.py"]

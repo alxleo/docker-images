@@ -350,7 +350,7 @@ jobs:
       - name: Smoke test — CLIs installed
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
-            sh -c "claude --version && gh --version && gemini --version"
+            sh -c "claude --version && gh --version && gemini --version && codex --version"
       - name: Smoke test — watcher imports
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
