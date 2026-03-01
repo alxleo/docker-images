@@ -37,7 +37,8 @@ RUN ARCH=$(dpkg --print-architecture) \
        elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-gnu"; \
        else echo "Unsupported architecture: ${ARCH}" >&2; exit 1; fi \
     && curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-${CODEX_ARCH}.tar.gz" \
-       | tar xz -C /usr/local/bin/
+       | tar xz -C /usr/local/bin/ \
+    && mv "/usr/local/bin/codex-${CODEX_ARCH}" /usr/local/bin/codex
 
 # Install gh CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
