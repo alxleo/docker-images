@@ -60,20 +60,18 @@ class GitHubAppAuth:
         if self._token and time.time() < self._expires_at - 300:  # 5min buffer
             return self._token
         self._refresh()
-        assert self._token is not None
+        if self._token is None:
+            raise RuntimeError("Failed to obtain GitHub App installation token")
         return self._token
 
-    def _generate_jwt(self) -> str:
-        """Generate short-lived JWT signed with App private key."""
+    def _refresh(self):
+        """Generate JWT, exchange for 1-hour installation token."""
         import jwt  # PyJWT
 
         now = int(time.time())
         payload = {"iss": self.app_id, "iat": now - 60, "exp": now + 600}
-        return jwt.encode(payload, self.private_key, algorithm="RS256")
+        jwt_token = jwt.encode(payload, self.private_key, algorithm="RS256")
 
-    def _refresh(self):
-        """Exchange JWT for 1-hour installation token."""
-        jwt_token = self._generate_jwt()
         url = f"https://api.github.com/app/installations/{self.installation_id}/access_tokens"
         req = urllib.request.Request(
             url,
@@ -82,9 +80,11 @@ class GitHubAppAuth:
                 "Authorization": f"Bearer {jwt_token}",
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "pr-reviewer-gh-watcher",
             },
         )
-        resp = json.loads(urllib.request.urlopen(req).read())
+        with urllib.request.urlopen(req, timeout=10) as response:
+            resp = json.loads(response.read())
         self._token = resp["token"]
         expires_str = resp["expires_at"].replace("Z", "+00:00")
         self._expires_at = datetime.fromisoformat(expires_str).timestamp()

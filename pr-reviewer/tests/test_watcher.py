@@ -536,3 +536,9 @@ class TestGitHubAppAuth:
             token = auth.get_token()
             mock_refresh.assert_called_once()
             assert token == "new"
+
+    def test_get_token_raises_on_failed_refresh(self):
+        auth = w.GitHubAppAuth(123, 456, "fake-key")
+        with patch.object(auth, "_refresh"):  # _refresh does nothing → token stays None
+            with pytest.raises(RuntimeError, match="Failed to obtain"):
+                auth.get_token()

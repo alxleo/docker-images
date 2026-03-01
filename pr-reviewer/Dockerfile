@@ -23,13 +23,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     jq \
     python3 \
+    python3-pip \
     python3-yaml \
     ca-certificates \
     curl \
+    && pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0" \
     && rm -rf /var/lib/apt/lists/*
-
-# PyJWT for GitHub App authentication (RS256 JWT signing)
-RUN pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0"
 
 # Install AI CLI tools (npm)
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
