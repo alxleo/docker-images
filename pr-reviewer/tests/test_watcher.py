@@ -505,8 +505,7 @@ class TestPostReview:
     def test_adds_header_with_icon(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         w.post_review("o/r", 1, "security", "found issues")
-        call_kwargs = mock_run.call_args
-        body_sent = call_kwargs.kwargs.get("input") or call_kwargs[1].get("input")
+        body_sent = mock_run.call_args.kwargs["input"]
         assert "Security Review" in body_sent
         assert "\U0001f512" in body_sent  # 🔒
         assert "found issues" in body_sent
