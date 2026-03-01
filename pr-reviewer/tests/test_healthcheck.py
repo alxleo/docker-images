@@ -23,14 +23,12 @@ class TestHealthcheck:
         assert exc.value.code == 0
 
     def test_recent_poll_healthy(self):
-        hc.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         hc.STATE_FILE.write_text(json.dumps({"last_poll": time.time()}))
         with pytest.raises(SystemExit) as exc:
             hc.main()
         assert exc.value.code == 0
 
     def test_stale_poll_unhealthy(self):
-        hc.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         hc.STATE_FILE.write_text(json.dumps({"last_poll": time.time() - 600}))
         with pytest.raises(SystemExit) as exc:
             hc.main()
@@ -49,7 +47,6 @@ class TestHealthcheck:
 
     def test_missing_last_poll_key(self):
         """Corrupt state with missing key — last_poll defaults to 0, so stale."""
-        hc.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         hc.STATE_FILE.write_text(json.dumps({"other": "data"}))
         with pytest.raises(SystemExit) as exc:
             hc.main()

@@ -1,6 +1,7 @@
 """Unit tests for gh-watcher.py — pure logic, no Docker/GitHub/AI CLIs needed."""
 
 import json
+import subprocess
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -268,20 +269,12 @@ class TestStateRace:
         }]
         mock_gh_json.return_value = pr_data
 
-        # Track how many times dispatch_review is called
-        call_count = {"n": 0}
-        original_dispatch = w.dispatch_review
-
-        def counting_dispatch(*args, **kwargs):
-            call_count["n"] += 1
-            return original_dispatch(*args, **kwargs)
-
-        with patch.object(w, "dispatch_review", side_effect=counting_dispatch):
-            w.poll(config)
-
         # check_comments dispatches once (for @review command).
         # poll should NOT dispatch again because state was updated.
-        assert call_count["n"] == 1
+        with patch.object(w, "dispatch_review", wraps=w.dispatch_review) as mock_dispatch:
+            w.poll(config)
+
+        assert mock_dispatch.call_count == 1
 
 
 # ---------------------------------------------------------------------------
@@ -494,15 +487,11 @@ class TestRunLens:
         lens = {"name": "nonexistent", "max_comments": 5}
         assert w.run_lens(lens, "diff", tmp_path, config) == ""
 
-    @patch.object(w, "run_lens_claude", side_effect=TimeoutError)
+    @patch.object(w, "run_lens_claude", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=300))
     def test_timeout_returns_empty(self, _mock, config, tmp_path):
         prompt_dir = w.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")
         lens = {"name": "simplification", "max_comments": 5}
-        # subprocess.TimeoutExpired is caught, not generic TimeoutError
-        # but the function catches subprocess.TimeoutExpired specifically
-        # Let's test with the right exception
-        _mock.side_effect = __import__("subprocess").TimeoutExpired(cmd="claude", timeout=300)
         result = w.run_lens(lens, "diff", tmp_path, config)
         assert result == ""
 

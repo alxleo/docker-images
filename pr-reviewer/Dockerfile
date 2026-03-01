@@ -30,15 +30,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # Install Codex CLI (Rust binary from GitHub releases)
-# Pinned version — update when new features needed, Dependabot doesn't track this
+# Pinned version + SHA256 — update both when bumping
 ARG CODEX_VERSION=0.106.0
+ARG CODEX_SHA256_AMD64=157a19dc3b4dffd55f8217e307e067acd588083bcb91177c0d12aa0288d6b9d2
+ARG CODEX_SHA256_ARM64=c204fc78805264130fdd630df3fb38a92b9676284b82642510374c363d4679f4
 RUN ARCH=$(dpkg --print-architecture) \
-    && if [ "$ARCH" = "amd64" ]; then CODEX_ARCH="x86_64-unknown-linux-musl"; \
-       elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-musl"; \
+    && if [ "$ARCH" = "amd64" ]; then CODEX_ARCH="x86_64-unknown-linux-musl"; EXPECTED="$CODEX_SHA256_AMD64"; \
+       elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-musl"; EXPECTED="$CODEX_SHA256_ARM64"; \
        else echo "Unsupported architecture: ${ARCH}" >&2; exit 1; fi \
     && curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-${CODEX_ARCH}.tar.gz" \
-       | tar xz -C /usr/local/bin/ \
-    && mv "/usr/local/bin/codex-${CODEX_ARCH}" /usr/local/bin/codex
+       -o /tmp/codex.tar.gz \
+    && echo "${EXPECTED}  /tmp/codex.tar.gz" | sha256sum -c - \
+    && tar xzf /tmp/codex.tar.gz -C /usr/local/bin/ \
+    && mv "/usr/local/bin/codex-${CODEX_ARCH}" /usr/local/bin/codex \
+    && rm /tmp/codex.tar.gz
 
 # Install gh CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
