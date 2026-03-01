@@ -37,6 +37,7 @@ COMMANDS = {
     "@review security": "security",
     "@review standards": "standards",
     "@review drift": "drift",
+    "@review simplification": "simplification",
     "@review stop": "stop",
     "@review": "standard",  # must be last — prefix match
 }
@@ -88,20 +89,20 @@ def setup_auth():
     log.info("Auth configured: %s + GitHub PAT", " + ".join(models))
 
 
-def gh(args: str, repo: str | None = None) -> str:
+def gh(args: list[str], repo: str | None = None) -> str:
     """Run a gh CLI command and return stdout."""
     cmd = ["gh"]
     if repo:
         cmd.extend(["--repo", repo])
-    cmd.extend(args.split())
+    cmd.extend(args)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if result.returncode != 0:
-        log.error("gh %s failed: %s", args, result.stderr.strip())
+        log.error("gh %s failed: %s", " ".join(args), result.stderr.strip())
         return ""
     return result.stdout
 
 
-def gh_json(args: str, repo: str | None = None) -> list | dict:
+def gh_json(args: list[str], repo: str | None = None) -> list | dict:
     """Run a gh CLI command and parse JSON output."""
     output = gh(args, repo)
     if not output:
@@ -166,7 +167,7 @@ def checkout_pr(repo_dir: Path, pr_number: int):
 
 def get_diff(repo: str, pr_number: int) -> str:
     """Get the PR diff via gh."""
-    return gh(f"pr diff {pr_number}", repo=repo)
+    return gh(["pr", "diff", str(pr_number)], repo=repo)
 
 
 def enabled_lenses(config: dict, depth: str) -> list[dict]:
@@ -318,7 +319,6 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         return
 
     lenses = enabled_lenses(config, depth)
-    session_ids = {}
 
     for lens in lenses:
         result = run_lens(lens, diff, repo_dir, config)
@@ -327,17 +327,16 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         else:
             log.info("Lens %s: no issues found for %s#%d", lens["name"], repo, pr_number)
 
-    # Update state
+    # Update state — reload from disk to avoid clobbering concurrent writes
     state = load_state(repo, pr_number)
     state["last_reviewed_at"] = time.time()
     state["last_head_sha"] = get_head_sha(repo, pr_number)
-    state["session_ids"] = session_ids
     save_state(repo, pr_number, state)
 
 
 def get_head_sha(repo: str, pr_number: int) -> str:
     """Get the current head SHA of a PR."""
-    pr_data = gh_json(f"pr view {pr_number} --json headRefOid", repo=repo)
+    pr_data = gh_json(["pr", "view", str(pr_number), "--json", "headRefOid"], repo=repo)
     if isinstance(pr_data, dict):
         return pr_data.get("headRefOid", "")
     return ""
@@ -384,10 +383,12 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
 
         if depth == "stop":
             log.info("Stop command received for %s#%d", repo, pr_number)
-            # Just mark as processed, don't review
         else:
             dispatch_review(config, repo, pr_number, depth)
 
+    # Reload state after dispatch_review may have updated it on disk,
+    # then merge in our processed_comment_ids to avoid clobbering
+    state = load_state(repo, pr_number)
     state["processed_comment_ids"] = list(processed_ids)
     save_state(repo, pr_number, state)
 
@@ -404,7 +405,7 @@ def poll(config: dict):
 
         try:
             prs = gh_json(
-                "pr list --state open --json number,updatedAt,isDraft,headRefOid,comments",
+                ["pr", "list", "--state", "open", "--json", "number,updatedAt,isDraft,headRefOid,comments"],
                 repo=repo,
             )
         except Exception as e:
@@ -424,12 +425,13 @@ def poll(config: dict):
                 log.debug("Skipping draft PR %s#%d", repo, pr_number)
                 continue
 
-            state = load_state(repo, pr_number)
-
             # Check for @review commands in comments
             comments = pr.get("comments", [])
             if comments:
                 check_comments(config, repo, pr_number, comments)
+
+            # Reload state — check_comments/dispatch_review may have updated it
+            state = load_state(repo, pr_number)
 
             # Auto-review if new or updated
             if needs_review(repo, pr, state):

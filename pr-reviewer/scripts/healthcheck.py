@@ -16,8 +16,8 @@ MAX_AGE_SECONDS = 300  # 5 minutes
 
 def main():
     if not STATE_FILE.exists():
-        print("No poll state file yet")
-        sys.exit(1)
+        print("No poll state file yet; assuming healthy during startup")
+        sys.exit(0)
 
     data = json.loads(STATE_FILE.read_text())
     last_poll = data.get("last_poll", 0)

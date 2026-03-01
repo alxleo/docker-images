@@ -350,11 +350,15 @@ jobs:
       - name: Smoke test — CLIs installed
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
-            sh -c "claude --version && gh --version && gemini --version"
+            sh -c "claude --version && gh --version && gemini --version && codex --version"
       - name: Smoke test — watcher imports
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
             python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
+      - name: Unit tests
+        run: |
+          pip install --quiet pytest pyyaml
+          python3 -m pytest pr-reviewer/tests/ -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |

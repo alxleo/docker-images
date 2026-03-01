@@ -5,6 +5,7 @@
     "cadvisor",
     "mcp-git",
     "mcp-auth-proxy",
+    "pr-reviewer",
     "mcp-arxiv",
     "mcp-brave",
     "mcp-confluence",
