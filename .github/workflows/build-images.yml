@@ -52,6 +52,7 @@ on:
       - 'mcp-auth-proxy/**'
       - 'mcp/**'
       - 'mcp-images.json'
+      - 'images.json'
       - 'test/**'
       - '.github/workflows/build-images.yml'
   workflow_dispatch:
