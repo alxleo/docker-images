@@ -1,0 +1,24 @@
+{
+  "registry": "ghcr.io/alxleo",
+  "images": [
+    "caddy-cloudflare",
+    "cadvisor",
+    "mcp-git",
+    "mcp-auth-proxy",
+    "mcp-arxiv",
+    "mcp-brave",
+    "mcp-confluence",
+    "mcp-context7",
+    "mcp-firecrawl",
+    "mcp-hackernews",
+    "mcp-jina",
+    "mcp-jira",
+    "mcp-karakeep",
+    "mcp-reddit",
+    "mcp-sequential-thinking",
+    "mcp-slack",
+    "mcp-tavily",
+    "mcp-youtube",
+    "mcp-zen"
+  ]
+}
