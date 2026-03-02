@@ -68,9 +68,12 @@ class GitHubAppAuth:
         """Generate JWT, exchange for 1-hour installation token."""
         import jwt  # PyJWT
 
+        # PEM keys stored in .env files use literal \n — restore real newlines
+        key = self.private_key.replace("\\n", "\n")
+
         now = int(time.time())
         payload = {"iss": self.app_id, "iat": now - 60, "exp": now + 600}
-        jwt_token = jwt.encode(payload, self.private_key, algorithm="RS256")
+        jwt_token = jwt.encode(payload, key, algorithm="RS256")
 
         url = f"https://api.github.com/app/installations/{self.installation_id}/access_tokens"
         req = urllib.request.Request(
