@@ -1,56 +1,65 @@
+# Baseline pre-commit hooks — universal across all repos.
+# Language-specific hooks (shellcheck, hadolint, ruff, eslint, etc.)
+# are added per-repo by an LLM agent after sync.
+
 repos:
+  # ── Standard hygiene ─────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      - id: detect-private-key
-      - id: check-added-large-files
-        args: ['--maxkb=500']
-      - id: check-json
       - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
       - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
 
+  # ── Secret scanning ──────────────────────────────────────────
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.0
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.6.0
+  # ── Typo detection ──────────────────────────────────────────
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.44.0
     hooks:
-      - id: zizmor
+      - id: typos
 
+  # ── Cruft & secrets blocking ─────────────────────────────────
   - repo: local
     hooks:
-      - id: shellcheck
-        name: shellcheck
-        entry: shellcheck --severity=warning
-        language: system
-        types: [shell]
-      - id: hadolint
-        name: hadolint
-        entry: hadolint --failure-threshold warning
-        language: system
-        files: 'Dockerfile'
-        types: [dockerfile]
-      - id: actionlint
-        name: actionlint
-        entry: actionlint
-        language: system
-        files: '\.github/workflows/'
-        types: [yaml]
-      - id: yamllint
-        name: yamllint
-        entry: yamllint
-        language: system
-        types: [yaml]
-      - id: block-secret-files
-        name: Block secret/env files
-        entry: "Found a file that should never be committed to a public repo"
+      - id: forbid-cruft-files
+        name: Block cruft files (.bak, .del, .tmp, .old, .orig)
+        entry: "Found cruft file — delete or rename before committing"
         language: fail
-        files: '\.(env|secrets|key|pem|age)$|\.secrets\.|sops\.yaml'
-      - id: caddy-fmt
-        name: caddy fmt
-        entry: bash -c 'for f in "$@"; do caddy fmt --diff "$f" || exit 1; done' --
+        files: \.(bak|del|tmp|old|orig|swp|swo)$
+
+      - id: block-secret-files
+        name: Block secret files
+        entry: "Secret/env files must not be committed"
+        language: fail
+        files: (\.env$|\.env\.|\.secrets\.|\.key$|\.pem$|\.age$|sops\.yaml$)
+        exclude: \.secrets\.ya?ml$
+
+      - id: verify-sops-encryption
+        name: Verify SOPS files are encrypted
+        entry: "bash -c 'for f in \"$@\"; do if ! grep -q \"^sops:\" \"$f\" 2>/dev/null; then echo \"ERROR: $f is not SOPS-encrypted\"; exit 1; fi; done' --"
         language: system
-        files: 'Caddyfile'
+        files: \.secrets\.yaml$
+
+  # ── Justfile formatting ─────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: just-fmt-check
+        name: Check justfile formatting
+        entry: just --fmt --check
+        language: system
+        files: (^|/)justfile$
+        pass_filenames: false

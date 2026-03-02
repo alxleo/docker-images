@@ -1,2 +1,12 @@
-external-sources=true
+# ShellCheck baseline — synced to all repos.
+# Per-repo overrides: add a local .shellcheckrc with `disable=SCXXXX`.
+
+# Catch exit codes silently swallowed in command substitutions.
+# e.g., rm -r "$(get_dir)/home" — if get_dir fails, you rm /home.
+enable=check-extra-masked-returns
+
+# Flag `which` — use `command -v` instead (POSIX, reliable).
 enable=deprecate-which
+
+# Follow source directives so sourced files get checked too.
+external-sources=true

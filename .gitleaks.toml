@@ -1,10 +1,8 @@
-# Gitleaks configuration
+# Gitleaks configuration — baseline for all repos.
+# Per-repo allowlists can be added after sync.
 # https://github.com/gitleaks/gitleaks
 
-title = "docker-images gitleaks config"
+title = "coding-standards gitleaks baseline"
 
 [extend]
 useDefault = true
-
-# No allowlists needed — this repo should never contain secrets.
-# If false positives appear, add path or regex allowlists here.

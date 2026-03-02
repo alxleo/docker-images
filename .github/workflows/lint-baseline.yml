@@ -1,0 +1,21 @@
+---
+# Baseline lint — calls the reusable workflow in coding-standards.
+#
+# Synced to all managed repos. Repos with custom lint needs can:
+#   - Override skip-hooks in their own caller
+#   - Keep their own lint.yml alongside this baseline
+name: Lint
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.draft == false &&
+       github.actor != 'dependabot[bot]')
+    uses: alxleo/coding-standards/.github/workflows/lint.yml@main
