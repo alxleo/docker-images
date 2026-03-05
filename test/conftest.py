@@ -35,7 +35,7 @@ def _wait_for_url(url: str, timeout: int = 60, verify_ssl: bool = True) -> bool:
             r = requests.get(url, timeout=5, verify=verify_ssl)
             if r.status_code == 200:
                 return True
-        except requests.ConnectionError:
+        except requests.RequestException:
             pass
         time.sleep(1)
     return False
@@ -69,7 +69,7 @@ def stack(tmp_path_factory):
     # Wait for backends through Caddy
     for service in ("hackernews", "arxiv"):
         if not _wait_for_url(f"{HTTP_BASE}/{service}{HEALTH_PATH}"):
-            logs = compose("logs", service)
+            logs = compose("logs", f"mcp-{service}")
             pytest.fail(
                 f"{service} backend never became ready:\n{logs.stdout}\n{logs.stderr}"
             )
