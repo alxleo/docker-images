@@ -37,12 +37,13 @@ Image list is driven by [`mcp-images.json`](mcp-images.json). All images follow 
 
 ### Health Endpoint
 
-All MCP images expose a health endpoint provided by `mcp-proxy`:
+All MCP images expose a health endpoint provided by `mcp-proxy`. Runtime defaults are in [`mcp-defaults.json`](mcp-defaults.json) — downstream repos should read from there instead of hardcoding values.
 
 | | |
 |---|---|
 | **Path** | `GET /ping` |
 | **Response** | `200 "pong"` |
+| **Port** | `8080` |
 | **Provided by** | `mcp-proxy` (hardcoded, not configurable) |
 
 Use `/ping` for Docker Compose healthchecks, Caddy `health_uri`, and monitoring. CI validates this contract on every change via the E2E stack test.

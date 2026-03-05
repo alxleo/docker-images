@@ -13,7 +13,9 @@ This repo contains ONLY: Dockerfiles, entrypoint scripts, build configs, CI work
 |------|---------|---------|
 | **MCP images** (matrix) | `mcp-images.json` → `Dockerfile.npm` or `Dockerfile.python` | mcp-reddit, mcp-arxiv |
 
-`mcp-images.json` is the single source of truth for MCP images. CI reads it for builds. It also carries runtime metadata (`description`, `secrets`) that downstream deployment repos can consume for generating compose files, health checks, and service catalogs. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional). Omitted `secrets` means no API key needed. Default healthcheck is `/ping` (mcp-proxy built-in).
+`mcp-images.json` is the single source of truth for MCP images. CI reads it for builds. It also carries runtime metadata (`description`, `secrets`) that downstream deployment repos can consume for generating compose files, health checks, and service catalogs. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional). Omitted `secrets` means no API key needed.
+
+`mcp-defaults.json` is the source of truth for MCP runtime defaults (`health_path`, `health_port`, `mcp_endpoint`). Downstream repos should read these values instead of hardcoding them. Per-image overrides can be added as fields in `mcp-images.json` if an image deviates from the defaults.
 | **Patched upstream** | `git clone --tag` + `sed` fix + build | mcp-auth-proxy (VARCHAR fix), cadvisor (Docker 29 compat) |
 | **Custom build** | Standard Dockerfile | caddy-cloudflare (xcaddy + DNS plugin), git-mcp-server |
 

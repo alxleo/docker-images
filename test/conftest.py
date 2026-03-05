@@ -4,8 +4,10 @@ Shared fixtures for MCP E2E stack tests.
 Manages the Docker Compose stack lifecycle and provides HTTP helpers.
 """
 
+import json
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 import requests
@@ -18,6 +20,11 @@ COMPOSE_FILE = "docker-compose.mcp-e2e.yml"
 HTTP_BASE = "http://localhost:8080"
 HTTPS_BASE = "https://localhost:8443"
 STARTUP_TIMEOUT = 120  # seconds
+
+# Load runtime defaults from manifest (source of truth)
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_MCP_DEFAULTS = json.loads((_REPO_ROOT / "mcp-defaults.json").read_text())
+HEALTH_PATH = _MCP_DEFAULTS["health_path"]
 
 
 def _wait_for_url(url: str, timeout: int = 60, verify_ssl: bool = True) -> bool:
@@ -61,7 +68,7 @@ def stack(tmp_path_factory):
 
     # Wait for backends through Caddy
     for service in ("hackernews", "arxiv"):
-        if not _wait_for_url(f"{HTTP_BASE}/{service}/ping"):
+        if not _wait_for_url(f"{HTTP_BASE}/{service}{HEALTH_PATH}"):
             logs = compose("logs", service)
             pytest.fail(
                 f"{service} backend never became ready:\n{logs.stdout}\n{logs.stderr}"

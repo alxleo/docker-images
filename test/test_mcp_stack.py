@@ -12,12 +12,19 @@ This is the contract test that downstream repos (homelab) depend on:
 - Service discovery: .well-known/mcp.json
 """
 
+import json
 import warnings
+from pathlib import Path
 
 import pytest
 import requests
 
 from conftest import extract_json_from_sse, mcp_initialize, mcp_tools_list
+
+# Load runtime defaults from the manifest (source of truth for downstream)
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_MCP_DEFAULTS = json.loads((_REPO_ROOT / "mcp-defaults.json").read_text())
+HEALTH_PATH = _MCP_DEFAULTS["health_path"]
 
 # Both canary types: npm and Python Dockerfiles
 MCP_SERVICES = ["hackernews", "arxiv"]
@@ -40,7 +47,7 @@ EXPECTED_UPSTREAMS = {
 class TestHealthContract:
     """Health endpoint contract — the guarantee downstream repos rely on.
 
-    Every MCP container serves GET /ping → 200 "pong" via mcp-proxy.
+    Every MCP container serves GET {HEALTH_PATH} → 200 "pong" via mcp-proxy.
     Caddy uses this as health_uri for backend health checking.
     """
 
@@ -51,8 +58,10 @@ class TestHealthContract:
 
     @pytest.mark.parametrize("service", MCP_SERVICES)
     def test_ping_through_caddy(self, stack, service):
-        """GET /ping returns 200 'pong' through Caddy prefix stripping."""
-        r = requests.get(f"{stack['http_base']}/{service}/ping", timeout=5)
+        """Health endpoint returns 200 'pong' through Caddy prefix stripping."""
+        r = requests.get(
+            f"{stack['http_base']}/{service}{HEALTH_PATH}", timeout=5
+        )
         assert r.status_code == 200
         assert r.text == "pong"
 
@@ -60,7 +69,9 @@ class TestHealthContract:
     def test_ping_through_caddy_tls(self, stack, service):
         """Same contract holds over TLS."""
         r = requests.get(
-            f"{stack['https_base']}/{service}/ping", timeout=5, verify=False
+            f"{stack['https_base']}/{service}{HEALTH_PATH}",
+            timeout=5,
+            verify=False,
         )
         assert r.status_code == 200
         assert r.text == "pong"
@@ -74,9 +85,9 @@ class TestHealthContract:
 class TestCaddyHealthProbe:
     """Verify Caddy's active health probes see MCP backends as healthy.
 
-    This is the test that matters for downstream: Caddy's health_uri /ping
-    must work with MCP containers. If mcp-proxy changes /ping, Caddy marks
-    backends unhealthy and all traffic returns 502.
+    This is the test that matters for downstream: Caddy's health_uri must
+    match HEALTH_PATH from mcp-defaults.json. If mcp-proxy changes the
+    path, Caddy marks backends unhealthy and all traffic returns 502.
 
     Queries Caddy's admin API (/reverse_proxy/upstreams) for actual probe
     results — not just that the endpoint responds, but that Caddy itself
@@ -96,12 +107,12 @@ class TestCaddyHealthProbe:
             )
 
     def test_no_unhealthy_upstreams(self, stack):
-        """All MCP backends pass Caddy's health_uri /ping probe.
+        """All MCP backends pass Caddy's health_uri probe.
 
         Caddy tracks num_requests and fails per upstream. A backend with
         fails > 0 means health_uri returned non-2xx — the health contract
-        is broken. This catches mcp-proxy changing/removing /ping before
-        downstream deploys break.
+        is broken. This catches mcp-proxy changing/removing the health
+        path before downstream deploys break.
         """
         r = requests.get(f"{CADDY_ADMIN}/reverse_proxy/upstreams", timeout=5)
         upstreams = r.json()
@@ -117,7 +128,7 @@ class TestCaddyHealthProbe:
             assert upstream.get("fails", 0) == 0, (
                 f"{service} ({addr}): Caddy health probe failed "
                 f"(fails={upstream['fails']}). "
-                f"health_uri /ping may not be working."
+                f"health_uri {HEALTH_PATH} may not be working."
             )
 
 
