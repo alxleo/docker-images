@@ -8,13 +8,27 @@ services:
     depends_on:
       mcp-hackernews:
         condition: service_started
+      mcp-arxiv:
+        condition: service_started
 
+  # npm-based canary
   mcp-hackernews:
     build:
       context: ../mcp
       dockerfile: Dockerfile.npm
       args:
         MCP_PACKAGE: mcp-hacker-news@1.0.3
+    environment:
+      MCP_STARTUP_JITTER: "0"
+
+  # Python-based canary
+  mcp-arxiv:
+    build:
+      context: ../mcp
+      dockerfile: Dockerfile.python
+      args:
+        MCP_PACKAGE: arxiv-mcp-server==0.3.2
+        MCP_ENTRYPOINT: arxiv-mcp-server
     environment:
       MCP_STARTUP_JITTER: "0"
 

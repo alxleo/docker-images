@@ -491,11 +491,13 @@ jobs:
           IMAGE_NAME: ${{ matrix.name }}
         run: docker rm -f "${IMAGE_NAME}" || true
 
-  # E2E test: validates full Caddy → mcp-proxy → MCP server routing chain
-  # Tests: prefix stripping, health passthrough, MCP protocol handshake,
-  # session header preservation, TLS with internal certs, service discovery.
+  # E2E stack test: full Caddy → mcp-proxy → MCP server contract validation
+  # Spins up Caddy + both canaries (npm: hackernews, Python: arxiv).
+  # Tests: health endpoint contract (/ping), prefix stripping, MCP protocol
+  # handshake, session headers, TLS with internal certs, service discovery.
+  # This is the contract test that downstream repos (homelab) depend on.
   mcp-e2e-test:
-    name: MCP E2E (Caddy routing)
+    name: MCP E2E stack test
     needs: changes
     if: >-
       always() &&
@@ -507,17 +509,18 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: pip install --quiet -r test/requirements.txt
       - name: Validate MCP E2E Caddyfile
         run: |
           docker run --rm -v "${{ github.workspace }}/test:/test" \
             caddy:2.11 \
             caddy validate --config /test/Caddyfile.mcp-e2e --adapter caddyfile
-      - name: Start E2E stack
-        run: |
-          cd test
-          docker compose -f docker-compose.mcp-e2e.yml up -d --build --wait --wait-timeout 120
-      - name: Run E2E tests
-        run: bash test/test-mcp-e2e.sh
+      - name: Run E2E stack tests
+        run: python -m pytest test/test_mcp_stack.py -v --tb=short
       - name: Dump logs on failure
         if: failure()
         run: |
