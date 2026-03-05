@@ -1,7 +1,7 @@
 services:
   caddy:
     build: ../caddy-cloudflare
-    ports: ["8080:80", "8443:443"]
+    ports: ["8080:80", "8443:443", "2019:2019"]
     volumes:
       - ./Caddyfile.mcp-e2e:/etc/caddy/Caddyfile
       - caddy-data:/data
