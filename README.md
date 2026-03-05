@@ -35,6 +35,19 @@ Image list is driven by [`mcp-images.json`](mcp-images.json). All images follow 
 | `ghcr.io/alxleo/mcp-arxiv` | `arxiv-mcp-server` | 0.3.2 |
 | `ghcr.io/alxleo/mcp-zen` | `zen-mcp-server` | 7afc7c1 |
 
+### Health Endpoint
+
+All MCP images expose a health endpoint provided by `mcp-proxy`. Runtime defaults are in [`mcp-defaults.json`](mcp-defaults.json) — downstream repos should read from there instead of hardcoding values.
+
+| | |
+|---|---|
+| **Path** | `GET /ping` |
+| **Response** | `200 "pong"` |
+| **Port** | `8080` |
+| **Provided by** | `mcp-proxy` (hardcoded, not configurable) |
+
+Use `/ping` for Docker Compose healthchecks, Caddy `health_uri`, and monitoring. CI validates this contract on every change via the E2E stack test.
+
 ## Deployment Examples
 
 [`examples/`](examples/) contains reference deployment patterns:
@@ -44,20 +57,19 @@ Image list is driven by [`mcp-images.json`](mcp-images.json). All images follow 
 
 ## Testing
 
-Three test suites validate the images:
-
 | Suite | What it validates | Trigger |
 |-------|-------------------|---------|
 | **Caddy routing** (`test/test-caddy-routing.sh`) | Snippet imports, handle_path, redirect fallback | caddy-cloudflare changes |
-| **MCP E2E** (`test/test-mcp-e2e.sh`) | Full Caddy → mcp-proxy → MCP server chain: routing, prefix stripping, MCP handshake, session headers, TLS | caddy-cloudflare or mcp changes |
+| **MCP E2E stack** (`test/test_mcp_stack.py`) | Full Caddy → mcp-proxy → MCP server chain with both npm and Python canaries: health contract, MCP protocol, routing, TLS, service discovery | caddy-cloudflare or mcp changes |
 | **MCP smoke** (`test/test-mcp-smoke.sh`) | Standalone mcp-proxy health + MCP initialize + tools/list | mcp changes (2 canaries: npm + Python) |
+
+The E2E stack test (pytest) spins up a Docker Compose stack with Caddy + both canary types (hackernews/npm, arxiv/Python) and runs a full contract validation battery. This is the test that downstream repos depend on.
 
 Run locally:
 ```bash
-# Full-stack E2E (Caddy + MCP)
-cd test && docker compose -f docker-compose.mcp-e2e.yml up -d --build --wait
-bash test-mcp-e2e.sh
-docker compose -f docker-compose.mcp-e2e.yml down -v
+# Full-stack E2E (Caddy + both MCP canaries)
+pip install -r test/requirements.txt
+python -m pytest test/test_mcp_stack.py -v
 
 # Standalone smoke test
 docker build -f mcp/Dockerfile.npm --build-arg MCP_PACKAGE="mcp-hacker-news@1.0.3" -t test-hn mcp/

@@ -1,0 +1,5 @@
+{
+  "health_path": "/ping",
+  "health_port": 8080,
+  "mcp_endpoint": "/mcp"
+}
