@@ -42,13 +42,14 @@
 		respond "" 204
 	}
 
-	# Accept header fix for MCP SDK quirk
+	# Accept header fix for MCP SDK quirk — rewrite request header
+	# before it reaches mcp-proxy (request_header, not response header)
 	@mcp_post {
 		method POST
 		not header Accept application/json*
 		not header Accept text/event-stream*
 	}
-	header @mcp_post Accept "application/json, text/event-stream"
+	request_header @mcp_post Accept "application/json, text/event-stream"
 
 	handle /health {
 		respond "OK" 200

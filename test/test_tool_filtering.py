@@ -200,10 +200,29 @@ class TestToolFiltering:
 
 
 class TestSecretInjection:
-    """Validate entrypoint.py injects /run/secrets/* into environment."""
+    """Validate entrypoint.py injects /run/secrets/* into environment.
+
+    `docker exec env` spawns a new process with Docker's original env,
+    NOT PID 1's modified env. The entrypoint sets vars via os.environ
+    then execvp, so only PID 1 has them. We read /proc/1/environ instead.
+    """
+
+    @staticmethod
+    def _pid1_env(container_name: str) -> str:
+        """Read PID 1's environment from /proc/1/environ (null-separated)."""
+        result = subprocess.run(
+            [
+                "docker", "exec", container_name,
+                "sh", "-c", "tr '\\0' '\\n' < /proc/1/environ",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Failed to read PID 1 env: {result.stderr}"
+        return result.stdout
 
     def test_docker_secret_env_injection(self, run_container, tmp_path):
-        """Secret file content becomes an environment variable."""
+        """Secret file content becomes an environment variable in PID 1."""
         secret_file = tmp_path / "brave_api_key"
         secret_file.write_text("test-secret-value")
 
@@ -217,15 +236,11 @@ class TestSecretInjection:
             health_url=f"http://localhost:{port}/ping",
             timeout=30,
         )
-        result = subprocess.run(
-            ["docker", "exec", "test-secret-inject", "env"],
-            capture_output=True,
-            text=True,
-        )
-        assert "BRAVE_API_KEY=test-secret-value" in result.stdout
+        env_output = self._pid1_env("test-secret-inject")
+        assert "BRAVE_API_KEY=test-secret-value" in env_output
 
     def test_docker_secret_uppercase(self, run_container, tmp_path):
-        """Secret filenames are uppercased in environment."""
+        """Secret filenames are uppercased in PID 1's environment."""
         secret_file = tmp_path / "my_token"
         secret_file.write_text("token-123")
 
@@ -239,9 +254,5 @@ class TestSecretInjection:
             health_url=f"http://localhost:{port}/ping",
             timeout=30,
         )
-        result = subprocess.run(
-            ["docker", "exec", "test-secret-upper", "env"],
-            capture_output=True,
-            text=True,
-        )
-        assert "MY_TOKEN=token-123" in result.stdout
+        env_output = self._pid1_env("test-secret-upper")
+        assert "MY_TOKEN=token-123" in env_output
