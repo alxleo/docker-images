@@ -500,6 +500,11 @@ jobs:
         env:
           IMAGE_NAME: ${{ matrix.name }}
         run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080
+      - name: Dump smoke logs on failure
+        if: failure()
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: docker logs "${IMAGE_NAME}" 2>&1 | tail -100
       - name: Cleanup smoke container
         if: always()
         env:

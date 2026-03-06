@@ -10,12 +10,11 @@ Requires Docker. CI runs these in the mcp-smoke-test job.
 
 import os
 import subprocess
-import time
 
 import pytest
 import requests
 
-from conftest import _wait_for_url, extract_json_from_sse
+from conftest import extract_json_from_sse
 
 
 MCP_IMAGE = os.environ.get("TEST_MCP_IMAGE", "test-mcp-hackernews:latest")
@@ -70,6 +69,7 @@ def _mcp_tools_list(port: int) -> list[str]:
     )
     init_result = extract_json_from_sse(resp.text)
     assert init_result is not None, "Initialize failed"
+    assert "error" not in init_result, f"Initialize error: {init_result['error']}"
     session_id = resp.headers.get("mcp-session-id")
 
     # Send initialized notification
@@ -93,6 +93,7 @@ def _mcp_tools_list(port: int) -> list[str]:
     )
     result = extract_json_from_sse(resp.text)
     assert result is not None, "tools/list failed"
+    assert "error" not in result, f"tools/list returned error: {result['error']}"
     tools = result.get("result", {}).get("tools", [])
     return [t["name"] for t in tools]
 
