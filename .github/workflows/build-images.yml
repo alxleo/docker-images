@@ -514,6 +514,8 @@ jobs:
           python-version: "3.12"
       - name: Install test dependencies
         run: pip install --quiet -r test/requirements.txt
+      - name: Unit tests (no Docker)
+        run: python -m pytest test/test_manifests.py test/test_entrypoint.py -v
       - name: Validate MCP E2E Caddyfile
         run: |
           docker run --rm -v "${{ github.workspace }}/test:/test" \

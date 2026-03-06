@@ -62,6 +62,9 @@ def build_filter_args() -> list[str]:
     return cmd
 
 
+BIN_NAME_FILE = Path("/usr/local/share/mcp-bin-name")
+
+
 def get_server_command() -> str:
     """
     Determine the MCP server command from environment variables.
@@ -85,14 +88,14 @@ def get_server_command() -> str:
 
     # npm-based MCP (globally installed at build time)
     if package_name := os.getenv("MCP_PACKAGE_NAME"):
-        bin_name_file = Path("/usr/local/share/mcp-bin-name")
-        if bin_name_file.exists():
-            return bin_name_file.read_text().strip()
+        if BIN_NAME_FILE.exists():
+            return BIN_NAME_FILE.read_text().strip()
         # Fallback: derive bin name by stripping version and scope
         name = package_name.rsplit("@", 1)[0] if "@" in package_name and not package_name.startswith("@") else package_name
         if name.startswith("@"):
-            # Scoped: @org/pkg@ver → strip version, then take pkg part
-            name = name.rsplit("@", 1)[0]
+            # Scoped: @org/pkg@ver → strip version (if present), then take pkg part
+            if name.count("@") > 1:
+                name = name.rsplit("@", 1)[0]
             name = name.split("/", 1)[1]
         return name
 
