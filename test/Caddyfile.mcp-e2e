@@ -24,6 +24,32 @@
 }
 
 :80 {
+	# CORS headers for browser-based MCP clients
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE"
+		Access-Control-Allow-Headers "Content-Type, Accept, Authorization, Mcp-Session-Id"
+		Access-Control-Expose-Headers "Mcp-Session-Id"
+	}
+
+	# Chrome Private Network Access (PNA) preflight
+	@pna_preflight {
+		method OPTIONS
+		header Access-Control-Request-Private-Network true
+	}
+	handle @pna_preflight {
+		header Access-Control-Allow-Private-Network "true"
+		respond "" 204
+	}
+
+	# Accept header fix for MCP SDK quirk
+	@mcp_post {
+		method POST
+		not header Accept application/json*
+		not header Accept text/event-stream*
+	}
+	header @mcp_post Accept "application/json, text/event-stream"
+
 	handle /health {
 		respond "OK" 200
 	}
