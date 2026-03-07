@@ -151,7 +151,7 @@ jobs:
             ghcr.io/alxleo/caddy-cloudflare:2.11
             ghcr.io/alxleo/caddy-cloudflare:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/caddy-cloudflare:2.11
           exit-code: '1'
@@ -213,7 +213,7 @@ jobs:
             ghcr.io/alxleo/cadvisor:v0.56.2
             ghcr.io/alxleo/cadvisor:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/cadvisor:v0.56.2
           exit-code: '1'
@@ -262,7 +262,7 @@ jobs:
             ghcr.io/alxleo/mcp-git:2.8.4
             ghcr.io/alxleo/mcp-git:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/mcp-git:2.8.4
           exit-code: '1'
@@ -311,7 +311,7 @@ jobs:
             ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
             ghcr.io/alxleo/mcp-auth-proxy:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
           exit-code: '1'
@@ -360,7 +360,7 @@ jobs:
             ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
             ghcr.io/alxleo/pr-reviewer:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
           exit-code: '1'
@@ -437,7 +437,7 @@ jobs:
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
           exit-code: '1'
