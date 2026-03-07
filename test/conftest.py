@@ -106,7 +106,8 @@ def run_container():
 
     Yields a factory function:
         info = start(image, name, env=None, ports=None, volumes=None,
-                     cmd=None, health_url=None, timeout=30)
+                     cmd=None, health_url=None, health_port=None,
+                     health_any_response=False, timeout=30)
 
     info dict: {"name": str, "id": str}
     Cleanup (docker rm -f) runs regardless of test outcome.

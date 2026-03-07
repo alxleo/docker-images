@@ -15,7 +15,7 @@ import subprocess
 import pytest
 import requests
 
-from conftest import _wait_for_url, extract_json_from_sse
+from conftest import extract_json_from_sse
 
 
 def _get_image_tag(env_var: str, default: str) -> str:
@@ -203,19 +203,20 @@ class TestMCPAuthProxy:
 class TestMCPImageMetadata:
     """Validate MCP image metadata (EXPOSE, labels)."""
 
+    IMAGE = os.environ.get("TEST_MCP_IMAGE", "test-mcp-hackernews:latest")
+
     def test_mcp_image_exposes_8080(self):
         """MCP canary image exposes port 8080."""
         result = subprocess.run(
             [
                 "docker", "inspect",
                 "--format", "{{json .Config.ExposedPorts}}",
-                "ghcr.io/alxleo/mcp-hackernews:latest",
+                self.IMAGE,
             ],
             capture_output=True,
             text=True,
         )
-        # Image may not be available locally; skip if inspect fails
         if result.returncode != 0:
-            pytest.skip("MCP canary image not available locally")
+            pytest.skip(f"Image {self.IMAGE} not available locally")
         ports = json.loads(result.stdout)
         assert "8080/tcp" in ports, f"Port 8080 not exposed: {ports}"
