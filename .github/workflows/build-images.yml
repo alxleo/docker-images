@@ -171,6 +171,11 @@ jobs:
           docker compose -f docker-compose.test.yml up -d --build --wait
           bash test-caddy-routing.sh
           docker compose -f docker-compose.test.yml down
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+      - name: Functional tests
+        env:
+          TEST_CADDY_CLOUDFLARE_TAG: ghcr.io/alxleo/caddy-cloudflare:2.11
+        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m caddy_cloudflare -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -215,6 +220,11 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+      - name: Functional tests
+        env:
+          TEST_CADVISOR_TAG: ghcr.io/alxleo/cadvisor:v0.56.2
+        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m cadvisor -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -259,6 +269,11 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+      - name: Functional tests
+        env:
+          TEST_GIT_MCP_TAG: ghcr.io/alxleo/mcp-git:2.8.4
+        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m git_mcp_server -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -303,6 +318,11 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+      - name: Functional tests
+        env:
+          TEST_MCP_AUTH_PROXY_TAG: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m mcp_auth_proxy -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -355,10 +375,9 @@ jobs:
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
             python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Unit tests
-        run: |
-          pip install --quiet pytest pyyaml
-          python3 -m pytest pr-reviewer/tests/ -v
+        run: uv run --with pytest --with pyyaml -- python -m pytest pr-reviewer/tests/ -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
@@ -480,16 +499,30 @@ jobs:
         env:
           IMAGE_NAME: ${{ matrix.name }}
         run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080
-      - name: Dump logs on failure
+      - name: Dump smoke logs on failure
         if: failure()
         env:
           IMAGE_NAME: ${{ matrix.name }}
-        run: docker logs "${IMAGE_NAME}"
-      - name: Cleanup
+        run: docker logs "${IMAGE_NAME}" 2>&1 | tail -100
+      - name: Cleanup smoke container
         if: always()
         env:
           IMAGE_NAME: ${{ matrix.name }}
         run: docker rm -f "${IMAGE_NAME}" || true
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        if: matrix.name == 'mcp-hackernews'
+      - name: Tool filtering + secret tests
+        if: matrix.name == 'mcp-hackernews'
+        env:
+          TEST_MCP_IMAGE: test-${{ matrix.name }}:latest
+        run: uv run --with pytest --with requests -- python -m pytest test/test_tool_filtering.py -v --tb=short
+      - name: Dump remaining container logs on failure
+        if: failure()
+        run: |
+          for c in $(docker ps -aq --filter "name=test-"); do
+            echo "=== $(docker inspect --format '{{.Name}}' "$c") ==="
+            docker logs "$c" 2>&1 | tail -50
+          done
 
   # E2E stack test: full Caddy → mcp-proxy → MCP server contract validation
   # Spins up Caddy + both canaries (npm: hackernews, Python: arxiv).
@@ -509,20 +542,16 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5
-        with:
-          python-version: "3.12"
-      - name: Install test dependencies
-        run: pip install --quiet -r test/requirements.txt
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Unit tests (no Docker)
-        run: python -m pytest test/test_manifests.py test/test_entrypoint.py -v
+        run: uv run --with pytest --with pyyaml --with requests -- python -m pytest test/test_manifests.py test/test_entrypoint.py -v
       - name: Validate MCP E2E Caddyfile
         run: |
           docker run --rm -v "${{ github.workspace }}/test:/test" \
             caddy:2.11 \
             caddy validate --config /test/Caddyfile.mcp-e2e --adapter caddyfile
       - name: Run E2E stack tests
-        run: python -m pytest test/test_mcp_stack.py -v --tb=short
+        run: uv run --with pytest --with pyyaml --with requests -- python -m pytest test/test_mcp_stack.py -v --tb=short
       - name: Dump logs on failure
         if: failure()
         run: |

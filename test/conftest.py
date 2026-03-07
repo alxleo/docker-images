@@ -27,17 +27,33 @@ _MCP_DEFAULTS = json.loads((_REPO_ROOT / "mcp-defaults.json").read_text())
 HEALTH_PATH = _MCP_DEFAULTS["health_path"]
 
 
-def _wait_for_url(url: str, timeout: int = 60, verify_ssl: bool = True) -> bool:
-    """Poll a URL until it returns 200 or timeout expires."""
+def _wait_for_url(
+    url: str, timeout: int = 60, verify_ssl: bool = True, any_response: bool = False
+) -> bool:
+    """Poll a URL until it returns 200 (or any response) or timeout expires."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
             r = requests.get(url, timeout=5, verify=verify_ssl)
-            if r.status_code == 200:
+            if any_response or r.status_code == 200:
                 return True
         except requests.RequestException:
             pass
         time.sleep(1)
+    return False
+
+
+def _wait_for_port(host: str, port: int, timeout: int = 30) -> bool:
+    """Poll a TCP port until it accepts connections or timeout expires."""
+    import socket
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=2):
+                return True
+        except OSError:
+            time.sleep(1)
     return False
 
 
@@ -82,6 +98,73 @@ def stack(tmp_path_factory):
 
     # Teardown
     compose("down", "-v")
+
+
+@pytest.fixture
+def run_container():
+    """Start a Docker container and clean up on teardown.
+
+    Yields a factory function:
+        info = start(image, name, env=None, ports=None, volumes=None,
+                     cmd=None, health_url=None, health_port=None,
+                     health_any_response=False, timeout=30)
+
+    info dict: {"name": str, "id": str}
+    Cleanup (docker rm -f) runs regardless of test outcome.
+    """
+    containers = []
+
+    def start(
+        image: str,
+        name: str,
+        *,
+        env: dict[str, str] | None = None,
+        ports: dict[str, str] | None = None,
+        volumes: list[str] | None = None,
+        cmd: list[str] | None = None,
+        health_url: str | None = None,
+        health_port: int | None = None,
+        health_any_response: bool = False,
+        timeout: int = 30,
+    ) -> dict:
+        docker_cmd = ["docker", "run", "-d", "--name", name]
+        for k, v in (env or {}).items():
+            docker_cmd.extend(["-e", f"{k}={v}"])
+        for host_port, container_port in (ports or {}).items():
+            docker_cmd.extend(["-p", f"{host_port}:{container_port}"])
+        for vol in volumes or []:
+            docker_cmd.extend(["-v", vol])
+        docker_cmd.append(image)
+        if cmd:
+            docker_cmd.extend(cmd)
+
+        result = subprocess.run(docker_cmd, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            f"docker run failed: {result.stderr}"
+        )
+        container_id = result.stdout.strip()
+        containers.append(name)
+
+        if health_url:
+            assert _wait_for_url(
+                health_url, timeout=timeout, any_response=health_any_response
+            ), (
+                f"Container {name} never became healthy at {health_url}"
+            )
+        elif health_port:
+            assert _wait_for_port("localhost", health_port, timeout=timeout), (
+                f"Container {name} port {health_port} never became ready"
+            )
+
+        return {"name": name, "id": container_id}
+
+    yield start
+
+    for name in containers:
+        subprocess.run(
+            ["docker", "rm", "-f", name],
+            capture_output=True,
+        )
 
 
 def extract_json_from_sse(text: str) -> dict | None:

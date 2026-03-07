@@ -215,3 +215,81 @@ class TestRouting:
         r = requests.get(f"{stack['https_base']}/health", timeout=5, verify=False)
         assert r.status_code == 200
         assert r.text == "OK"
+
+    def test_service_discovery_schema(self, stack):
+        """Service discovery JSON has correct structure: services map to paths."""
+        r = requests.get(
+            f"{stack['http_base']}/.well-known/mcp.json", timeout=5
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert "services" in data, "Missing 'services' key"
+        for name, path in data["services"].items():
+            assert path.startswith("/"), (
+                f"Service '{name}' path must start with /: {path}"
+            )
+
+
+# =========================================================================
+# Caddyfile patterns — CORS, PNA, Accept header
+# =========================================================================
+
+
+class TestCaddyfilePatterns:
+    """Validate CORS, PNA preflight, and Accept header fix patterns.
+
+    These patterns come from examples/Caddyfile.mcp-routing and are
+    tested here through the E2E stack to ensure they work end-to-end.
+    """
+
+    def test_cors_allow_origin(self, stack):
+        """CORS Access-Control-Allow-Origin header is set."""
+        r = requests.get(f"{stack['http_base']}/health", timeout=5)
+        assert r.headers.get("Access-Control-Allow-Origin") == "*"
+
+    def test_cors_expose_session_header(self, stack):
+        """CORS exposes Mcp-Session-Id for browser-based clients."""
+        r = requests.get(f"{stack['http_base']}/health", timeout=5)
+        expose = r.headers.get("Access-Control-Expose-Headers", "")
+        assert "Mcp-Session-Id" in expose
+
+    def test_pna_preflight(self, stack):
+        """PNA preflight returns 204 with Allow-Private-Network header."""
+        r = requests.options(
+            f"{stack['http_base']}/hackernews/mcp",
+            headers={"Access-Control-Request-Private-Network": "true"},
+            timeout=5,
+        )
+        assert r.status_code == 204
+        assert r.headers.get("Access-Control-Allow-Private-Network") == "true"
+
+    def test_pna_normal_options(self, stack):
+        """Regular OPTIONS without PNA header does NOT get PNA response."""
+        r = requests.options(
+            f"{stack['http_base']}/hackernews/mcp",
+            timeout=5,
+        )
+        # Should not have the PNA allow header
+        assert "Access-Control-Allow-Private-Network" not in r.headers
+
+    def test_accept_header_fix(self, stack):
+        """POST with Accept: */* still gets a valid MCP response."""
+        r = requests.post(
+            f"{stack['http_base']}/hackernews/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 99,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "accept-fix-test", "version": "1.0"},
+                },
+            },
+            headers={"Accept": "*/*"},
+            timeout=10,
+        )
+        result = extract_json_from_sse(r.text)
+        assert result is not None, "No valid response with Accept: */*"
+        assert "error" not in result, f"Accept: */* caused error: {result['error']}"
+        assert "result" in result, f"No 'result' key in response: {result}"

@@ -194,33 +194,27 @@ class TestMain:
         (secrets_dir / "api_key").write_text("my-secret-value\n")
         (secrets_dir / "other_token").write_text("  token-123  ")
 
-        monkeypatch.setattr(entrypoint, "build_mcp_command", lambda: ["echo"])
+        monkeypatch.setenv("MCP_SERVER_COMMAND", "echo")
         monkeypatch.setenv("MCP_STARTUP_JITTER", "0")
 
-        # Patch the secrets dir path and prevent os.execvp
-        with patch.object(entrypoint, "main") as mock_main:
-            # Manually run the secrets loading logic
-            original_secrets_dir = entrypoint.Path("/run/secrets")
-            monkeypatch.setattr(
-                entrypoint, "Path",
-                lambda p: tmp_path / "secrets" if p == "/run/secrets" else Path(p),
-            )
+        # Redirect /run/secrets to our temp dir so main() reads our files
+        original_path = entrypoint.Path
+        monkeypatch.setattr(
+            entrypoint, "Path",
+            lambda p: secrets_dir if p == "/run/secrets" else original_path(p),
+        )
 
-            # Run secrets loading directly
-            secrets_path = tmp_path / "secrets"
-            if secrets_path.is_dir():
-                for secret_file in secrets_path.iterdir():
-                    if secret_file.is_file():
-                        os.environ[secret_file.name.upper()] = (
-                            secret_file.read_text().strip()
-                        )
+        # Call actual main(), but prevent os.execvp from replacing the process
+        with patch("os.execvp", side_effect=SystemExit(0)):
+            with pytest.raises(SystemExit):
+                entrypoint.main()
 
-            assert os.environ.get("API_KEY") == "my-secret-value"
-            assert os.environ.get("OTHER_TOKEN") == "token-123"
+        assert os.environ.get("API_KEY") == "my-secret-value"
+        assert os.environ.get("OTHER_TOKEN") == "token-123"
 
-            # Cleanup
-            del os.environ["API_KEY"]
-            del os.environ["OTHER_TOKEN"]
+        # Cleanup to avoid leaking env vars to other tests
+        del os.environ["API_KEY"]
+        del os.environ["OTHER_TOKEN"]
 
     def test_secrets_missing_dir(self, monkeypatch):
         """No /run/secrets dir should not crash."""
