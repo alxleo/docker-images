@@ -174,7 +174,7 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         run: |
-          uv pip install --system -r test/requirements.txt
+          uv pip install --system --break-system-packages -r test/requirements.txt
           TEST_CADDY_CLOUDFLARE_TAG=ghcr.io/alxleo/caddy-cloudflare:2.11 \
             python -m pytest test/test_custom_images.py -m caddy_cloudflare -v
       - name: Push to GHCR
@@ -224,7 +224,7 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         run: |
-          uv pip install --system -r test/requirements.txt
+          uv pip install --system --break-system-packages -r test/requirements.txt
           TEST_CADVISOR_TAG=ghcr.io/alxleo/cadvisor:v0.56.2 \
             python -m pytest test/test_custom_images.py -m cadvisor -v
       - name: Push to GHCR
@@ -274,7 +274,7 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         run: |
-          uv pip install --system -r test/requirements.txt
+          uv pip install --system --break-system-packages -r test/requirements.txt
           TEST_GIT_MCP_TAG=ghcr.io/alxleo/mcp-git:2.8.4 \
             python -m pytest test/test_custom_images.py -m git_mcp_server -v
       - name: Push to GHCR
@@ -324,7 +324,7 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         run: |
-          uv pip install --system -r test/requirements.txt
+          uv pip install --system --break-system-packages -r test/requirements.txt
           TEST_MCP_AUTH_PROXY_TAG=ghcr.io/alxleo/mcp-auth-proxy:v2.5.3 \
             python -m pytest test/test_custom_images.py -m mcp_auth_proxy -v
       - name: Push to GHCR
@@ -382,7 +382,7 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Unit tests
         run: |
-          uv pip install --system pytest pyyaml
+          uv pip install --system --break-system-packages pytest pyyaml
           python3 -m pytest pr-reviewer/tests/ -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
@@ -522,7 +522,7 @@ jobs:
         env:
           TEST_MCP_IMAGE: test-${{ matrix.name }}:latest
         run: |
-          uv pip install --system -r test/requirements.txt
+          uv pip install --system --break-system-packages -r test/requirements.txt
           python -m pytest test/test_tool_filtering.py -v --tb=short
       - name: Dump remaining container logs on failure
         if: failure()
@@ -552,7 +552,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Install test dependencies
-        run: uv pip install --system -r test/requirements.txt
+        run: uv pip install --system --break-system-packages -r test/requirements.txt
       - name: Unit tests (no Docker)
         run: python -m pytest test/test_manifests.py test/test_entrypoint.py -v
       - name: Validate MCP E2E Caddyfile
