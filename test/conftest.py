@@ -27,13 +27,15 @@ _MCP_DEFAULTS = json.loads((_REPO_ROOT / "mcp-defaults.json").read_text())
 HEALTH_PATH = _MCP_DEFAULTS["health_path"]
 
 
-def _wait_for_url(url: str, timeout: int = 60, verify_ssl: bool = True) -> bool:
-    """Poll a URL until it returns 200 or timeout expires."""
+def _wait_for_url(
+    url: str, timeout: int = 60, verify_ssl: bool = True, any_response: bool = False
+) -> bool:
+    """Poll a URL until it returns 200 (or any response) or timeout expires."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
             r = requests.get(url, timeout=5, verify=verify_ssl)
-            if r.status_code == 200:
+            if any_response or r.status_code == 200:
                 return True
         except requests.RequestException:
             pass
@@ -121,6 +123,7 @@ def run_container():
         cmd: list[str] | None = None,
         health_url: str | None = None,
         health_port: int | None = None,
+        health_any_response: bool = False,
         timeout: int = 30,
     ) -> dict:
         docker_cmd = ["docker", "run", "-d", "--name", name]
@@ -142,7 +145,9 @@ def run_container():
         containers.append(name)
 
         if health_url:
-            assert _wait_for_url(health_url, timeout=timeout), (
+            assert _wait_for_url(
+                health_url, timeout=timeout, any_response=health_any_response
+            ), (
                 f"Container {name} never became healthy at {health_url}"
             )
         elif health_port:

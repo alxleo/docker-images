@@ -111,14 +111,16 @@ class TestGitMCPServer:
     )
 
     def test_git_mcp_starts(self, run_container):
-        """git-mcp-server starts with GIT_BASE_DIR and accepts connections."""
-        # git-mcp-server uses native HTTP transport (no mcp-proxy), so no /ping
+        """git-mcp-server starts with GIT_BASE_DIR and accepts HTTP."""
+        # git-mcp-server uses native HTTP transport (no mcp-proxy), so no /ping.
+        # Poll /mcp with GET — any response (even 405) means HTTP is ready.
         run_container(
             self.IMAGE,
             "test-git-mcp",
             env={"GIT_BASE_DIR": "/data"},
             ports={"18082": "8080"},
-            health_port=18082,
+            health_url="http://localhost:18082/mcp",
+            health_any_response=True,
             timeout=30,
         )
 
@@ -129,7 +131,8 @@ class TestGitMCPServer:
             "test-git-mcp-init",
             env={"GIT_BASE_DIR": "/data"},
             ports={"18083": "8080"},
-            health_port=18083,
+            health_url="http://localhost:18083/mcp",
+            health_any_response=True,
             timeout=30,
         )
         resp = requests.post(
