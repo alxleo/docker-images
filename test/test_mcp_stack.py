@@ -291,4 +291,5 @@ class TestCaddyfilePatterns:
         )
         result = extract_json_from_sse(r.text)
         assert result is not None, "No valid response with Accept: */*"
-        assert "result" in result or "error" not in result
+        assert "error" not in result, f"Accept: */* caused error: {result['error']}"
+        assert "result" in result, f"No 'result' key in response: {result}"
