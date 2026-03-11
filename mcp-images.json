@@ -9,24 +9,24 @@
   {
     "name": "mcp-reddit",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=reddit-mcp-server@1.3.2",
-    "tag": "1.3.2",
+    "build_args": "MCP_PACKAGE=reddit-mcp-server@1.4.3",
+    "tag": "1.4.3",
     "description": "Reddit posts, comments, and subreddit browsing",
     "secrets": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
   },
   {
     "name": "mcp-brave",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=brave-search-mcp@2.0.1",
-    "tag": "2.0.1",
-    "description": "Web search via Brave Search API",
+    "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.0.72",
+    "tag": "2.0.72",
+    "description": "Web search via Brave Search API (official)",
     "secrets": ["BRAVE_API_KEY"]
   },
   {
     "name": "mcp-slack",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=slack-mcp-server@1.2.2",
-    "tag": "1.2.2",
+    "build_args": "MCP_PACKAGE=slack-mcp-server@1.2.3",
+    "tag": "1.2.3",
     "description": "Slack channel messages and search",
     "secrets": ["SLACK_MCP_XOXP_TOKEN"]
   },
@@ -41,8 +41,8 @@
   {
     "name": "mcp-context7",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@2.1.1",
-    "tag": "2.1.1",
+    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@2.1.4",
+    "tag": "2.1.4",
     "description": "Library documentation lookup with version awareness",
     "secrets": ["CONTEXT7_API_KEY"]
   },
@@ -56,8 +56,8 @@
   {
     "name": "mcp-firecrawl",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.9.0",
-    "tag": "3.9.0",
+    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.10.3",
+    "tag": "3.10.3",
     "description": "Web scraping and crawling with JS rendering",
     "secrets": ["FIRECRAWL_API_KEY"]
   },
@@ -88,8 +88,8 @@
   {
     "name": "mcp-youtube",
     "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.9\nMCP_ENTRYPOINT=mcp-youtube-transcript",
-    "tag": "0.5.9",
+    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.11\nMCP_ENTRYPOINT=mcp-youtube-transcript",
+    "tag": "0.5.11",
     "description": "YouTube transcript and video metadata extraction"
   },
   {
@@ -102,10 +102,18 @@
   {
     "name": "mcp-zen",
     "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@7afc7c1cc96e23992c8f105f960132c657883bb1\nMCP_ENTRYPOINT=pal-mcp-server",
-    "tag": "7afc7c1",
+    "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@v9.8.2\nMCP_ENTRYPOINT=pal-mcp-server",
+    "tag": "9.8.2",
     "description": "Multi-model AI orchestrator (Gemini, OpenAI)",
     "secrets": ["GOOGLE_API_KEY", "OPENAI_API_KEY"]
+  },
+  {
+    "name": "mcp-exa",
+    "dockerfile": "Dockerfile.npm",
+    "build_args": "MCP_PACKAGE=exa-mcp-server@3.1.9",
+    "tag": "3.1.9",
+    "description": "Semantic web search, code search, and company research",
+    "secrets": ["EXA_API_KEY"]
   },
   {
     "name": "mcp-karakeep",
