@@ -542,3 +542,25 @@ class TestGitHubAppAuth:
         with patch.object(auth, "_refresh"):  # _refresh does nothing → token stays None
             with pytest.raises(RuntimeError, match="Failed to obtain"):
                 auth.get_token()
+
+    def test_refresh_passes_string_iss_to_jwt(self):
+        """PyJWT 2.x requires iss to be a string — regression guard."""
+        import sys
+        import types
+
+        mock_jwt = types.ModuleType("jwt")
+        mock_jwt.encode = MagicMock(return_value="fake-jwt")
+        sys.modules["jwt"] = mock_jwt
+        try:
+            auth = w.GitHubAppAuth(123, 456, "fake-key")
+            with patch("urllib.request.urlopen") as mock_urlopen:
+                mock_resp = mock_urlopen.return_value.__enter__.return_value
+                mock_resp.read.return_value = json.dumps(
+                    {"token": "inst-tok", "expires_at": "2099-01-01T00:00:00Z"}
+                ).encode()
+                auth._refresh()
+                payload = mock_jwt.encode.call_args[0][0]
+                assert isinstance(payload["iss"], str)
+                assert payload["iss"] == "123"
+        finally:
+            del sys.modules["jwt"]
