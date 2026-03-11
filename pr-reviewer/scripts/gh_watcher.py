@@ -69,7 +69,7 @@ class GitHubAppAuth:
         import jwt  # PyJWT
 
         now = int(time.time())
-        payload = {"iss": self.app_id, "iat": now - 60, "exp": now + 600}
+        payload = {"iss": str(self.app_id), "iat": now - 60, "exp": now + 600}
         jwt_token = jwt.encode(payload, self.private_key, algorithm="RS256")
 
         url = f"https://api.github.com/app/installations/{self.installation_id}/access_tokens"
