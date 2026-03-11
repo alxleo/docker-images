@@ -1,0 +1,22 @@
+[
+  {
+    "name": "caddy-cloudflare",
+    "context": "caddy-cloudflare",
+    "tag": "2.11"
+  },
+  {
+    "name": "cadvisor",
+    "context": "cadvisor",
+    "tag": "v0.56.2"
+  },
+  {
+    "name": "mcp-git",
+    "context": "git-mcp-server",
+    "tag": "2.10.3"
+  },
+  {
+    "name": "mcp-auth-proxy",
+    "context": "mcp-auth-proxy",
+    "tag": "v2.5.3"
+  }
+]

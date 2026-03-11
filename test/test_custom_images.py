@@ -18,9 +18,17 @@ import requests
 from conftest import extract_json_from_sse
 
 
-def _get_image_tag(env_var: str, default: str) -> str:
-    """Get image tag from env var or fall back to default."""
-    return os.environ.get(env_var, default)
+REGISTRY = "ghcr.io/alxleo"
+
+# Load custom image tags from manifest (single source of truth)
+_manifest_path = os.path.join(os.path.dirname(__file__), "..", "custom-images.json")
+with open(_manifest_path) as _f:
+    _CUSTOM_TAGS = {img["name"]: img["tag"] for img in json.load(_f)}
+
+
+def _get_image_tag(env_var: str, image_name: str) -> str:
+    """Get image tag from env var or fall back to custom-images.json."""
+    return os.environ.get(env_var, f"{REGISTRY}/{image_name}:{_CUSTOM_TAGS[image_name]}")
 
 
 # =========================================================================
@@ -32,9 +40,7 @@ def _get_image_tag(env_var: str, default: str) -> str:
 class TestCaddyCloudflare:
     """Validate Caddy + Cloudflare DNS plugin is correctly built."""
 
-    IMAGE = _get_image_tag(
-        "TEST_CADDY_CLOUDFLARE_TAG", "ghcr.io/alxleo/caddy-cloudflare:2.11"
-    )
+    IMAGE = _get_image_tag("TEST_CADDY_CLOUDFLARE_TAG", "caddy-cloudflare")
 
     def test_cloudflare_module_loaded(self):
         """The Cloudflare DNS provider module must be compiled in."""
@@ -66,9 +72,7 @@ class TestCaddyCloudflare:
 class TestCadvisor:
     """Validate cAdvisor starts and serves metrics API."""
 
-    IMAGE = _get_image_tag(
-        "TEST_CADVISOR_TAG", "ghcr.io/alxleo/cadvisor:v0.56.2"
-    )
+    IMAGE = _get_image_tag("TEST_CADVISOR_TAG", "cadvisor")
 
     def test_cadvisor_starts(self, run_container):
         """cAdvisor container starts and becomes healthy."""
@@ -106,9 +110,7 @@ class TestCadvisor:
 class TestGitMCPServer:
     """Validate git-mcp-server starts and speaks MCP protocol."""
 
-    IMAGE = _get_image_tag(
-        "TEST_GIT_MCP_TAG", "ghcr.io/alxleo/mcp-git:2.10.3"
-    )
+    IMAGE = _get_image_tag("TEST_GIT_MCP_TAG", "mcp-git")
 
     def test_git_mcp_starts(self, run_container):
         """git-mcp-server starts with GIT_BASE_DIR and accepts HTTP."""
@@ -166,9 +168,7 @@ class TestGitMCPServer:
 class TestMCPAuthProxy:
     """Validate mcp-auth-proxy has the VARCHAR fix applied."""
 
-    IMAGE = _get_image_tag(
-        "TEST_MCP_AUTH_PROXY_TAG", "ghcr.io/alxleo/mcp-auth-proxy:v2.5.3"
-    )
+    IMAGE = _get_image_tag("TEST_MCP_AUTH_PROXY_TAG", "mcp-auth-proxy")
 
     def test_varchar_patch_applied(self):
         """The size:512 patch is present in the compiled binary.
