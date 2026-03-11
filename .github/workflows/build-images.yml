@@ -45,6 +45,7 @@ on:
       - 'pr-reviewer/**'
       - 'mcp/**'
       - 'mcp-images.json'
+      - 'custom-images.json'
       - 'test/**'
   pull_request:
     paths:
@@ -55,6 +56,7 @@ on:
       - 'pr-reviewer/**'
       - 'mcp/**'
       - 'mcp-images.json'
+      - 'custom-images.json'
       - 'images.json'
       - 'test/**'
       - '.github/workflows/build-images.yml'
@@ -84,7 +86,7 @@ jobs:
       pr-reviewer: ${{ steps.filter.outputs.pr-reviewer }}
       mcp: ${{ steps.filter.outputs.mcp }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
@@ -93,13 +95,17 @@ jobs:
           filters: |
             caddy-cloudflare:
               - 'caddy-cloudflare/**'
+              - 'custom-images.json'
               - 'test/**'
             cadvisor:
               - 'cadvisor/**'
+              - 'custom-images.json'
             git-mcp-server:
               - 'git-mcp-server/**'
+              - 'custom-images.json'
             mcp-auth-proxy:
               - 'mcp-auth-proxy/**'
+              - 'custom-images.json'
             pr-reviewer:
               - 'pr-reviewer/**'
             mcp:
@@ -112,7 +118,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -132,28 +138,33 @@ jobs:
       contents: read   # checkout
       packages: write  # push to GHCR
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - name: Read image tag from manifest
+        run: |
+          TAG=$(jq -r '.[] | select(.name == "caddy-cloudflare") | .tag' custom-images.json)
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=ghcr.io/alxleo/caddy-cloudflare:${TAG}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: caddy-cloudflare
           platforms: linux/amd64
           push: false
           load: true
           tags: |
-            ghcr.io/alxleo/caddy-cloudflare:2.11
+            ${{ env.IMAGE_REF }}
             ghcr.io/alxleo/caddy-cloudflare:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
-          image-ref: ghcr.io/alxleo/caddy-cloudflare:2.11
+          image-ref: ${{ env.IMAGE_REF }}
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
@@ -163,7 +174,7 @@ jobs:
           WORKSPACE: ${{ github.workspace }}
         run: |
           docker run --rm -v "${WORKSPACE}/test:/test" \
-            ghcr.io/alxleo/caddy-cloudflare:2.11 \
+            "${IMAGE_REF}" \
             caddy validate --config /test/Caddyfile.test --adapter caddyfile
       - name: Run Caddy routing E2E tests
         run: |
@@ -174,12 +185,12 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         env:
-          TEST_CADDY_CLOUDFLARE_TAG: ghcr.io/alxleo/caddy-cloudflare:2.11
+          TEST_CADDY_CLOUDFLARE_TAG: ${{ env.IMAGE_REF }}
         run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m caddy_cloudflare -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker push ghcr.io/alxleo/caddy-cloudflare:2.11
+          docker push "${IMAGE_REF}"
           docker push ghcr.io/alxleo/caddy-cloudflare:latest
 
   cadvisor:
@@ -194,28 +205,33 @@ jobs:
       contents: read   # checkout
       packages: write  # push to GHCR
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - name: Read image tag from manifest
+        run: |
+          TAG=$(jq -r '.[] | select(.name == "cadvisor") | .tag' custom-images.json)
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=ghcr.io/alxleo/cadvisor:${TAG}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: cadvisor
           platforms: linux/amd64
           push: false
           load: true
           tags: |
-            ghcr.io/alxleo/cadvisor:v0.56.2
+            ${{ env.IMAGE_REF }}
             ghcr.io/alxleo/cadvisor:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
-          image-ref: ghcr.io/alxleo/cadvisor:v0.56.2
+          image-ref: ${{ env.IMAGE_REF }}
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
@@ -223,12 +239,12 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         env:
-          TEST_CADVISOR_TAG: ghcr.io/alxleo/cadvisor:v0.56.2
+          TEST_CADVISOR_TAG: ${{ env.IMAGE_REF }}
         run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m cadvisor -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker push ghcr.io/alxleo/cadvisor:v0.56.2
+          docker push "${IMAGE_REF}"
           docker push ghcr.io/alxleo/cadvisor:latest
 
   git-mcp-server:
@@ -243,28 +259,33 @@ jobs:
       contents: read   # checkout
       packages: write  # push to GHCR
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - name: Read image tag from manifest
+        run: |
+          TAG=$(jq -r '.[] | select(.name == "mcp-git") | .tag' custom-images.json)
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=ghcr.io/alxleo/mcp-git:${TAG}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: git-mcp-server
           platforms: linux/amd64
           push: false
           load: true
           tags: |
-            ghcr.io/alxleo/mcp-git:2.8.4
+            ${{ env.IMAGE_REF }}
             ghcr.io/alxleo/mcp-git:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
-          image-ref: ghcr.io/alxleo/mcp-git:2.8.4
+          image-ref: ${{ env.IMAGE_REF }}
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
@@ -272,12 +293,12 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         env:
-          TEST_GIT_MCP_TAG: ghcr.io/alxleo/mcp-git:2.8.4
+          TEST_GIT_MCP_TAG: ${{ env.IMAGE_REF }}
         run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m git_mcp_server -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker push ghcr.io/alxleo/mcp-git:2.8.4
+          docker push "${IMAGE_REF}"
           docker push ghcr.io/alxleo/mcp-git:latest
 
   mcp-auth-proxy:
@@ -292,28 +313,33 @@ jobs:
       contents: read   # checkout
       packages: write  # push to GHCR
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - name: Read image tag from manifest
+        run: |
+          TAG=$(jq -r '.[] | select(.name == "mcp-auth-proxy") | .tag' custom-images.json)
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=ghcr.io/alxleo/mcp-auth-proxy:${TAG}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: mcp-auth-proxy
           platforms: linux/amd64
           push: false
           load: true
           tags: |
-            ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+            ${{ env.IMAGE_REF }}
             ghcr.io/alxleo/mcp-auth-proxy:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
-          image-ref: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+          image-ref: ${{ env.IMAGE_REF }}
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
@@ -321,12 +347,12 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         env:
-          TEST_MCP_AUTH_PROXY_TAG: ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+          TEST_MCP_AUTH_PROXY_TAG: ${{ env.IMAGE_REF }}
         run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m mcp_auth_proxy -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker push ghcr.io/alxleo/mcp-auth-proxy:v2.5.3
+          docker push "${IMAGE_REF}"
           docker push ghcr.io/alxleo/mcp-auth-proxy:latest
 
   pr-reviewer:
@@ -341,16 +367,16 @@ jobs:
       contents: read   # checkout
       packages: write  # push to GHCR
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: pr-reviewer
           platforms: linux/amd64
@@ -360,7 +386,7 @@ jobs:
             ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
             ghcr.io/alxleo/pr-reviewer:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
           exit-code: '1'
@@ -395,7 +421,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
       - id: set-matrix
@@ -416,16 +442,16 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.load-mcp-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: mcp
           file: mcp/${{ matrix.dockerfile }}
@@ -437,7 +463,7 @@ jobs:
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
           exit-code: '1'
@@ -474,11 +500,11 @@ jobs:
             dockerfile: Dockerfile.python
             build_args: "MCP_PACKAGE=arxiv-mcp-server==0.3.2\nMCP_ENTRYPOINT=arxiv-mcp-server"
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
       - name: Build test image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: mcp
           file: mcp/${{ matrix.dockerfile }}
@@ -539,7 +565,7 @@ jobs:
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7

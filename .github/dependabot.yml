@@ -10,6 +10,8 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    cooldown:
+      default-days: 7
 
   # Base image updates — one entry per Dockerfile directory
   - package-ecosystem: docker
@@ -20,6 +22,8 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: docker
     directory: /cadvisor
@@ -29,6 +33,8 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: docker
     directory: /git-mcp-server
@@ -38,6 +44,8 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: docker
     directory: /mcp-auth-proxy
@@ -47,6 +55,8 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: docker
     directory: /mcp
@@ -56,3 +66,5 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
+    cooldown:
+      default-days: 7

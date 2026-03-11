@@ -1,0 +1,30 @@
+[
+  {
+    "name": "caddy-cloudflare",
+    "context": "caddy-cloudflare",
+    "tag": "2.11",
+    "why": "xcaddy build with Cloudflare DNS plugin for ACME DNS-01 wildcard certs",
+    "remove_when": "never — Cloudflare DNS plugin is not in upstream Caddy"
+  },
+  {
+    "name": "cadvisor",
+    "context": "cadvisor",
+    "tag": "v0.56.2",
+    "why": "v0.56.2 fixes Docker 29+ crash but isn't published as a container image",
+    "remove_when": "ghcr.io/google/cadvisor publishes v0.57+ (or any >= v0.56.2)"
+  },
+  {
+    "name": "mcp-git",
+    "context": "git-mcp-server",
+    "tag": "2.10.3",
+    "why": "Custom Dockerfile with git+ssh deps and Docker secret injection entrypoint",
+    "remove_when": "upstream publishes an official Docker image with HTTP transport"
+  },
+  {
+    "name": "mcp-auth-proxy",
+    "context": "mcp-auth-proxy",
+    "tag": "v2.5.3",
+    "why": "Patched build — VARCHAR(255) fix for session storage (sigbit/mcp-auth-proxy#111)",
+    "remove_when": "upstream merges the VARCHAR fix and publishes a new release"
+  }
+]

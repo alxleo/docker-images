@@ -31,7 +31,7 @@ COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
 # mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)
-RUN npm install -g mcp-proxy@6.4.0 mcp-filter@0.6.0
+RUN npm install -g mcp-proxy@6.4.2 mcp-filter@0.6.0
 
 # Install MCP package globally so the binary lives in /usr/local/bin/
 # (image layer, unaffected by tmpfs on /root/.npm and /root/.cache)
