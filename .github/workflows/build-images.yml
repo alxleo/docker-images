@@ -259,12 +259,12 @@ jobs:
           push: false
           load: true
           tags: |
-            ghcr.io/alxleo/mcp-git:2.8.4
+            ghcr.io/alxleo/mcp-git:2.10.3
             ghcr.io/alxleo/mcp-git:latest
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
-          image-ref: ghcr.io/alxleo/mcp-git:2.8.4
+          image-ref: ghcr.io/alxleo/mcp-git:2.10.3
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: true
@@ -272,12 +272,12 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Functional tests
         env:
-          TEST_GIT_MCP_TAG: ghcr.io/alxleo/mcp-git:2.8.4
+          TEST_GIT_MCP_TAG: ghcr.io/alxleo/mcp-git:2.10.3
         run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m git_mcp_server -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker push ghcr.io/alxleo/mcp-git:2.8.4
+          docker push ghcr.io/alxleo/mcp-git:2.10.3
           docker push ghcr.io/alxleo/mcp-git:latest
 
   mcp-auth-proxy:

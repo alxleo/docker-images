@@ -20,6 +20,7 @@
     "mcp-slack",
     "mcp-tavily",
     "mcp-youtube",
-    "mcp-zen"
+    "mcp-zen",
+    "mcp-exa"
   ]
 }

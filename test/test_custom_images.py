@@ -107,7 +107,7 @@ class TestGitMCPServer:
     """Validate git-mcp-server starts and speaks MCP protocol."""
 
     IMAGE = _get_image_tag(
-        "TEST_GIT_MCP_TAG", "ghcr.io/alxleo/mcp-git:2.8.4"
+        "TEST_GIT_MCP_TAG", "ghcr.io/alxleo/mcp-git:2.10.3"
     )
 
     def test_git_mcp_starts(self, run_container):
