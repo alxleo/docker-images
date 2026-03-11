@@ -27,7 +27,8 @@ WORKDIR /src
 RUN GO_FLAGS="-tags=netgo" ./build/build.sh
 
 FROM alpine:3.23
-RUN apk --no-cache add libc6-compat device-mapper findutils thin-provisioning-tools && \
+RUN apk --no-cache upgrade && \
+    apk --no-cache add libc6-compat device-mapper findutils thin-provisioning-tools && \
     rm -rf /var/cache/apk/*
 COPY --from=build /src/_output/cadvisor /usr/bin/cadvisor
 
