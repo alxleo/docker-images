@@ -15,8 +15,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MCP_DIR = REPO_ROOT / "mcp"
 MCP_IMAGES = json.loads((REPO_ROOT / "mcp-images.json").read_text())
 MCP_DEFAULTS = json.loads((REPO_ROOT / "mcp-defaults.json").read_text())
+CUSTOM_IMAGES = json.loads((REPO_ROOT / "custom-images.json").read_text())
 
 REQUIRED_IMAGE_FIELDS = {"name", "dockerfile", "build_args", "tag"}
+REQUIRED_CUSTOM_FIELDS = {"name", "context", "tag"}
 
 
 # =========================================================================
@@ -60,6 +62,40 @@ class TestMCPImagesManifest:
                     assert isinstance(secret, str) and secret, (
                         f"{entry['name']}: each secret must be a non-empty string"
                     )
+
+
+# =========================================================================
+# custom-images.json
+# =========================================================================
+
+
+class TestCustomImagesManifest:
+    """Schema validation for the custom image tag manifest."""
+
+    def test_required_fields(self):
+        for i, entry in enumerate(CUSTOM_IMAGES):
+            missing = REQUIRED_CUSTOM_FIELDS - entry.keys()
+            assert not missing, (
+                f"Entry {i} ({entry.get('name', '???')}): missing {missing}"
+            )
+
+    def test_no_duplicate_names(self):
+        names = [entry["name"] for entry in CUSTOM_IMAGES]
+        dupes = [n for n in names if names.count(n) > 1]
+        assert not dupes, f"Duplicate image names: {set(dupes)}"
+
+    def test_tags_non_empty(self):
+        for entry in CUSTOM_IMAGES:
+            assert isinstance(entry["tag"], str) and entry["tag"], (
+                f"{entry['name']}: tag must be a non-empty string"
+            )
+
+    def test_context_dirs_exist(self):
+        for entry in CUSTOM_IMAGES:
+            context_dir = REPO_ROOT / entry["context"]
+            assert context_dir.is_dir(), (
+                f"{entry['name']}: context dir '{entry['context']}' not found"
+            )
 
 
 # =========================================================================
