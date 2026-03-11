@@ -68,6 +68,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   OWNER: alxleo
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # Detect which image directories actually changed.
