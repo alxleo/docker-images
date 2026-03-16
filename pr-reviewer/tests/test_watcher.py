@@ -543,6 +543,156 @@ class TestGitHubAppAuth:
             with pytest.raises(RuntimeError, match="Failed to obtain"):
                 auth.get_token()
 
+
+# ---------------------------------------------------------------------------
+# parse_inline_comments
+# ---------------------------------------------------------------------------
+
+SAMPLE_DIFF = """\
+diff --git a/ansible/tasks/foo.yml b/ansible/tasks/foo.yml
+--- a/ansible/tasks/foo.yml
++++ b/ansible/tasks/foo.yml
+@@ -10,6 +10,8 @@
+   name: Existing task
+   command: echo hello
++  register: _result
++  changed_when: false
+
+ - name: Another task
+   command: echo world
+diff --git a/services/bar.yml b/services/bar.yml
+--- a/services/bar.yml
++++ b/services/bar.yml
+@@ -1,3 +1,5 @@
+ version: "3"
++services:
++  web:
+   image: nginx
+"""
+
+
+class TestParseInlineComments:
+    def test_basic_finding(self):
+        body = '### [ansible/tasks/foo.yml:12] Unnecessary register\n\nThis register is unused.'
+        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 1
+        assert comments[0]["path"] == "ansible/tasks/foo.yml"
+        assert comments[0]["line"] == 12
+        assert "unused" in comments[0]["body"]
+
+    def test_multiple_findings(self):
+        body = (
+            '### [ansible/tasks/foo.yml:12] First\n\nBody one.\n\n'
+            '### [services/bar.yml:2] Second\n\nBody two.'
+        )
+        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 2
+        assert comments[0]["path"] == "ansible/tasks/foo.yml"
+        assert comments[1]["path"] == "services/bar.yml"
+
+    def test_severity_prefix_parsed(self):
+        body = '### [CRITICAL] [ansible/tasks/foo.yml:12] Bad thing\n\nExplanation.'
+        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 1
+        assert comments[0]["line"] == 12
+
+    def test_line_not_in_diff_skipped(self):
+        body = '### [ansible/tasks/foo.yml:99] Not in diff\n\nShould be skipped.'
+        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 0
+
+    def test_nearby_line_fuzzy_match(self):
+        # Line 16 is not in diff (lines 10-15 are), but 15 is within offset 1
+        body = '### [ansible/tasks/foo.yml:16] Close enough\n\nFuzzy.'
+        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 1
+        assert comments[0]["line"] == 15
+
+    def test_no_findings_returns_empty(self):
+        body = 'This review has no structured findings.'
+        assert w.parse_inline_comments(body, SAMPLE_DIFF) == []
+
+    def test_empty_diff(self):
+        body = '### [foo.py:1] Something\n\nBody.'
+        assert w.parse_inline_comments(body, "") == []
+
+    def test_deleted_lines_not_in_diff_set(self):
+        diff = """\
+diff --git a/f.py b/f.py
+--- a/f.py
++++ b/f.py
+@@ -1,3 +1,2 @@
+ keep
+-removed
+ also_keep
+"""
+        body = '### [f.py:1] On kept line\n\nOK.'
+        comments = w.parse_inline_comments(body, diff)
+        assert len(comments) == 1
+        assert comments[0]["line"] == 1
+
+
+# ---------------------------------------------------------------------------
+# post_inline_review
+# ---------------------------------------------------------------------------
+
+class TestPostInlineReview:
+    def test_success(self):
+        comments = [{"path": "foo.py", "line": 10, "body": "Issue here"}]
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = w.post_inline_review("owner/repo", 42, "security", comments, "abc123")
+        assert result is True
+        call_args = mock_run.call_args
+        payload = json.loads(call_args.kwargs.get("input", call_args[1].get("input", "")))
+        assert payload["commit_id"] == "abc123"
+        assert payload["event"] == "COMMENT"
+        assert len(payload["comments"]) == 1
+
+    def test_failure_returns_false(self):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stderr="err")
+            result = w.post_inline_review("owner/repo", 42, "standards", [], "abc")
+        assert result is False
+
+    def test_review_body_includes_lens_name(self):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            w.post_inline_review("o/r", 1, "architecture", [{"path": "f", "line": 1, "body": "x"}], "sha")
+        payload = json.loads(mock_run.call_args.kwargs.get("input", mock_run.call_args[1].get("input", "")))
+        assert "Architecture" in payload["body"]
+        assert "\U0001f3db" in payload["body"]
+
+
+# ---------------------------------------------------------------------------
+# post_review with inline fallback
+# ---------------------------------------------------------------------------
+
+class TestPostReviewInlineFallback:
+    def test_tries_inline_first(self):
+        body = '### [ansible/tasks/foo.yml:12] Finding\n\nDetail.'
+        with patch.object(w, "parse_inline_comments", return_value=[{"path": "f", "line": 12, "body": "x"}]) as mock_parse, \
+             patch.object(w, "get_head_sha", return_value="sha123"), \
+             patch.object(w, "post_inline_review", return_value=True) as mock_inline:
+            w.post_review("o/r", 1, "security", body, diff=SAMPLE_DIFF)
+        mock_parse.assert_called_once()
+        mock_inline.assert_called_once()
+
+    def test_falls_back_to_comment_on_no_inline(self):
+        with patch.object(w, "parse_inline_comments", return_value=[]), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            w.post_review("o/r", 1, "security", "No findings format", diff=SAMPLE_DIFF)
+        # Should have called gh pr comment
+        assert any("pr" in str(c) for c in mock_run.call_args_list)
+
+    def test_falls_back_when_no_diff(self):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            w.post_review("o/r", 1, "security", "Body text", diff="")
+        assert mock_run.called
+
+
     def test_refresh_passes_string_iss_to_jwt(self):
         """PyJWT 2.x requires iss to be a string — regression guard."""
         import sys

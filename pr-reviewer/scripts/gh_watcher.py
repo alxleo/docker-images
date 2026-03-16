@@ -11,6 +11,7 @@ Auth: GitHub App (installation token, auto-rotates hourly).
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -40,6 +41,7 @@ COMMANDS = {
     "@pr-reviewer standards": "standards",
     "@pr-reviewer drift": "drift",
     "@pr-reviewer simplification": "simplification",
+    "@pr-reviewer architecture": "architecture",
     "@pr-reviewer stop": "stop",
     "@pr-reviewer": "standard",  # must be last — prefix match
 }
@@ -229,7 +231,7 @@ def get_diff(repo: str, pr_number: int) -> str:
 
 def enabled_lenses(config: dict, depth: str) -> list[dict]:
     """Return list of lenses to run for the given depth."""
-    if depth in ("security", "standards", "drift", "simplification"):
+    if depth in ("security", "standards", "drift", "simplification", "architecture"):
         # Single-lens mode
         lens_name = depth
         lens_cfg = config["lenses"].get(lens_name, {})
@@ -345,16 +347,114 @@ LENS_ICONS = {
     "standards": "\U0001f4cf",       # 📏
     "drift": "\U0001f504",           # 🔄
     "security": "\U0001f512",        # 🔒
+    "architecture": "\U0001f3db",    # 🏛
 }
 
 
-def post_review(repo: str, pr_number: int, lens_name: str, body: str):
-    """Post a review comment on the PR."""
+def parse_inline_comments(body: str, diff: str) -> list[dict]:
+    """Extract inline comments from review output using ### [file:line] pattern.
+
+    Returns list of dicts with 'path', 'line', 'body' for each finding.
+    Only returns comments where the file:line appears in the PR diff.
+    """
+    # Build set of (file, line) pairs that appear in the diff
+    diff_lines: set[tuple[str, int]] = set()
+    current_file = None
+    current_line = 0
+    for diff_line in diff.splitlines():
+        if diff_line.startswith("+++ b/"):
+            current_file = diff_line[6:]
+        elif diff_line.startswith("@@ "):
+            # Parse hunk header: @@ -old,count +new,count @@
+            match = re.search(r'\+(\d+)', diff_line)
+            if match:
+                current_line = int(match.group(1))
+        elif current_file:
+            if diff_line.startswith("+") or diff_line.startswith(" "):
+                diff_lines.add((current_file, current_line))
+                current_line += 1
+            elif diff_line.startswith("-"):
+                pass  # deleted lines don't increment new-file line counter
+
+    # Parse findings: ### [file:line] or ### [SEVERITY] [file:line]
+    pattern = re.compile(r'^###\s+(?:\[(?:CRITICAL|HIGH|MEDIUM|LOW)\]\s+)?\[([^:\]]+):(\d+)\]', re.MULTILINE)
+    findings = list(pattern.finditer(body))
+
+    if not findings:
+        return []
+
+    comments = []
+    for i, match in enumerate(findings):
+        file_path = match.group(1)
+        line_num = int(match.group(2))
+
+        # Extract body: everything from this heading to the next heading (or end)
+        start = match.end()
+        end = findings[i + 1].start() if i + 1 < len(findings) else len(body)
+        comment_body = body[start:end].strip()
+
+        # Only post inline if the line is in the diff
+        if (file_path, line_num) in diff_lines:
+            comments.append({"path": file_path, "line": line_num, "body": comment_body})
+        else:
+            # Try nearby lines (model might be off by a few)
+            posted = False
+            for offset in range(1, 4):
+                for candidate in (line_num + offset, line_num - offset):
+                    if (file_path, candidate) in diff_lines:
+                        comments.append({"path": file_path, "line": candidate, "body": comment_body})
+                        posted = True
+                        break
+                if posted:
+                    break
+
+    return comments
+
+
+def post_inline_review(repo: str, pr_number: int, lens_name: str, comments: list[dict], head_sha: str) -> bool:
+    """Post inline review comments via GitHub API. Returns True on success."""
     icon = LENS_ICONS.get(lens_name, "\U0001f50d")
+    review_body = f"{icon} **{lens_name.title()} Review** — {len(comments)} finding(s)"
+
+    payload = json.dumps({
+        "commit_id": head_sha,
+        "body": review_body,
+        "event": "COMMENT",
+        "comments": [
+            {"path": c["path"], "line": c["line"], "body": c["body"]}
+            for c in comments
+        ],
+    })
+
+    cmd = [
+        "gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews",
+        "--method", "POST",
+        "--input", "-",
+    ]
+    result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        log.error("Failed to post inline review for PR #%d: %s", pr_number, result.stderr)
+        return False
+    log.info("Posted %d inline %s comments on %s#%d", len(comments), lens_name, repo, pr_number)
+    return True
+
+
+def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str = ""):
+    """Post review on PR — inline comments if possible, top-level comment as fallback."""
+    icon = LENS_ICONS.get(lens_name, "\U0001f50d")
+
+    # Try inline comments if we have the diff
+    if diff:
+        comments = parse_inline_comments(body, diff)
+        if comments:
+            head_sha = get_head_sha(repo, pr_number)
+            if head_sha and post_inline_review(repo, pr_number, lens_name, comments, head_sha):
+                return
+
+    # Fallback: top-level PR comment
     header = f"## {icon} {lens_name.title()} Review\n\n"
     full_body = header + body
 
-    # gh pr comment via stdin to avoid shell escaping issues
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
     result = subprocess.run(cmd, input=full_body, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
@@ -380,7 +480,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     for lens in lenses:
         result = run_lens(lens, diff, repo_dir, config)
         if result and result.strip():
-            post_review(repo, pr_number, lens["name"], result)
+            post_review(repo, pr_number, lens["name"], result, diff=diff)
         else:
             log.info("Lens %s: no issues found for %s#%d", lens["name"], repo, pr_number)
 
