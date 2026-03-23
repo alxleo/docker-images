@@ -1,7 +1,7 @@
 # PR Reviewer configuration
 #
 # GitHub mode (gh_watcher.py): mount as /app/config.yml
-# Gitea mode (gitea_webhook.py): mount as /app/config.yml or pass via env
+# Gitea mode (gitea_webhook.py): mount as /app/config.yml
 
 # GitHub-only: repos to poll (owner/repo format)
 repos:

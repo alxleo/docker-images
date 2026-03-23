@@ -214,7 +214,6 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             return
 
         repo_dir = clone_or_update(owner, repo)
-        head_branch = f"origin/pr/{pr_number}/head"
         # Try fetching PR ref; fall back to just using the repo as-is
         fetch = subprocess.run(
             ["git", "fetch", "origin", f"pull/{pr_number}/head:pr/{pr_number}/head"],
@@ -237,11 +236,12 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                 log.info("Lens %s: no issues found for %s/%s#%d",
                          lens["name"], owner, repo, pr_number)
 
-    # Update state
-    state = core.load_state(f"{owner}/{repo}", pr_number)
+    # Update state — reload from disk to avoid clobbering concurrent comment tracking
+    state_key = f"{owner}/{repo}"
+    state = core.load_state(state_key, pr_number)
     state["last_reviewed_at"] = time.time()
     state["last_head_sha"] = head_sha
-    core.save_state(f"{owner}/{repo}", pr_number, state)
+    core.save_state(state_key, pr_number, state)
 
 
 # ---------------------------------------------------------------------------
@@ -295,8 +295,6 @@ def handle_pull_request(config: dict, payload: dict):
         log.info("Already reviewed %s/%s#%d at %s, skipping", owner, repo, pr_number, head_sha[:8])
         return
 
-    # Determine auto-review depth from config
-    auto_lenses = config.get("auto_lenses", ["simplification", "security"])
     depth = "auto"
 
     log.info("Auto-reviewing %s/%s#%d (action=%s, sha=%s)", owner, repo, pr_number, action, head_sha[:8])

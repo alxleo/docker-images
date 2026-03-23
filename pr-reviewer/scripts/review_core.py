@@ -59,7 +59,7 @@ DEFAULT_MODEL = "claude"
 
 def load_config() -> dict:
     with open(CONFIG_PATH) as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f) or {}
 
 
 # ---------------------------------------------------------------------------
