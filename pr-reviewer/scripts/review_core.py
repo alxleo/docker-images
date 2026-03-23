@@ -147,13 +147,18 @@ def enabled_lenses(config: dict, depth: str) -> list[dict]:
 
 
 def build_review_prompt(lens_name: str, diff: str, max_comments: int,
-                        commit_messages: str = "", pr_description: str = "") -> str:
-    """Build the full review prompt from lens template + diff + context."""
+                        commit_messages: str = "", pr_description: str = "",
+                        repomap: str = "") -> str:
+    """Build the full review prompt from preamble + lens template + context + diff."""
     prompt_file = PROMPTS_DIR / f"{lens_name}.md"
     if not prompt_file.exists():
         return ""
 
-    system_instructions = prompt_file.read_text()
+    # Load shared preamble (anti-hallucination rules, tool instructions, output format)
+    preamble_file = PROMPTS_DIR / "_preamble.md"
+    preamble = preamble_file.read_text() if preamble_file.exists() else ""
+
+    lens_instructions = prompt_file.read_text()
     constraint = ""
     if max_comments > 0:
         constraint = f"\n\nMAX COMMENTS: {max_comments}. If nothing is worth flagging, output nothing."
@@ -163,13 +168,98 @@ def build_review_prompt(lens_name: str, diff: str, max_comments: int,
         context += f"\n\n## PR Description\n\n{pr_description}"
     if commit_messages:
         context += f"\n\n## Commit Messages\n\n{commit_messages}"
+    if repomap:
+        context += f"\n\n## Repository Structure\n\n{repomap}"
 
-    tools_note = ("\n\nYou have access to git history (git log, git blame) and web search. "
-                  "Use them to understand WHY code looks the way it does before flagging it. "
-                  "Check project CLAUDE.md for conventions if it exists.")
+    # Preprocess diff: strip delete-only hunks, add language annotations, token budget
+    processed_diff = preprocess_diff(diff)
 
-    return (f"{system_instructions}{tools_note}\n\n---\n\n"
-            f"Review this PR diff:{constraint}{context}\n\n```diff\n{diff}\n```")
+    return (f"{preamble}\n\n{lens_instructions}\n\n---\n\n"
+            f"Review this PR diff:{constraint}{context}\n\n```diff\n{processed_diff}\n```")
+
+
+# ---------------------------------------------------------------------------
+# Repomap — structural overview of the codebase via tree-sitter
+# ---------------------------------------------------------------------------
+
+# Top-level AST node types that represent definitions, by language
+_DEFINITION_TYPES = {
+    "function_definition", "class_definition", "decorated_definition",  # Python
+    "function_declaration", "class_declaration", "method_definition",   # JS/TS/Go
+    "interface_declaration", "type_alias_declaration", "enum_declaration",  # TS
+    "struct_item", "impl_item", "fn_item", "enum_item", "trait_item",  # Rust
+    "function_definition",  # C/C++
+}
+
+
+def generate_repomap(repo_dir: Path, max_chars: int = 8000) -> str:
+    """Generate a compact structural map of the repo using tree-sitter.
+
+    Returns a text overview of top-level definitions per file, truncated to
+    max_chars. Useful as context for LLM code review — like a table of contents.
+    """
+    try:
+        from grep_ast import filename_to_lang
+        from tree_sitter_language_pack import get_language
+        from tree_sitter import Parser
+    except ImportError:
+        log.info("grep-ast not installed — skipping repomap")
+        return ""
+
+    lines = []
+    total = 0
+    files_processed = 0
+    max_files = 200  # Safety cap — don't spend forever indexing huge repos
+
+    # Walk source files, skip hidden dirs and common non-code
+    skip_dirs = {".git", "node_modules", "vendor", "__pycache__", ".venv", "venv",
+                 "dist", "build", ".tox", ".mypy_cache", ".pytest_cache", "egg-info"}
+    source_files = []
+    for path in repo_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part.startswith(".") or part in skip_dirs for part in path.relative_to(repo_dir).parts):
+            continue
+        source_files.append(path)
+        if len(source_files) >= max_files:
+            break
+    source_files.sort()
+
+    for path in source_files:
+        rel = str(path.relative_to(repo_dir))
+
+        lang_name = filename_to_lang(rel)
+        if not lang_name:
+            continue
+        # Skip languages with broken/slow grammars in tree-sitter-language-pack
+        # and non-code files (markdown, yaml, toml) that don't have useful definitions
+        if lang_name in ("bash", "markdown", "toml", "yaml", "json", "dockerfile",
+                         "css", "html", "xml", "sql"):
+            continue
+
+        try:
+            lang = get_language(lang_name)
+            parser = Parser(lang)
+            code = path.read_bytes()
+            tree = parser.parse(code)
+        except Exception:
+            continue
+
+        defs = []
+        for node in tree.root_node.children:
+            if node.type in _DEFINITION_TYPES:
+                first_line = code[node.start_byte:node.end_byte].decode(errors="replace").split("\n")[0]
+                defs.append(f"  {first_line.strip()}")
+
+        if defs:
+            file_block = f"{rel}:\n" + "\n".join(defs) + "\n"
+            if total + len(file_block) > max_chars:
+                lines.append(f"... ({len(list(repo_dir.rglob('*')))} files total, truncated)\n")
+                break
+            lines.append(file_block)
+            total += len(file_block)
+
+    return "".join(lines)
 
 
 PLUGINS_DIR = Path("/app/plugins")
@@ -178,7 +268,7 @@ PLUGINS_DIR = Path("/app/plugins")
 # - Read/Glob/Grep: code navigation (uses ripgrep + fd when available)
 # - Bash(git *): git log, blame, history for context on why code looks the way it does
 # - WebSearch/WebFetch: check docs, research patterns, verify API usage
-REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),WebSearch,WebFetch"
+REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch"
 
 
 def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s: float):
@@ -253,14 +343,15 @@ def run_lens_codex(prompt: str, repo_dir: Path) -> str:
 
 def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
              commit_messages: str = "", pr_description: str = "",
-             model_override: str | None = None) -> str:
+             model_override: str | None = None, repomap: str = "") -> str:
     """Run a single review lens via the configured model."""
     lens_name = lens["name"]
     max_comments = lens["max_comments"]
 
     prompt = build_review_prompt(lens_name, diff, max_comments,
                                 commit_messages=commit_messages,
-                                pr_description=pr_description)
+                                pr_description=pr_description,
+                                repomap=repomap)
     if not prompt:
         log.warning("Prompt file missing for lens: %s", lens_name)
         return ""
@@ -283,6 +374,100 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
     except subprocess.TimeoutExpired:
         log.error("Lens %s (%s) timed out after 300s", lens_name, model)
         return ""
+
+
+# ---------------------------------------------------------------------------
+# Diff preprocessing
+# ---------------------------------------------------------------------------
+
+# Language detection by file extension
+_EXT_TO_LANG = {
+    ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript",
+    ".go": "Go", ".rs": "Rust", ".rb": "Ruby", ".java": "Java", ".kt": "Kotlin",
+    ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell",
+    ".yml": "YAML", ".yaml": "YAML", ".toml": "TOML", ".json": "JSON",
+    ".md": "Markdown", ".tf": "Terraform", ".hcl": "HCL",
+    ".dockerfile": "Dockerfile", ".sql": "SQL", ".css": "CSS", ".html": "HTML",
+}
+
+
+def preprocess_diff(raw_diff: str, max_tokens: int = 30000) -> str:
+    """Preprocess a unified diff for better LLM consumption.
+
+    1. Strip delete-only hunks (reviews focus on new code)
+    2. Annotate files with language
+    3. If over token budget, sort files by size and truncate
+
+    Returns processed diff string.
+    """
+    if not raw_diff.strip():
+        return raw_diff
+
+    # Split diff into per-file chunks
+    files: list[tuple[str, str]] = []  # (filename, diff_text)
+    current_file = ""
+    current_lines: list[str] = []
+
+    for line in raw_diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            if current_file and current_lines:
+                files.append((current_file, "".join(current_lines)))
+            current_lines = [line]
+            # Extract filename from "diff --git a/path b/path"
+            parts = line.strip().split(" b/", 1)
+            current_file = parts[1] if len(parts) > 1 else ""
+        else:
+            current_lines.append(line)
+
+    if current_file and current_lines:
+        files.append((current_file, "".join(current_lines)))
+
+    if not files:
+        return raw_diff
+
+    # Process each file: strip delete-only hunks, add language annotation
+    processed = []
+    for filename, diff_text in files:
+        # Check if this file's diff is delete-only (no added lines)
+        has_additions = any(
+            line.startswith("+") and not line.startswith("+++")
+            for line in diff_text.splitlines()
+        )
+        if not has_additions:
+            continue  # Skip delete-only files
+
+        # Add language annotation header
+        ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
+        lang = _EXT_TO_LANG.get(ext.lower(), "")
+        if filename.lower().startswith("dockerfile"):
+            lang = "Dockerfile"
+        header = f"## {filename}" + (f" [{lang}]" if lang else "") + "\n"
+
+        processed.append((filename, header + diff_text))
+
+    # Token budget check (rough: 1 token ≈ 4 chars)
+    total_chars = sum(len(d) for _, d in processed)
+    token_estimate = total_chars // 4
+
+    if token_estimate > max_tokens:
+        # Sort: smallest files first (most likely to be meaningful changes)
+        processed.sort(key=lambda x: len(x[1]))
+        kept = []
+        budget = max_tokens * 4
+        used = 0
+        skipped = []
+        for filename, diff_text in processed:
+            if used + len(diff_text) > budget:
+                skipped.append(filename)
+            else:
+                kept.append(diff_text)
+                used += len(diff_text)
+        result = "\n".join(kept)
+        if skipped:
+            result += f"\n\n(Skipped {len(skipped)} large files due to token budget: {', '.join(skipped)})\n"
+        return result
+
+    return "\n".join(d for _, d in processed)
 
 
 # ---------------------------------------------------------------------------

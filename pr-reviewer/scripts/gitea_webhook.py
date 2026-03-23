@@ -241,6 +241,11 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                 cwd=repo_dir, capture_output=True, timeout=60,
             )
 
+        # Generate structural map of the repo for context
+        repomap = core.generate_repomap(repo_dir)
+        if repomap:
+            log.info("Repomap: %d chars", len(repomap))
+
         lenses = core.enabled_lenses(config, depth)
         diff_lines = len(diff.splitlines())
         log.info("Diff: %d lines, %d lenses to run%s",
@@ -253,7 +258,8 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             result = core.run_lens(lens, diff, repo_dir, config,
                                    commit_messages=commit_messages,
                                    pr_description=pr_description,
-                                   model_override=model_override)
+                                   model_override=model_override,
+                                   repomap=repomap)
             if result and result.strip():
                 post_review(client, owner, repo, pr_number,
                             lens["name"], result, head_sha, diff=diff)
