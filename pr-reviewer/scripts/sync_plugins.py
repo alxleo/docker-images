@@ -19,6 +19,7 @@ Expected config.yml structure:
 """
 
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -64,7 +65,36 @@ def get_installed() -> set[str]:
     return plugins
 
 
+def setup_codex_auth():
+    """Codex CLI requires explicit login (env var alone isn't enough).
+
+    Pipes OPENAI_API_KEY through `codex login --with-api-key` which writes
+    /root/.codex/auth.json. Idempotent — skips if already logged in.
+    """
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return
+
+    rc, out = run(["codex", "login", "status"], timeout=10)
+    if rc == 0 and "Not logged in" not in out:
+        log.info("Codex already authenticated")
+        return
+
+    log.info("Authenticating Codex CLI...")
+    result = subprocess.run(
+        ["codex", "login", "--with-api-key"],
+        input=api_key, capture_output=True, text=True, timeout=15,
+    )
+    if result.returncode == 0:
+        log.info("Codex authenticated")
+    else:
+        log.warning("Codex login failed (non-fatal): %s", result.stderr[:200])
+
+
 def sync():
+    # Authenticate Codex if key is available (must happen before plugin sync)
+    setup_codex_auth()
+
     if not CONFIG_PATH.exists():
         log.info("No config.yml — skipping plugin sync")
         return
