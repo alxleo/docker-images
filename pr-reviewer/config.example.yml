@@ -1,0 +1,51 @@
+# PR Reviewer configuration
+#
+# GitHub mode (gh_watcher.py): mount as /app/config.yml
+# Gitea mode (gitea_webhook.py): mount as /app/config.yml or pass via env
+
+# GitHub-only: repos to poll (owner/repo format)
+repos:
+  - alxleo/homelab
+  - alxleo/docker-images
+
+# GitHub-only: filter by owner
+owner_filter: alxleo
+
+# GitHub-only: polling interval in seconds
+polling_interval: 60
+
+# GitHub-only: skip draft PRs
+skip_drafts: true
+
+# Gitea auto-review: lenses to run on PR open/sync
+auto_lenses: [simplification, security]
+
+# Default AI model for review
+default_model: claude
+
+# Lens configuration
+lenses:
+  simplification:
+    enabled: true
+    max_comments: 5
+  security:
+    enabled: true
+    max_comments: 5
+  standards:
+    enabled: true
+    max_comments: 5
+  drift:
+    enabled: true
+    max_comments: 5
+  architecture:
+    enabled: true
+    max_comments: 5
+
+# Deep review overrides (unlimited comments)
+deep_overrides:
+  max_comments: 0
+
+# Quick review overrides
+quick_overrides:
+  lenses: [simplification]
+  max_comments: 3

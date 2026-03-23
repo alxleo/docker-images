@@ -1,11 +1,15 @@
 # PR Reviewer — AI-powered multi-lens code review
 #
 # Generic image with AI CLIs (Claude, Gemini, Codex) + GitHub CLI + watcher script.
-# Config and prompts are mounted at runtime, not baked in.
+# Default prompts baked in; override via volume mount at /app/prompts/.
+#
+# Entrypoints:
+#   python3 scripts/gh_watcher.py      — GitHub poller (default CMD)
+#   python3 scripts/gitea_webhook.py   — Gitea webhook handler
 #
 # Mount points:
 #   /app/config.yml    — repo allowlist, polling config, lens settings
-#   /app/prompts/      — review lens prompt files (*.md)
+#   /app/prompts/      — review lens prompt files (*.md) — override baked-in defaults
 #
 # Secrets (Docker secrets at /run/secrets/):
 #   claude_code_oauth_token    — Claude Max subscription token (required)
@@ -27,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-yaml \
     ca-certificates \
     curl \
-    && pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0" \
+    && pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0" "httpx==0.28.1" \
     && rm -rf /var/lib/apt/lists/*
 
 # Install AI CLI tools (npm)
@@ -60,6 +64,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 WORKDIR /app
 
 COPY scripts/ scripts/
+COPY prompts/ prompts/
 
 # State and repos dirs created at runtime via volumes
 RUN mkdir -p state repos

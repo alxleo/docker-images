@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import review_core as core
 import gh_watcher as w
 
 
@@ -17,10 +18,15 @@ import gh_watcher as w
 
 @pytest.fixture(autouse=True)
 def _isolate_paths(tmp_path, monkeypatch):
-    """Redirect all module-level paths to tmp dirs."""
-    monkeypatch.setattr(w, "STATE_DIR", tmp_path / "state")
-    monkeypatch.setattr(w, "REPOS_DIR", tmp_path / "repos")
-    monkeypatch.setattr(w, "PROMPTS_DIR", tmp_path / "prompts")
+    """Redirect all module-level paths to tmp dirs.
+
+    Must patch both review_core (where functions read the values) and
+    gh_watcher (for backwards-compat re-exports).
+    """
+    for mod in (core, w):
+        monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
+        monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
+        monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
     (tmp_path / "state").mkdir()
     (tmp_path / "repos").mkdir()
     (tmp_path / "prompts").mkdir()
@@ -191,6 +197,7 @@ class TestState:
 
     def test_save_creates_dir(self, tmp_path, monkeypatch):
         nested = tmp_path / "deep" / "state"
+        monkeypatch.setattr(core, "STATE_DIR", nested)
         monkeypatch.setattr(w, "STATE_DIR", nested)
         w.save_state("o/r", 1, {"x": 1})
         assert (nested / "o_r_pr1.json").exists()
@@ -434,33 +441,33 @@ class TestGhHelper:
 # ---------------------------------------------------------------------------
 
 class TestRunLens:
-    @patch.object(w, "run_lens_claude", return_value="claude result")
+    @patch.object(core, "run_lens_claude", return_value="claude result")
     def test_defaults_to_claude(self, mock_claude, config, tmp_path):
-        prompt_dir = w.PROMPTS_DIR
+        prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")
         lens = {"name": "simplification", "max_comments": 5}
-        result = w.run_lens(lens, "diff", tmp_path, config)
+        result = core.run_lens(lens, "diff", tmp_path, config)
         assert result == "claude result"
         mock_claude.assert_called_once()
 
-    @patch.object(w, "run_lens_gemini", return_value="gemini result")
+    @patch.object(core, "run_lens_gemini", return_value="gemini result")
     def test_routes_to_gemini(self, mock_gemini, config, tmp_path):
-        prompt_dir = w.PROMPTS_DIR
+        prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "security.md").write_text("prompt")
         lens = {"name": "security", "max_comments": 5}
-        result = w.run_lens(lens, "diff", tmp_path, config)
+        result = core.run_lens(lens, "diff", tmp_path, config)
         assert result == "gemini result"
 
     def test_missing_prompt_returns_empty(self, config, tmp_path):
         lens = {"name": "nonexistent", "max_comments": 5}
-        assert w.run_lens(lens, "diff", tmp_path, config) == ""
+        assert core.run_lens(lens, "diff", tmp_path, config) == ""
 
-    @patch.object(w, "run_lens_claude", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=300))
+    @patch.object(core, "run_lens_claude", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=300))
     def test_timeout_returns_empty(self, _mock, config, tmp_path):
-        prompt_dir = w.PROMPTS_DIR
+        prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")
         lens = {"name": "simplification", "max_comments": 5}
-        result = w.run_lens(lens, "diff", tmp_path, config)
+        result = core.run_lens(lens, "diff", tmp_path, config)
         assert result == ""
 
 
@@ -671,7 +678,7 @@ class TestPostInlineReview:
 class TestPostReviewInlineFallback:
     def test_tries_inline_first(self):
         body = '### [ansible/tasks/foo.yml:12] Finding\n\nDetail.'
-        with patch.object(w, "parse_inline_comments", return_value=[{"path": "f", "line": 12, "body": "x"}]) as mock_parse, \
+        with patch.object(core, "parse_inline_comments", return_value=[{"path": "f", "line": 12, "body": "x"}]) as mock_parse, \
              patch.object(w, "get_head_sha", return_value="sha123"), \
              patch.object(w, "post_inline_review", return_value=True) as mock_inline:
             w.post_review("o/r", 1, "security", body, diff=SAMPLE_DIFF)
@@ -679,7 +686,7 @@ class TestPostReviewInlineFallback:
         mock_inline.assert_called_once()
 
     def test_falls_back_to_comment_on_no_inline(self):
-        with patch.object(w, "parse_inline_comments", return_value=[]), \
+        with patch.object(core, "parse_inline_comments", return_value=[]), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             w.post_review("o/r", 1, "security", "No findings format", diff=SAMPLE_DIFF)
