@@ -242,7 +242,13 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             )
 
         lenses = core.enabled_lenses(config, depth)
+        diff_lines = len(diff.splitlines())
+        log.info("Diff: %d lines, %d lenses to run%s",
+                 diff_lines, len(lenses),
+                 f" (model override: {model_override})" if model_override else "")
 
+        posted = 0
+        silent = 0
         for lens in lenses:
             result = core.run_lens(lens, diff, repo_dir, config,
                                    commit_messages=commit_messages,
@@ -251,9 +257,14 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             if result and result.strip():
                 post_review(client, owner, repo, pr_number,
                             lens["name"], result, head_sha, diff=diff)
+                posted += 1
             else:
-                log.info("Lens %s: no issues found for %s/%s#%d",
+                log.info("Lens %s: silent (no findings or empty response) for %s/%s#%d",
                          lens["name"], owner, repo, pr_number)
+                silent += 1
+
+        log.info("Review complete for %s/%s#%d: %d posted, %d silent",
+                 owner, repo, pr_number, posted, silent)
 
     # Update state — reload from disk to avoid clobbering concurrent comment tracking
     state_key = f"{owner}/{repo}"

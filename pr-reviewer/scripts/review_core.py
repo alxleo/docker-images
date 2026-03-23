@@ -181,6 +181,19 @@ PLUGINS_DIR = Path("/app/plugins")
 REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),WebSearch,WebFetch"
 
 
+def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s: float):
+    """Log lens execution result for observability."""
+    status = "ok" if result.returncode == 0 else f"exit={result.returncode}"
+    stdout_len = len(result.stdout.strip())
+    stderr_preview = result.stderr.strip()[:200] if result.stderr.strip() else ""
+    log.info("Lens %s completed: %s, stdout=%d chars, %.1fs%s",
+             model, status, stdout_len, duration_s,
+             f", stderr={stderr_preview}" if stderr_preview else "")
+    if result.returncode != 0:
+        log.warning("Lens %s failed (exit %d): %s", model, result.returncode,
+                    result.stderr.strip()[:500] or result.stdout.strip()[:500])
+
+
 def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
     """Run review via Claude Code CLI."""
     cmd = [
@@ -195,7 +208,9 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
         for plugin_dir in PLUGINS_DIR.iterdir():
             if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin").is_dir():
                 cmd.extend(["--plugin-dir", str(plugin_dir)])
+    start = time.time()
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    _log_lens_result("claude", result, time.time() - start)
     if result.returncode != 0:
         return ""
     try:
@@ -208,7 +223,9 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
 def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
     """Run review via Gemini CLI. Auth: GEMINI_API_KEY env var or mounted OAuth creds."""
     cmd = ["gemini", "-p"]
+    start = time.time()
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    _log_lens_result("gemini", result, time.time() - start)
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
@@ -217,7 +234,9 @@ def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
 def run_lens_codex(prompt: str, repo_dir: Path) -> str:
     """Run review via Codex CLI's native review subcommand. Auth: mounted auth.json or API key."""
     cmd = ["codex", "exec", "review"]
+    start = time.time()
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    _log_lens_result("codex", result, time.time() - start)
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
