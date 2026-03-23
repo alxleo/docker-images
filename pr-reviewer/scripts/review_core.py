@@ -203,9 +203,7 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
 
 
 def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
-    """Run review via Gemini CLI."""
-    if not os.environ.get("GEMINI_API_KEY"):
-        return ""
+    """Run review via Gemini CLI. Auth: GEMINI_API_KEY env var or mounted OAuth creds."""
     cmd = ["gemini", "-p"]
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     if result.returncode != 0:
@@ -214,9 +212,7 @@ def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
 
 
 def run_lens_codex(prompt: str, repo_dir: Path) -> str:
-    """Run review via Codex CLI's native review subcommand."""
-    if not os.environ.get("OPENAI_API_KEY"):
-        return ""
+    """Run review via Codex CLI's native review subcommand. Auth: mounted auth.json or API key."""
     cmd = ["codex", "exec", "review"]
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     if result.returncode != 0:

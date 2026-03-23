@@ -66,21 +66,24 @@ def get_installed() -> set[str]:
 
 
 def setup_codex_auth():
-    """Codex CLI requires explicit login (env var alone isn't enough).
+    """Authenticate Codex CLI if OPENAI_API_KEY is set.
 
-    Pipes OPENAI_API_KEY through `codex login --with-api-key` which writes
-    /root/.codex/auth.json. Idempotent — skips if already logged in.
+    Two auth paths:
+    - Subscription: mount host's ~/.codex/auth.json (has OAuth refresh token)
+    - API key: OPENAI_API_KEY env var → pipe through `codex login --with-api-key`
+
+    Skips if auth.json already exists (mounted or from previous login).
     """
+    auth_file = Path("/root/.codex/auth.json")
+    if auth_file.exists():
+        log.info("Codex auth.json present (mounted or cached)")
+        return
+
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key:
         return
 
-    rc, out = run(["codex", "login", "status"], timeout=10)
-    if rc == 0 and "Not logged in" not in out:
-        log.info("Codex already authenticated")
-        return
-
-    log.info("Authenticating Codex CLI...")
+    log.info("Authenticating Codex CLI via API key...")
     result = subprocess.run(
         ["codex", "login", "--with-api-key"],
         input=api_key, capture_output=True, text=True, timeout=15,
