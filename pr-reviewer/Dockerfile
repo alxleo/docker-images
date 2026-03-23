@@ -98,6 +98,7 @@ WORKDIR /app
 
 COPY scripts/ scripts/
 COPY prompts/ prompts/
+COPY plugin/ plugin/
 
 # State, repos, and plugins dirs — mount as volumes for persistence
 # ~/.gemini and ~/.codex needed by their respective CLIs

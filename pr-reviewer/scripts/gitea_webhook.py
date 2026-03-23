@@ -246,7 +246,19 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         if repomap:
             log.info("Repomap: %d chars", len(repomap))
 
-        lenses = core.enabled_lenses(config, depth)
+        all_lenses = core.enabled_lenses(config, depth)
+
+        # Intelligent routing: for auto/standard depth, only run relevant lenses
+        if depth in ("auto", "standard"):
+            relevant = core.analyze_diff_relevance(diff)
+            lenses = [l for l in all_lenses if l["name"] in relevant]
+            if len(lenses) < len(all_lenses):
+                skipped = [l["name"] for l in all_lenses if l["name"] not in relevant]
+                log.info("Routing: %d/%d lenses relevant (skipping: %s)",
+                         len(lenses), len(all_lenses), ", ".join(skipped))
+        else:
+            lenses = all_lenses  # deep/quick/single-lens: run what was requested
+
         diff_lines = len(diff.splitlines())
         log.info("Diff: %d lines, %d lenses to run%s",
                  diff_lines, len(lenses),
@@ -259,7 +271,8 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                                    commit_messages=commit_messages,
                                    pr_description=pr_description,
                                    model_override=model_override,
-                                   repomap=repomap)
+                                   repomap=repomap,
+                                   depth=depth)
             if result and result.strip():
                 post_review(client, owner, repo, pr_number,
                             lens["name"], result, head_sha, diff=diff)

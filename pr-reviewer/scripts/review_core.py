@@ -263,12 +263,29 @@ def generate_repomap(repo_dir: Path, max_chars: int = 8000) -> str:
 
 
 PLUGINS_DIR = Path("/app/plugins")
+PLUGIN_DIR = Path("/app/plugin")  # built-in reviewer plugin with lens agents
 
-# Tools available to Claude during review:
-# - Read/Glob/Grep: code navigation (uses ripgrep + fd when available)
-# - Bash(git *): git log, blame, history for context on why code looks the way it does
-# - WebSearch/WebFetch: check docs, research patterns, verify API usage
-REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch"
+# Default tool whitelist for Claude during review
+CLAUDE_REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch"
+
+# Default model config — overridden by config.yml
+DEFAULT_MODELS = {
+    "claude": "sonnet",
+    "claude_deep": "opus",
+    "gemini": "gemini-2.5-pro",
+    "codex": "o3",
+}
+
+
+def _resolve_model(config: dict, model_family: str, depth: str = "standard") -> str:
+    """Resolve the actual model name from config.
+
+    For Claude, uses claude_deep model when depth is 'deep'.
+    """
+    models = config.get("models", DEFAULT_MODELS)
+    if model_family == "claude" and depth == "deep":
+        return models.get("claude_deep", models.get("claude", "sonnet"))
+    return models.get(model_family, DEFAULT_MODELS.get(model_family, model_family))
 
 
 def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s: float):
@@ -284,21 +301,27 @@ def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s
                     result.stderr.strip()[:500] or result.stdout.strip()[:500])
 
 
-def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
-    """Run review via Claude Code CLI."""
+def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
+                    model: str = "sonnet") -> str:
+    """Run review via Claude Code CLI. Fully deterministic invocation."""
     cmd = [
         "claude",
         "-p",
+        "--model", model,
         "--output-format", "json",
-        "--allowedTools", REVIEW_TOOLS,
+        "--allowedTools", CLAUDE_REVIEW_TOOLS,
         "--max-turns", str(max_turns),
     ]
-    # Load plugins from the plugins volume if any are installed
+    # Load built-in reviewer plugin (lens agent definitions)
+    if PLUGIN_DIR.is_dir() and (PLUGIN_DIR / ".claude-plugin").is_dir():
+        cmd.extend(["--plugin-dir", str(PLUGIN_DIR)])
+    # Load marketplace plugins from the plugins volume
     if PLUGINS_DIR.is_dir():
         for plugin_dir in PLUGINS_DIR.iterdir():
             if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin").is_dir():
                 cmd.extend(["--plugin-dir", str(plugin_dir)])
     start = time.time()
+    log.info("Claude invocation: --model %s --max-turns %d", model, max_turns)
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     _log_lens_result("claude", result, time.time() - start)
     if result.returncode != 0:
@@ -310,15 +333,16 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
         return result.stdout.strip()
 
 
-def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
-    """Run review via Gemini CLI. Auth: GEMINI_API_KEY env var or mounted OAuth creds.
+def run_lens_gemini(prompt: str, repo_dir: Path, model: str = "gemini-2.5-pro") -> str:
+    """Run review via Gemini CLI. Fully deterministic invocation.
 
-    Gemini requires -p as a string arg (not stdin). The prompt is passed via -p,
-    with stdin used for additional context (diff). Since -p has length limits,
-    we pass a short instruction via -p and the full prompt via stdin.
+    Gemini requires -p as a string arg (not stdin). Short instruction via -p,
+    full prompt via stdin.
     """
-    cmd = ["gemini", "-p", "Review the code below. Follow the system instructions provided via stdin exactly."]
+    cmd = ["gemini", "-p", "Review the code below. Follow the system instructions provided via stdin exactly.",
+           "-m", model]
     start = time.time()
+    log.info("Gemini invocation: -m %s", model)
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     _log_lens_result("gemini", result, time.time() - start)
     if result.returncode != 0:
@@ -326,14 +350,14 @@ def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
     return result.stdout.strip()
 
 
-def run_lens_codex(prompt: str, repo_dir: Path) -> str:
-    """Run review via Codex CLI. Auth: mounted auth.json or API key.
+def run_lens_codex(prompt: str, repo_dir: Path, model: str = "o3") -> str:
+    """Run review via Codex CLI. Fully deterministic invocation.
 
-    Uses `codex exec` (not `codex exec review` — the review subcommand uses
-    a websocket API that doesn't work with mounted OAuth credentials).
+    Uses `codex exec` (not `codex exec review` — websocket API broken with OAuth).
     """
-    cmd = ["codex", "exec"]
+    cmd = ["codex", "exec", "-m", model]
     start = time.time()
+    log.info("Codex invocation: -m %s", model)
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     _log_lens_result("codex", result, time.time() - start)
     if result.returncode != 0:
@@ -341,10 +365,59 @@ def run_lens_codex(prompt: str, repo_dir: Path) -> str:
     return result.stdout.strip()
 
 
+# ---------------------------------------------------------------------------
+# Diff relevance routing
+# ---------------------------------------------------------------------------
+
+# Patterns that indicate a lens is relevant for the diff content
+_SECURITY_PATTERNS = {"secret", "password", "token", "key", "auth", "env_file",
+                      "0.0.0.0", "privileged", "cap_drop", "cap_add", "permission"}
+_CODE_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".go", ".rs", ".rb", ".java", ".kt"}
+_CONFIG_EXTENSIONS = {".yml", ".yaml", ".toml", ".json", ".env", ".cfg", ".ini"}
+_INFRA_EXTENSIONS = {".tf", ".hcl", ".dockerfile"}
+
+
+def analyze_diff_relevance(diff: str) -> set[str]:
+    """Determine which lenses are relevant based on diff content. Zero LLM cost."""
+    relevant = set()
+    diff_lower = diff.lower()
+
+    # Extract changed file extensions
+    changed_exts = set()
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            filename = line[6:]
+            ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
+            changed_exts.add(ext.lower())
+            if filename.lower().startswith("dockerfile"):
+                changed_exts.add(".dockerfile")
+
+    # Route by content and file type
+    has_code = bool(changed_exts & _CODE_EXTENSIONS)
+    has_config = bool(changed_exts & _CONFIG_EXTENSIONS)
+    has_infra = bool(changed_exts & _INFRA_EXTENSIONS)
+    has_new_files = "new file mode" in diff_lower
+
+    if has_code:
+        relevant.add("simplification")
+    if any(pattern in diff_lower for pattern in _SECURITY_PATTERNS) or has_infra:
+        relevant.add("security")
+    if has_config or has_infra:
+        relevant.add("standards")
+    if has_new_files or has_config:
+        relevant.add("drift")
+    if has_new_files or has_infra:
+        relevant.add("architecture")
+
+    # Default: at least simplification + security
+    return relevant or {"simplification", "security"}
+
+
 def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
              commit_messages: str = "", pr_description: str = "",
-             model_override: str | None = None, repomap: str = "") -> str:
-    """Run a single review lens via the configured model."""
+             model_override: str | None = None, repomap: str = "",
+             depth: str = "standard") -> str:
+    """Run a single review lens via the configured model. Fully deterministic."""
     lens_name = lens["name"]
     max_comments = lens["max_comments"]
 
@@ -359,20 +432,22 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
     max_turns = 15 if max_comments == 0 else 5
 
     # Model priority: command override > lens config > global default
-    model = (model_override
-             or config["lenses"].get(lens_name, {}).get("model")
-             or config.get("default_model", DEFAULT_MODEL))
-    log.info("Running lens: %s via %s (max_comments=%s)", lens_name, model, max_comments)
+    model_family = (model_override
+                    or config.get("lenses", {}).get(lens_name, {}).get("model")
+                    or config.get("default_model", DEFAULT_MODEL))
+    model_name = _resolve_model(config, model_family, depth)
+    log.info("Running lens: %s via %s (model=%s, max_comments=%s)",
+             lens_name, model_family, model_name, max_comments)
 
     try:
-        if model == "gemini":
-            return run_lens_gemini(prompt, repo_dir)
-        elif model == "codex":
-            return run_lens_codex(prompt, repo_dir)
+        if model_family == "gemini":
+            return run_lens_gemini(prompt, repo_dir, model=model_name)
+        elif model_family == "codex":
+            return run_lens_codex(prompt, repo_dir, model=model_name)
         else:
-            return run_lens_claude(prompt, repo_dir, max_turns)
+            return run_lens_claude(prompt, repo_dir, max_turns, model=model_name)
     except subprocess.TimeoutExpired:
-        log.error("Lens %s (%s) timed out after 300s", lens_name, model)
+        log.error("Lens %s (%s) timed out after 300s", lens_name, model_family)
         return ""
 
 
