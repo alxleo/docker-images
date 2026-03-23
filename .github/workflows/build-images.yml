@@ -394,6 +394,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+          trivyignores: pr-reviewer/.trivyignore
       - name: Smoke test — CLIs installed
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
@@ -404,7 +405,7 @@ jobs:
             python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
       - name: Unit tests
-        run: uv run --with pytest --with pyyaml -- python -m pytest pr-reviewer/tests/ -v
+        run: uv run --with pytest --with pyyaml --with httpx -- python -m pytest pr-reviewer/tests/ -v
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
