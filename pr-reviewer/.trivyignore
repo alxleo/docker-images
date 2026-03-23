@@ -1,0 +1,4 @@
+# Upstream gh CLI ships grpc 1.79.2 with a CRITICAL path-traversal CVE.
+# Not exploitable here — gh is only used for GitHub API calls with trusted input,
+# not as a gRPC server. Remove when gh releases a build with grpc >= 1.79.3.
+CVE-2026-33186

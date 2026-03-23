@@ -394,6 +394,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+          trivyignores: pr-reviewer/.trivyignore
       - name: Smoke test — CLIs installed
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
