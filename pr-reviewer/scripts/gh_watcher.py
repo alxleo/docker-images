@@ -313,9 +313,10 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
             continue
 
         body = comment.get("body", "")
-        depth = core.parse_command(body)
-        if depth is None:
+        parsed = core.parse_command(body)
+        if parsed is None:
             continue
+        depth, _model_override = parsed  # model override not used in GitHub mode (yet)
 
         processed_ids.add(comment_id)
 

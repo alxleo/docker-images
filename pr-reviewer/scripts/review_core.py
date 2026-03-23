@@ -30,6 +30,7 @@ PROMPTS_DIR = Path("/app/prompts")
 # ---------------------------------------------------------------------------
 
 # Commands recognized in PR comments (no freeform prompts — injection risk)
+# Supports optional "with <model>" suffix: "@pr-reviewer security with gemini"
 COMMANDS = {
     "@pr-reviewer quick": "quick",
     "@pr-reviewer deep": "deep",
@@ -41,6 +42,8 @@ COMMANDS = {
     "@pr-reviewer stop": "stop",
     "@pr-reviewer": "standard",  # must be last — prefix match
 }
+
+VALID_MODELS = {"claude", "gemini", "codex"}
 
 LENS_ICONS = {
     "simplification": "\U0001f50d",  # 🔍
@@ -221,7 +224,8 @@ def run_lens_codex(prompt: str, repo_dir: Path) -> str:
 
 
 def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
-             commit_messages: str = "", pr_description: str = "") -> str:
+             commit_messages: str = "", pr_description: str = "",
+             model_override: str | None = None) -> str:
     """Run a single review lens via the configured model."""
     lens_name = lens["name"]
     max_comments = lens["max_comments"]
@@ -235,8 +239,10 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
 
     max_turns = 15 if max_comments == 0 else 5
 
-    # Check lens-level model override, then global default
-    model = config["lenses"].get(lens_name, {}).get("model", config.get("default_model", DEFAULT_MODEL))
+    # Model priority: command override > lens config > global default
+    model = (model_override
+             or config["lenses"].get(lens_name, {}).get("model")
+             or config.get("default_model", DEFAULT_MODEL))
     log.info("Running lens: %s via %s (max_comments=%s)", lens_name, model, max_comments)
 
     try:
@@ -316,10 +322,26 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
     return comments
 
 
-def parse_command(comment_body: str) -> str | None:
-    """Parse a review command from a comment body. Returns depth or None."""
+def parse_command(comment_body: str) -> tuple[str, str | None] | None:
+    """Parse a review command from a comment body.
+
+    Returns (depth, model_override) or None if not a command.
+    model_override is None unless "with <model>" suffix is present.
+
+    Examples:
+        "@pr-reviewer"                → ("standard", None)
+        "@pr-reviewer security"       → ("security", None)
+        "@pr-reviewer with gemini"    → ("standard", "gemini")
+        "@pr-reviewer deep with codex" → ("deep", "codex")
+    """
     body = comment_body.strip().lower()
     for prefix, depth in COMMANDS.items():
         if body.startswith(prefix):
-            return depth
+            remainder = body[len(prefix):].strip()
+            model = None
+            if remainder.startswith("with "):
+                candidate = remainder[5:].strip().split()[0] if remainder[5:].strip() else ""
+                if candidate in VALID_MODELS:
+                    model = candidate
+            return (depth, model)
     return None

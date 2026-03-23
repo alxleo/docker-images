@@ -56,46 +56,55 @@ def config():
 
 class TestParseCommand:
     def test_bare_review(self):
-        assert w.parse_command("@pr-reviewer") == "standard"
+        assert w.parse_command("@pr-reviewer") == ("standard", None)
 
     def test_deep(self):
-        assert w.parse_command("@pr-reviewer deep") == "deep"
+        assert w.parse_command("@pr-reviewer deep") == ("deep", None)
 
     def test_security(self):
-        assert w.parse_command("@pr-reviewer security") == "security"
+        assert w.parse_command("@pr-reviewer security") == ("security", None)
 
     def test_standards(self):
-        assert w.parse_command("@pr-reviewer standards") == "standards"
+        assert w.parse_command("@pr-reviewer standards") == ("standards", None)
 
     def test_drift(self):
-        assert w.parse_command("@pr-reviewer drift") == "drift"
+        assert w.parse_command("@pr-reviewer drift") == ("drift", None)
 
     def test_simplification(self):
-        assert w.parse_command("@pr-reviewer simplification") == "simplification"
+        assert w.parse_command("@pr-reviewer simplification") == ("simplification", None)
 
     def test_quick(self):
-        assert w.parse_command("@pr-reviewer quick") == "quick"
+        assert w.parse_command("@pr-reviewer quick") == ("quick", None)
 
     def test_stop(self):
-        assert w.parse_command("@pr-reviewer stop") == "stop"
+        assert w.parse_command("@pr-reviewer stop") == ("stop", None)
 
     def test_random_text_returns_none(self):
         assert w.parse_command("just a regular comment") is None
 
     def test_whitespace_stripped(self):
-        assert w.parse_command("  @pr-reviewer  ") == "standard"
+        assert w.parse_command("  @pr-reviewer  ") == ("standard", None)
 
     def test_trailing_text_still_matches(self):
-        assert w.parse_command("@pr-reviewer deep please look at auth") == "deep"
+        assert w.parse_command("@pr-reviewer deep please look at auth") == ("deep", None)
 
     def test_case_insensitive(self):
-        assert w.parse_command("@PR-Reviewer Deep") == "deep"
+        assert w.parse_command("@PR-Reviewer Deep") == ("deep", None)
 
     def test_empty_string(self):
         assert w.parse_command("") is None
 
     def test_partial_prefix_no_match(self):
         assert w.parse_command("@rev") is None
+
+    def test_with_model_override(self):
+        assert w.parse_command("@pr-reviewer with gemini") == ("standard", "gemini")
+
+    def test_depth_with_model(self):
+        assert w.parse_command("@pr-reviewer deep with codex") == ("deep", "codex")
+
+    def test_invalid_model_ignored(self):
+        assert w.parse_command("@pr-reviewer with banana") == ("standard", None)
 
 
 

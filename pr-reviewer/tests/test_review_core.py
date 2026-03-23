@@ -71,19 +71,31 @@ class TestAutoLenses:
 
 class TestParseCommand:
     def test_bare_review(self):
-        assert core.parse_command("@pr-reviewer") == "standard"
+        assert core.parse_command("@pr-reviewer") == ("standard", None)
 
     def test_deep(self):
-        assert core.parse_command("@pr-reviewer deep") == "deep"
+        assert core.parse_command("@pr-reviewer deep") == ("deep", None)
 
     def test_stop(self):
-        assert core.parse_command("@pr-reviewer stop") == "stop"
+        assert core.parse_command("@pr-reviewer stop") == ("stop", None)
 
     def test_random_text(self):
         assert core.parse_command("just a comment") is None
 
     def test_case_insensitive(self):
-        assert core.parse_command("@PR-Reviewer Deep") == "deep"
+        assert core.parse_command("@PR-Reviewer Deep") == ("deep", None)
+
+    def test_with_model_gemini(self):
+        assert core.parse_command("@pr-reviewer with gemini") == ("standard", "gemini")
+
+    def test_with_model_codex(self):
+        assert core.parse_command("@pr-reviewer security with codex") == ("security", "codex")
+
+    def test_with_model_claude(self):
+        assert core.parse_command("@pr-reviewer deep with claude") == ("deep", "claude")
+
+    def test_invalid_model(self):
+        assert core.parse_command("@pr-reviewer with gpt4") == ("standard", None)
 
 
 # ---------------------------------------------------------------------------

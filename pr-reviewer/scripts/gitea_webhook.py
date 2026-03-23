@@ -195,16 +195,16 @@ def ensure_pr(client: httpx.Client, owner: str, repo: str, branch: str) -> int |
 
 
 def dispatch_review(config: dict, owner: str, repo: str, pr_number: int,
-                    head_sha: str, depth: str):
+                    head_sha: str, depth: str, model_override: str | None = None):
     """Run enabled lenses against a PR and post results."""
     try:
-        _dispatch_review_inner(config, owner, repo, pr_number, head_sha, depth)
+        _dispatch_review_inner(config, owner, repo, pr_number, head_sha, depth, model_override)
     except Exception:
         log.exception("Review failed for %s/%s#%d", owner, repo, pr_number)
 
 
 def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
-                           head_sha: str, depth: str):
+                           head_sha: str, depth: str, model_override: str | None = None):
     log.info("Reviewing %s/%s#%d at depth=%s", owner, repo, pr_number, depth)
 
     with gitea_client() as client:
@@ -246,7 +246,8 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         for lens in lenses:
             result = core.run_lens(lens, diff, repo_dir, config,
                                    commit_messages=commit_messages,
-                                   pr_description=pr_description)
+                                   pr_description=pr_description,
+                                   model_override=model_override)
             if result and result.strip():
                 post_review(client, owner, repo, pr_number,
                             lens["name"], result, head_sha, diff=diff)
@@ -292,8 +293,20 @@ def handle_push(config: dict, payload: dict):
 
 
 def handle_pull_request(config: dict, payload: dict):
-    """Auto-review on PR open/sync."""
+    """Auto-review on PR events, controlled by auto_trigger config.
+
+    Trigger modes (config.auto_trigger):
+        pr_open       — review only when PR is first opened
+        every_commit  — review on open + every push (default)
+        on_demand     — never auto-review, only via @pr-reviewer commands
+    """
     action = payload.get("action", "")
+    trigger = config.get("auto_trigger", "every_commit")
+
+    if trigger == "on_demand":
+        return
+    if trigger == "pr_open" and action != "opened":
+        return
     if action not in ("opened", "synchronized"):
         return
 
@@ -328,9 +341,10 @@ def handle_issue_comment(config: dict, payload: dict):
 
     comment = payload.get("comment", {})
     body = comment.get("body", "")
-    depth = core.parse_command(body)
-    if depth is None:
+    parsed = core.parse_command(body)
+    if parsed is None:
         return
+    depth, model_override = parsed
 
     pr_number = issue.get("number")
     if not pr_number:
@@ -355,8 +369,9 @@ def handle_issue_comment(config: dict, payload: dict):
         return
 
     head_sha = issue.get("pull_request", {}).get("head", {}).get("sha", "")
-    log.info("On-demand review %s/%s#%d depth=%s", owner, repo, pr_number, depth)
-    _executor.submit(dispatch_review, config, owner, repo, pr_number, head_sha, depth)
+    model_str = f" via {model_override}" if model_override else ""
+    log.info("On-demand review %s/%s#%d depth=%s%s", owner, repo, pr_number, depth, model_str)
+    _executor.submit(dispatch_review, config, owner, repo, pr_number, head_sha, depth, model_override)
 
 
 # ---------------------------------------------------------------------------
