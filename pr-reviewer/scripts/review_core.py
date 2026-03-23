@@ -148,7 +148,7 @@ def enabled_lenses(config: dict, depth: str) -> list[dict]:
 
 def build_review_prompt(lens_name: str, diff: str, max_comments: int,
                         commit_messages: str = "", pr_description: str = "",
-                        repomap: str = "") -> str:
+                        repomap: str = "", impact: str = "") -> str:
     """Build the full review prompt from preamble + lens template + context + diff."""
     prompt_file = PROMPTS_DIR / f"{lens_name}.md"
     if not prompt_file.exists():
@@ -170,6 +170,8 @@ def build_review_prompt(lens_name: str, diff: str, max_comments: int,
         context += f"\n\n## Commit Messages\n\n{commit_messages}"
     if repomap:
         context += f"\n\n## Repository Structure\n\n{repomap}"
+    if impact:
+        context += f"\n\n## Impact Analysis\n\n{impact}"
 
     # Preprocess diff: strip delete-only hunks, add language annotations, token budget
     processed_diff = preprocess_diff(diff)
@@ -416,7 +418,7 @@ def analyze_diff_relevance(diff: str) -> set[str]:
 def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
              commit_messages: str = "", pr_description: str = "",
              model_override: str | None = None, repomap: str = "",
-             depth: str = "standard") -> str:
+             depth: str = "standard", impact: str = "") -> str:
     """Run a single review lens via the configured model. Fully deterministic."""
     lens_name = lens["name"]
     max_comments = lens["max_comments"]
@@ -424,7 +426,8 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
     prompt = build_review_prompt(lens_name, diff, max_comments,
                                 commit_messages=commit_messages,
                                 pr_description=pr_description,
-                                repomap=repomap)
+                                repomap=repomap,
+                                impact=impact)
     if not prompt:
         log.warning("Prompt file missing for lens: %s", lens_name)
         return ""
@@ -543,6 +546,99 @@ def preprocess_diff(raw_diff: str, max_tokens: int = 30000) -> str:
         return result
 
     return "\n".join(d for _, d in processed)
+
+
+# ---------------------------------------------------------------------------
+# Impact analysis — find references to changed files (zero LLM cost)
+# ---------------------------------------------------------------------------
+
+
+def analyze_impact(repo_dir: Path, diff: str, max_refs: int = 20) -> str:
+    """Find files that reference each changed file. Cheap grep-based pre-pass.
+
+    Returns a text summary like:
+        scripts/foo.py: referenced by tests/test_foo.py, scripts/bar.py
+    """
+    # Extract changed filenames from diff
+    changed_files = []
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            changed_files.append(line[6:])
+
+    if not changed_files:
+        return ""
+
+    impacts = []
+    for filepath in changed_files:
+        # Get the module/file name to search for
+        basename = Path(filepath).stem
+        if not basename or basename.startswith("."):
+            continue
+
+        # Search for references (imports, includes, requires)
+        try:
+            result = subprocess.run(
+                ["rg", "-l", "--max-count=1", basename,
+                 "--glob", f"!{filepath}",  # exclude the file itself
+                 "--glob", "!*.lock", "--glob", "!*.min.*"],
+                capture_output=True, text=True, cwd=repo_dir, timeout=10,
+            )
+            refs = [r for r in result.stdout.strip().splitlines() if r][:max_refs]
+            if refs:
+                impacts.append(f"{filepath}: referenced by {', '.join(refs)}")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            continue
+
+    if not impacts:
+        return ""
+
+    return "Files affected by this change:\n" + "\n".join(impacts)
+
+
+# ---------------------------------------------------------------------------
+# Severity parsing + capping
+# ---------------------------------------------------------------------------
+
+_SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+
+
+def cap_by_severity(body: str, max_comments: int) -> str:
+    """If the review has more findings than max_comments, keep the highest severity.
+
+    Parses ### [SEVERITY] markers, sorts by severity, drops the lowest.
+    Returns the body with only the kept findings.
+    """
+    if max_comments <= 0:
+        return body  # unlimited
+
+    # Split into findings by ### markers
+    finding_pattern = re.compile(r'^(###\s+\[(?:CRITICAL|HIGH|MEDIUM|LOW)\].*?)(?=\n###\s+\[|\Z)',
+                                 re.MULTILINE | re.DOTALL)
+    findings = finding_pattern.findall(body)
+
+    if len(findings) <= max_comments:
+        return body  # under the cap
+
+    # Extract severity from each finding
+    scored = []
+    for finding in findings:
+        sev_match = re.match(r'###\s+\[(CRITICAL|HIGH|MEDIUM|LOW)\]', finding)
+        sev = _SEVERITY_ORDER.get(sev_match.group(1), 99) if sev_match else 99
+        scored.append((sev, finding))
+
+    # Sort by severity (lowest number = highest priority), keep top N
+    scored.sort(key=lambda x: x[0])
+    kept = scored[:max_comments]
+    dropped = len(scored) - max_comments
+
+    # Reconstruct body: preamble (text before first finding) + kept findings
+    first_finding_pos = body.find(findings[0]) if findings else len(body)
+    preamble = body[:first_finding_pos]
+    result = preamble + "\n\n".join(f for _, f in kept)
+    if dropped > 0:
+        result += f"\n\n*(Dropped {dropped} lower-severity finding(s) due to comment cap)*"
+
+    return result
 
 
 # ---------------------------------------------------------------------------
