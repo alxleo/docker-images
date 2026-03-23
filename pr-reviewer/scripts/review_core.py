@@ -221,8 +221,13 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
 
 
 def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
-    """Run review via Gemini CLI. Auth: GEMINI_API_KEY env var or mounted OAuth creds."""
-    cmd = ["gemini", "-p"]
+    """Run review via Gemini CLI. Auth: GEMINI_API_KEY env var or mounted OAuth creds.
+
+    Gemini requires -p as a string arg (not stdin). The prompt is passed via -p,
+    with stdin used for additional context (diff). Since -p has length limits,
+    we pass a short instruction via -p and the full prompt via stdin.
+    """
+    cmd = ["gemini", "-p", "Review the code below. Follow the system instructions provided via stdin exactly."]
     start = time.time()
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     _log_lens_result("gemini", result, time.time() - start)
@@ -232,8 +237,12 @@ def run_lens_gemini(prompt: str, repo_dir: Path) -> str:
 
 
 def run_lens_codex(prompt: str, repo_dir: Path) -> str:
-    """Run review via Codex CLI's native review subcommand. Auth: mounted auth.json or API key."""
-    cmd = ["codex", "exec", "review"]
+    """Run review via Codex CLI. Auth: mounted auth.json or API key.
+
+    Uses `codex exec` (not `codex exec review` — the review subcommand uses
+    a websocket API that doesn't work with mounted OAuth credentials).
+    """
+    cmd = ["codex", "exec"]
     start = time.time()
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     _log_lens_result("codex", result, time.time() - start)
