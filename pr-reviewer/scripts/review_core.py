@@ -143,8 +143,9 @@ def enabled_lenses(config: dict, depth: str) -> list[dict]:
     return lenses
 
 
-def build_review_prompt(lens_name: str, diff: str, max_comments: int) -> str:
-    """Build the full review prompt from lens template + diff."""
+def build_review_prompt(lens_name: str, diff: str, max_comments: int,
+                        commit_messages: str = "", pr_description: str = "") -> str:
+    """Build the full review prompt from lens template + diff + context."""
     prompt_file = PROMPTS_DIR / f"{lens_name}.md"
     if not prompt_file.exists():
         return ""
@@ -154,7 +155,27 @@ def build_review_prompt(lens_name: str, diff: str, max_comments: int) -> str:
     if max_comments > 0:
         constraint = f"\n\nMAX COMMENTS: {max_comments}. If nothing is worth flagging, output nothing."
 
-    return f"{system_instructions}\n\n---\n\nReview this PR diff:{constraint}\n\n```diff\n{diff}\n```"
+    context = ""
+    if pr_description:
+        context += f"\n\n## PR Description\n\n{pr_description}"
+    if commit_messages:
+        context += f"\n\n## Commit Messages\n\n{commit_messages}"
+
+    tools_note = ("\n\nYou have access to git history (git log, git blame) and web search. "
+                  "Use them to understand WHY code looks the way it does before flagging it. "
+                  "Check project CLAUDE.md for conventions if it exists.")
+
+    return (f"{system_instructions}{tools_note}\n\n---\n\n"
+            f"Review this PR diff:{constraint}{context}\n\n```diff\n{diff}\n```")
+
+
+PLUGINS_DIR = Path("/app/plugins")
+
+# Tools available to Claude during review:
+# - Read/Glob/Grep: code navigation (uses ripgrep + fd when available)
+# - Bash(git *): git log, blame, history for context on why code looks the way it does
+# - WebSearch/WebFetch: check docs, research patterns, verify API usage
+REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),WebSearch,WebFetch"
 
 
 def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
@@ -163,9 +184,14 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int) -> str:
         "claude",
         "-p",
         "--output-format", "json",
-        "--allowedTools", "Read,Glob,Grep",
+        "--allowedTools", REVIEW_TOOLS,
         "--max-turns", str(max_turns),
     ]
+    # Load plugins from the plugins volume if any are installed
+    if PLUGINS_DIR.is_dir():
+        for plugin_dir in PLUGINS_DIR.iterdir():
+            if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin").is_dir():
+                cmd.extend(["--plugin-dir", str(plugin_dir)])
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
     if result.returncode != 0:
         return ""
@@ -198,12 +224,15 @@ def run_lens_codex(prompt: str, repo_dir: Path) -> str:
     return result.stdout.strip()
 
 
-def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict) -> str:
+def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
+             commit_messages: str = "", pr_description: str = "") -> str:
     """Run a single review lens via the configured model."""
     lens_name = lens["name"]
     max_comments = lens["max_comments"]
 
-    prompt = build_review_prompt(lens_name, diff, max_comments)
+    prompt = build_review_prompt(lens_name, diff, max_comments,
+                                commit_messages=commit_messages,
+                                pr_description=pr_description)
     if not prompt:
         log.warning("Prompt file missing for lens: %s", lens_name)
         return ""

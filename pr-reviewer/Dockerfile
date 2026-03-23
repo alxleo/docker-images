@@ -1,7 +1,10 @@
 # PR Reviewer — AI-powered multi-lens code review
 #
-# Generic image with AI CLIs (Claude, Gemini, Codex) + GitHub CLI + watcher script.
+# Generic image with AI CLIs (Claude, Gemini, Codex) + forge CLIs (gh, glab) +
+# code search tools (ripgrep, fd) for quality AI-assisted PR review.
+#
 # Default prompts baked in; override via volume mount at /app/prompts/.
+# Plugins loaded via --plugin-dir at runtime; cache in /app/plugins/ volume.
 #
 # Entrypoints:
 #   python3 scripts/gh_watcher.py      — GitHub poller (default CMD)
@@ -10,12 +13,13 @@
 # Mount points:
 #   /app/config.yml    — repo allowlist, polling config, lens settings
 #   /app/prompts/      — review lens prompt files (*.md) — override baked-in defaults
+#   /app/plugins/      — Claude Code plugins (skills, agents) — persisted across runs
 #
-# Secrets (Docker secrets at /run/secrets/):
+# Secrets (Docker secrets at /run/secrets/ or env vars):
 #   claude_code_oauth_token    — Claude Max subscription token (required)
-#   gh_app_id                  — GitHub App numeric ID (required)
-#   gh_app_installation_id     — GitHub App installation ID (required)
-#   gh_app_private_key         — GitHub App PEM private key (required)
+#   gh_app_id                  — GitHub App numeric ID (GitHub mode only)
+#   gh_app_installation_id     — GitHub App installation ID (GitHub mode only)
+#   gh_app_private_key         — GitHub App PEM private key (GitHub mode only)
 #   gemini_api_key             — Gemini API key (optional)
 #   openai_api_key             — OpenAI/Codex API key (optional)
 
@@ -23,16 +27,21 @@ FROM node:22-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# System packages: git, code search (ripgrep, fd), JSON processing, Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     jq \
+    ripgrep \
+    fd-find \
     python3 \
     python3-pip \
     python3-yaml \
     ca-certificates \
     curl \
     && pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0" "httpx==0.28.1" \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # fd-find installs as fdfind on Debian — symlink to fd for Claude Code
+    && ln -sf /usr/bin/fdfind /usr/bin/fd
 
 # Install AI CLI tools (npm)
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
@@ -53,7 +62,7 @@ RUN ARCH=$(dpkg --print-architecture) \
     && mv "/usr/local/bin/codex-${CODEX_ARCH}" /usr/local/bin/codex \
     && rm /tmp/codex.tar.gz
 
-# Install gh CLI
+# Install gh CLI (GitHub)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
@@ -61,13 +70,21 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install glab CLI (GitLab)
+ARG GLAB_VERSION=1.89.0
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${ARCH}.deb" \
+       -o /tmp/glab.deb \
+    && dpkg -i /tmp/glab.deb \
+    && rm /tmp/glab.deb
+
 WORKDIR /app
 
 COPY scripts/ scripts/
 COPY prompts/ prompts/
 
-# State and repos dirs created at runtime via volumes
-RUN mkdir -p state repos
+# State, repos, and plugins dirs — mount as volumes for persistence
+RUN mkdir -p state repos plugins
 
 HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
   CMD ["python3", "scripts/healthcheck.py"]

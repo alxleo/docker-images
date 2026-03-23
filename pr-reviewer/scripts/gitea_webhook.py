@@ -213,6 +213,22 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             log.warning("Empty diff for %s/%s#%d, skipping", owner, repo, pr_number)
             return
 
+        # Fetch PR metadata for richer context
+        pr_description = ""
+        commit_messages = ""
+        r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
+        if r.status_code == 200:
+            pr_data = r.json()
+            pr_description = pr_data.get("body", "") or ""
+        # Get commit messages for this PR
+        r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}/commits")
+        if r.status_code == 200:
+            commits = r.json()
+            commit_messages = "\n".join(
+                f"- {c.get('commit', {}).get('message', '').split(chr(10))[0]}"
+                for c in commits
+            )
+
         repo_dir = clone_or_update(owner, repo)
         # Try fetching PR ref; fall back to just using the repo as-is
         fetch = subprocess.run(
@@ -228,7 +244,9 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         lenses = core.enabled_lenses(config, depth)
 
         for lens in lenses:
-            result = core.run_lens(lens, diff, repo_dir, config)
+            result = core.run_lens(lens, diff, repo_dir, config,
+                                   commit_messages=commit_messages,
+                                   pr_description=pr_description)
             if result and result.strip():
                 post_review(client, owner, repo, pr_number,
                             lens["name"], result, head_sha, diff=diff)
