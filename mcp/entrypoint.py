@@ -10,8 +10,11 @@ Purpose:
 Environment Variables:
   MCP_SERVER_COMMAND: Full command override (e.g., "mcp-hackernews")
   MCP_PACKAGE_NAME: npm package (globally installed at build time, e.g., "mcp-hackernews@1.0.3")
+  MCP_ENTRYPOINT_NAME: Python entrypoint for Python-based MCP servers (e.g., "my_server:app").
+    Used with MCP_PACKAGE_NAME to run Python packages installed via uv pip install --system.
   MCP_PORT: Port to listen on (default: 8080)
   MCP_API_KEY: Optional API key for authentication
+  MCP_CONNECTION_TIMEOUT: mcp-proxy connection timeout in ms (default: 120000)
   FILTER_INCLUDE: Space-separated tools to include (e.g., "search get_info")
   FILTER_EXCLUDE: Space-separated tools to exclude (e.g., "delete_post create_post")
 
@@ -134,8 +137,26 @@ def build_mcp_command() -> list[str]:
     port = os.getenv("MCP_PORT", "8080")
 
     # mcp-proxy: globally installed, called directly (no npx overhead)
-    # --connectionTimeout 120s (default 60s too short under mass-restart contention)
-    proxy_cmd = ["mcp-proxy", "--port", port, "--connectionTimeout", "120000"]
+    # --connectionTimeout: default 120s (upstream default 60s too short under mass-restart
+    # contention). Services with heavy startup caching (e.g., Slack with 2000+ channels)
+    # can override via MCP_CONNECTION_TIMEOUT env var.
+    raw_timeout = os.getenv("MCP_CONNECTION_TIMEOUT", "").strip()
+    if not raw_timeout:
+        timeout_ms = 120000
+    else:
+        try:
+            timeout_ms = int(raw_timeout)
+        except ValueError:
+            timeout_ms = 0
+        if timeout_ms <= 0:
+            print(
+                f"WARNING: Invalid MCP_CONNECTION_TIMEOUT={raw_timeout!r}, "
+                "must be a positive integer (ms). Falling back to 120000.",
+                file=sys.stderr,
+            )
+            timeout_ms = 120000
+    connection_timeout = str(timeout_ms)
+    proxy_cmd = ["mcp-proxy", "--port", port, "--connectionTimeout", connection_timeout]
 
     # Add API key if provided
     if api_key := os.getenv("MCP_API_KEY"):
