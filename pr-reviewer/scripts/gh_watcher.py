@@ -415,8 +415,11 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
             except Exception:
                 log.exception("Review failed for %s#%d (comment %s) — marking processed to avoid retry loop",
                               repo, pr_number, comment_id)
-                post_status_comment(repo, pr_number,
-                                    "\u274c **Review failed** — check container logs for details")
+                try:
+                    post_status_comment(repo, pr_number,
+                                        "\u274c **Review failed** — check container logs for details")
+                except Exception:
+                    log.debug("Failed to post failure status for %s#%d — non-critical", repo, pr_number)
 
     # Reload state after dispatch_review may have updated it on disk,
     # then merge in our processed_comment_ids to avoid clobbering

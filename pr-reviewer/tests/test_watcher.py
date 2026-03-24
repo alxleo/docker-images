@@ -392,21 +392,24 @@ class TestCheckComments:
         assert "c2" in state["processed_comment_ids"]
         assert "c3" not in state["processed_comment_ids"]
 
+    @patch.object(w, "post_status_comment")
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review", side_effect=RuntimeError("review exploded"))
-    def test_failed_dispatch_still_marks_processed(self, mock_dispatch, mock_react, config):
+    def test_failed_dispatch_still_marks_processed(self, mock_dispatch, mock_react, mock_status, config):
         """If dispatch_review raises, the comment must still be marked processed
         to avoid an infinite retry loop on the next poll cycle."""
         comments = [{"id": "c1", "body": "@pr-reviewer"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_called_once()
         mock_react.assert_called_once()
+        mock_status.assert_called_once()  # ❌ failure status posted
         state = core.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
 
+    @patch.object(w, "post_status_comment")
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review", side_effect=[RuntimeError("boom"), None])
-    def test_failed_dispatch_doesnt_block_subsequent_comments(self, mock_dispatch, mock_react, config):
+    def test_failed_dispatch_doesnt_block_subsequent_comments(self, mock_dispatch, mock_react, mock_status, config):
         """A failed review for one comment must not prevent processing later comments."""
         comments = [
             {"id": "c1", "body": "@pr-reviewer security"},
