@@ -1,6 +1,6 @@
 # PR Reviewer
 
-AI-powered multi-model PR review with specialized lens agents. Runs as a Docker container receiving Gitea/GitHub webhooks.
+AI-powered multi-model PR review with specialized lens agents. Runs as Docker containers — one for Gitea (webhook-driven), one for GitHub (polling). Both deployed from local-cicd.
 
 ## Architecture
 
@@ -9,20 +9,36 @@ AI-powered multi-model PR review with specialized lens agents. Runs as a Docker 
 **Python routes, Claude reviews.** `analyze_diff_relevance()` pre-filters which lenses to run based on file types and content patterns (zero LLM cost). The orchestrator then spawns only relevant lens agents. Deep mode bypasses routing and runs all lenses.
 
 **Three AI models, all subscription auth:**
-- Claude: `CLAUDE_CODE_OAUTH_TOKEN` env var (Claude Max)
+- Claude: `CC_TOKEN` host env → `CLAUDE_CODE_OAUTH_TOKEN` in container (Claude Max)
 - Gemini: mounted `~/.gemini/oauth_creds.json` + `settings.json` (Google subscription)
 - Codex: mounted `~/.codex/auth.json` (ChatGPT subscription)
 
-No API keys. Container maps host `CC_TOKEN` → `CLAUDE_CODE_OAUTH_TOKEN` to avoid interfering with the user's own Claude sessions.
+No API keys needed. `CC_TOKEN` (not `CLAUDE_CODE_OAUTH_TOKEN`) in the host env to avoid interfering with the user's own Claude sessions.
+
+**Read-only tools enforced.** Review agents get `Bash(git log:*)`, `Bash(git blame:*)`, `Bash(git diff:*)`, `Bash(git show:*)` — never `Bash(git:*)`. Test regression guard asserts `Edit`, `Write`, and unrestricted `Bash(git:*)` are NOT in the allowed tools.
+
+## Deployment
+
+Two containers in local-cicd, same image, different entrypoints:
+
+| Container | Forge | Entrypoint | Config |
+|-----------|-------|-----------|--------|
+| `local-ci-reviewer` | Gitea webhooks | `gitea_webhook.py` | `reviewer-config.yml` |
+| `local-ci-reviewer-github` | GitHub polling | `gh_watcher.py` | `reviewer-config-github.yml` |
+
+GitHub container mounts home-network's decrypted GitHub App secrets at `/run/secrets/`. Both share the plugins volume.
+
+**Default: on_demand.** Reviews only run when someone comments `@pr-reviewer` on a PR. Auto-PR creation and auto-review are opt-in via config (`auto_trigger`, `auto_create_pr`).
 
 ## Review Pipeline
 
 ```
-Webhook received (push/pull_request/issue_comment)
-  → Auto-create PR if none exists (push events)
+Webhook/poll picks up @pr-reviewer command
   → Fetch diff, PR metadata, commit messages
+  → Resolve head_sha (fetch from PR API if missing)
   → Generate repomap (tree-sitter structural map)
   → Run impact analysis (rg -l per changed file)
+  → Run LLM-planned search (haiku generates ripgrep patterns, Python executes)
   → Preprocess diff (strip delete-only files, language annotations, token budget)
   → Shuffle diff file ordering (breaks LLM positional bias)
   → Route to relevant lenses via analyze_diff_relevance()
@@ -33,9 +49,33 @@ Webhook received (push/pull_request/issue_comment)
   → Post commit status (success/failure based on fail_on_severity)
 ```
 
-## Lens Agents
+## Code Structure
 
-Lenses are Claude Code agent definitions in `plugin/agents/*.md`. Each has frontmatter (name, description, model, tools) and a system prompt describing cognitive review moves — not project-specific checklists.
+Decomposed into focused modules (each <200 lines):
+
+| Module | Purpose |
+|--------|---------|
+| `config.py` | Paths, constants, secrets, state, lens selection, command parsing |
+| `prompts.py` | Prompt assembly from `.md` templates |
+| `models.py` | Claude/Gemini/Codex CLI invocation (deterministic) |
+| `routing.py` | Diff relevance analysis, lens dispatch to models |
+| `orchestrator.py` | Single-session orchestration with sub-agents |
+| `diff.py` | Diff preprocessing, shuffle |
+| `context.py` | Repomap (tree-sitter), impact analysis (ripgrep), LLM-planned searches |
+| `output.py` | Inline comment parsing, severity capping |
+| `review_core.py` | Thin re-export facade (backwards compat) |
+| `gitea_webhook.py` | Gitea webhook handler: events, PR creation, review dispatch |
+| `gh_watcher.py` | GitHub polling handler |
+| `sync_plugins.py` | Startup plugin sync from config |
+| `entrypoint.py` | Container entrypoint: sync plugins then exec handler |
+
+Prompts are `.md` files — text, not Python. They change independently of logic:
+- `prompts/_preamble.md` — shared review rules
+- `prompts/_planner.md` — LLM-planned search instructions
+- `prompts/*.md` — lens-specific cognitive moves
+- `plugin/agents/*.md` — lens agent definitions with frontmatter
+
+## Lens Agents
 
 | Lens | Cognitive moves | When routed |
 |------|----------------|-------------|
@@ -45,55 +85,35 @@ Lenses are Claude Code agent definitions in `plugin/agents/*.md`. Each has front
 | **drift** | Follow dependency chains, check generators, verify registries, test mirrors | New files, config changes |
 | **architecture** | Read the map first, identify boundaries, check symmetric counterparts, test precedent | New files, infra changes |
 
-## Design Decisions
-
-### Why cognitive moves, not project-specific rules?
-Lenses that say "check if x-common anchor exists" only work on one repo. Lenses that say "pattern-match against sibling files" work on any repo. The reviewer discovers project conventions at review time by reading CLAUDE.md and existing code.
-
-### Why shuffle the diff?
-LLMs have positional bias — they pay more attention to early content. Randomizing file order produces different attention patterns each review. BugBot (Cursor) does this on 2M+ PRs/month.
-
-### Why preprocess the diff?
-Delete-only files are noise for review (saves ~20-30% tokens on refactors). Language annotations help the LLM identify file types without inferring from extensions. Token budget prevents exceeding model context on large PRs.
-
-### Why impact analysis?
-`rg -l` per changed file finds references — "who calls this?" and "what imports this?" — at zero LLM cost. Injected as context so the reviewer knows the blast radius.
-
-### Why repomap?
-Tree-sitter extracts top-level definitions (classes, functions, signatures) into a compact structural map. Like reading a table of contents before a chapter — gives the LLM orientation before it reads the diff.
-
-### Why the orchestrator pattern?
-Running 5 × `claude -p` per review hits rate limits fast. One session that spawns sub-agents via the Agent tool uses ~1/5th the budget. Sub-agents share the repo checkout and session context.
-
-### Why severity-prioritized capping?
-When `max_comments` is hit, keep CRITICAL/HIGH findings and drop LOW. Previously capping was arbitrary (first N findings regardless of severity).
-
-### Why comment cleanup tags?
-Without cleanup, re-reviewing a PR accumulates stale bot comments. HTML tags (`<!-- pr-reviewer-bot:LENS -->`) identify old reviews for deletion before posting new ones.
-
 ## CLI Invocation
 
 Every `claude -p` call is fully deterministic:
 ```
-claude -p --model sonnet --output-format json --allowedTools "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch,Agent" --max-turns 10 --plugin-dir /app/plugin
+claude -p --model sonnet --output-format json \
+  --allowedTools "Read,Glob,Grep,Bash(git log:*),Bash(git blame:*),Bash(git diff:*),Bash(git show:*),Bash(sg:*),WebSearch,WebFetch,Agent" \
+  --max-turns 10 --plugin-dir /app/plugin
 ```
 
 Never invoke `claude -p` bare. Always specify `--model`, `--allowedTools`, `--max-turns`, `--output-format`, `--plugin-dir`.
 
-Gemini: `-p` requires prompt as string argument, not stdin. Use `-p "instruction"` with content on stdin.
-Codex: `codex exec` works with OAuth. `codex exec review` doesn't (websocket API path).
+Timeout scales with max_turns: 60s per turn, minimum 300s.
 
-## Configuration (reviewer-config.yml)
+**Gemini:** `-p` requires prompt as string argument, not stdin. Use `-p "instruction"` with content on stdin.
+**Codex:** `codex exec` works with OAuth. `codex exec review` doesn't (websocket API path).
+
+## Configuration
 
 ```yaml
-auto_trigger: pr_open          # pr_open | every_commit | on_demand
+auto_trigger: on_demand        # on_demand | pr_open | every_commit
+auto_create_pr: false          # don't auto-create PRs on branch push
 auto_lenses: [simplification, security]
 default_model: claude
-shuffle_diff: true              # randomize file order to break positional bias
+shuffle_diff: true
+planned_searches: true         # LLM-planned cross-file search (haiku)
 
 models:
-  claude: sonnet               # auto/standard reviews
-  claude_deep: opus            # deep reviews get the best model
+  claude: sonnet
+  claude_deep: opus
   gemini: gemini-2.5-pro
   codex: o3
 
@@ -103,7 +123,7 @@ lenses:
   # Per-lens model override: security: { model: gemini }
 ```
 
-## Commands (via PR comments on Gitea)
+## Commands (via PR comments on Gitea or GitHub)
 
 ```
 @pr-reviewer                      → auto lenses via default model
@@ -115,35 +135,19 @@ lenses:
 @pr-reviewer stop                 → stop processing this PR
 ```
 
-## Key Files
+## Gotchas
 
-| File | Purpose |
-|------|---------|
-| `scripts/review_core.py` | Shared engine: prompts, lenses, routing, preprocessing, orchestration |
-| `scripts/gitea_webhook.py` | Gitea webhook handler: events, PR creation, review dispatch, posting |
-| `scripts/gh_watcher.py` | GitHub polling handler (older path, less feature-rich) |
-| `scripts/sync_plugins.py` | Startup plugin sync from config |
-| `scripts/entrypoint.py` | Container entrypoint: sync plugins then exec handler |
-| `prompts/_preamble.md` | Shared review rules (anti-hallucination, tool usage, output format) |
-| `prompts/*.md` | Lens prompt templates (used by build_review_prompt) |
-| `plugin/agents/*.md` | Lens agent definitions (used by orchestrator via Agent tool) |
-| `config.example.yml` | Configuration reference |
-
-## Research & Provenance
-
-Design informed by analysis of: PR-Agent (Qodo, 10K stars), ai-review (Filonov), TerraScan, Kodus. Key patterns adopted:
-
-- **Anti-hallucination rules** — explicit instructions to verify before flagging (PR-Agent)
-- **Diff preprocessing** — strip delete-only files, token budget compression (PR-Agent)
-- **Impact analysis** — grep-based reference finding per changed file (TerraScan)
-- **Severity-prioritized capping** — keep highest severity when at limit (TerraScan)
-- **Shuffled diff ordering** — break positional bias (BugBot/Cursor)
-- **Repomap** — tree-sitter structural overview (Aider/grep-ast)
-- **Symmetric counterpart search** — check create/validate pairs (Kodus)
+- **on_demand is the default.** Auto-PR creation and auto-review are off. Every branch push was triggering reviews before this was fixed.
+- **Planner (haiku) may timeout** at 30s — gracefully degrades, review continues without cross-file context.
+- **GitHub poller can hang** after completing a review — the poll loop blocks during review dispatch. Restart container to resume.
+- **Home-network prompt volume mount** overrides baked-in prompts. If deploying with a mount, keep prompts in sync. The local-cicd deployment uses baked-in prompts (no mount).
+- **Gemini CLI `-p` flag** requires prompt as string argument, not stdin.
+- **Codex `exec review` broken** with mounted OAuth creds (websocket path). Use `codex exec`.
+- **Git clone in container** needs token in URL. Gitea repos require auth even for clone.
 
 ## Backlog
 
-- **LLM-planned search queries** — separate LLM call generates ripgrep patterns from the diff (Kodus planner). Five categories: callers, symmetric counterparts, test pairs, config limits, upstream deps. The endgame for cross-file understanding.
+- **User-facing feedback** — react with 👀 on command comment (immediate "I saw it"), post status comment showing which lenses are running, update when done
+- **Fix GitHub poller hang** — poll loop stops after first review. Needs investigation (likely blocking dispatch in main thread)
+- **Release process** — tagged versions (not just `:latest`), env-var-only config (no host file mounts), `.env.example`
 - **code-index-mcp sidecar** — tree-sitter AST indexing as MCP tools for deeper symbol analysis
-- **Suggestion blocks** — verify Gitea renders `` ```suggestion `` as apply buttons
-- **Repomap + impact for gh_watcher.py** — GitHub polling path doesn't have these yet
