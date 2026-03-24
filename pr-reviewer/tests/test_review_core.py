@@ -428,6 +428,20 @@ class TestRunLensClaude:
         assert "--output-format" in cmd
         assert "json" in cmd
 
+    @patch("subprocess.run")
+    def test_config_model_reaches_cli(self, mock_run, config, tmp_path):
+        """Model from config.models should reach the subprocess command."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout='{"result": ""}', stderr=""
+        )
+        (core.PROMPTS_DIR / "simplification.md").write_text("prompt")
+        config["models"] = {"claude": "opus", "claude_deep": "opus"}
+        lens = {"name": "simplification", "max_comments": 5}
+        core.run_lens(lens, "diff", tmp_path, config, depth="standard")
+        cmd = mock_run.call_args[0][0]
+        model_idx = cmd.index("--model") + 1
+        assert cmd[model_idx] == "opus"
+
 
 # ---------------------------------------------------------------------------
 # _resolve_model
