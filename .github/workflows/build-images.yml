@@ -2,7 +2,8 @@
 #
 # Triggers:
 #   - Pull requests: build-only (no push) + security scan — gates merge
-#   - Push to main: build + scan + push to ghcr.io
+#   - Push to main: build + scan + push to ghcr.io as :latest
+#   - Tags (pr-reviewer/v*): build + scan + push as :vX.Y.Z + :latest
 #   - Manual dispatch: build + scan + push (all images)
 #
 # Bot PRs (Dependabot, etc): Only lint + change detection run.
@@ -38,6 +39,7 @@ concurrency:
 on:
   push:
     branches: [main]
+    tags: ['pr-reviewer/v*']
     paths:
       - 'caddy-cloudflare/**'
       - 'cadvisor/**'
@@ -192,6 +194,8 @@ jobs:
           bash test-caddy-routing.sh
           docker compose -f docker-compose.test.yml down
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false
       - name: Functional tests
         env:
           TEST_CADDY_CLOUDFLARE_TAG: ${{ env.IMAGE_REF }}
@@ -247,6 +251,8 @@ jobs:
           scanners: vuln
           trivyignores: cadvisor/.trivyignore
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false
       - name: Functional tests
         env:
           TEST_CADVISOR_TAG: ${{ env.IMAGE_REF }}
@@ -301,6 +307,8 @@ jobs:
           ignore-unfixed: true
           scanners: vuln
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false
       - name: Functional tests
         env:
           TEST_GIT_MCP_TAG: ${{ env.IMAGE_REF }}
@@ -356,6 +364,8 @@ jobs:
           scanners: vuln
           trivyignores: mcp-auth-proxy/.trivyignore
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false
       - name: Functional tests
         env:
           TEST_MCP_AUTH_PROXY_TAG: ${{ env.IMAGE_REF }}
@@ -371,7 +381,7 @@ jobs:
     needs: changes
     if: >-
       always() &&
-      (needs.changes.outputs.pr-reviewer == 'true' || github.event_name == 'workflow_dispatch') &&
+      (needs.changes.outputs.pr-reviewer == 'true' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/pr-reviewer/v')) &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
@@ -381,6 +391,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Extract version from tag
+        if: startsWith(github.ref, 'refs/tags/pr-reviewer/v')
+        run: echo "VERSION=${GITHUB_REF#refs/tags/pr-reviewer/}" >> "$GITHUB_ENV"
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
         if: github.event_name != 'pull_request'
         with:
@@ -424,7 +437,7 @@ jobs:
           enable-cache: false  # no cache in a job that pushes images (zizmor cache-poisoning)
       - name: Unit tests
         run: uv run --with pytest --with pyyaml --with httpx --with grep-ast -- python -m pytest pr-reviewer/tests/ -v
-      # Multi-arch build + push (amd64 + arm64) — after tests pass, only on main
+      # Multi-arch build + push (amd64 + arm64) — after tests pass, only on main/tags
       - name: Build and push multi-arch image
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         if: github.event_name != 'pull_request'
@@ -435,6 +448,7 @@ jobs:
           tags: |
             ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
             ghcr.io/alxleo/pr-reviewer:latest
+            ${{ env.VERSION && format('ghcr.io/alxleo/pr-reviewer:{0}', env.VERSION) || '' }}
 
   semaphore:
     name: Semaphore UI + homelab tools
@@ -620,6 +634,8 @@ jobs:
           IMAGE_NAME: ${{ matrix.name }}
         run: docker rm -f "${IMAGE_NAME}" || true
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false
         if: matrix.name == 'mcp-hackernews'
       - name: Tool filtering + secret tests
         if: matrix.name == 'mcp-hackernews'
@@ -653,6 +669,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false
       - name: Unit tests (no Docker)
         run: uv run --with pytest --with pyyaml --with requests -- python -m pytest test/test_manifests.py test/test_entrypoint.py -v
       - name: Validate MCP E2E Caddyfile
