@@ -12,8 +12,9 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 #   just              — task runner used by homelab justfiles
 #   uv                — Python package manager for ansible dependencies
 #   tailscale         — mesh VPN client for cross-network connectivity checks
+#   docker-cli        — Docker management (needs socket mount for local use)
 RUN apk upgrade --no-cache && \
-    apk add --no-cache bind-tools curl jq rsync age just uv tailscale && \
+    apk add --no-cache bind-tools curl jq rsync age just uv tailscale docker-cli && \
     wget -q https://github.com/getsops/sops/releases/download/v3.12.1/sops-v3.12.1.linux.arm64 -O /usr/local/bin/sops && \
     echo "c7904d07bf1fb3ffdc329b0103ce70ff6a884aa7af7931427402bea0c09cc522  /usr/local/bin/sops" | sha256sum -c && \
     chmod +x /usr/local/bin/sops
