@@ -259,7 +259,7 @@ class TestStateRace:
 
         # check_comments dispatches once (for @pr-reviewer command).
         # poll should NOT dispatch again because state was updated.
-        with patch.object(w, "dispatch_review", wraps=w.dispatch_review) as mock_dispatch:
+        with patch.object(w, "dispatch_review") as mock_dispatch:
             w.poll(config)
 
         assert mock_dispatch.call_count == 1
