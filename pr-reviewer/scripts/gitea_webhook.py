@@ -303,6 +303,11 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         if impact:
             log.info("Impact: %d references found", impact.count("referenced by"))
 
+        # LLM-planned cross-file search (uses haiku for fast/cheap planning)
+        cross_file_context = core.plan_searches(diff, repo_dir, config)
+        if cross_file_context:
+            log.info("Planned searches: %d chars of cross-file context", len(cross_file_context))
+
         all_lenses = core.enabled_lenses(config, depth)
 
         # Intelligent routing: for auto/standard depth, only run relevant lenses
@@ -334,6 +339,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             pr_description=pr_description,
             model_override=model_override,
             repomap=repomap, depth=depth, impact=impact,
+            cross_file_context=cross_file_context,
         )
 
         posted = 0

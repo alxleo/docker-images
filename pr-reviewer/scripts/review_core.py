@@ -148,7 +148,8 @@ def enabled_lenses(config: dict, depth: str) -> list[dict]:
 
 def build_review_prompt(lens_name: str, diff: str, max_comments: int,
                         commit_messages: str = "", pr_description: str = "",
-                        repomap: str = "", impact: str = "") -> str:
+                        repomap: str = "", impact: str = "",
+                        cross_file_context: str = "") -> str:
     """Build the full review prompt from preamble + lens template + context + diff."""
     prompt_file = PROMPTS_DIR / f"{lens_name}.md"
     if not prompt_file.exists():
@@ -172,6 +173,8 @@ def build_review_prompt(lens_name: str, diff: str, max_comments: int,
         context += f"\n\n## Repository Structure\n\n{repomap}"
     if impact:
         context += f"\n\n## Impact Analysis\n\n{impact}"
+    if cross_file_context:
+        context += f"\n\n## Cross-File Context\n\n{cross_file_context}"
 
     # Preprocess diff: strip delete-only hunks, add language annotations, token budget
     processed_diff = preprocess_diff(diff)
@@ -425,7 +428,8 @@ def analyze_diff_relevance(diff: str) -> set[str]:
 def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
              commit_messages: str = "", pr_description: str = "",
              model_override: str | None = None, repomap: str = "",
-             depth: str = "standard", impact: str = "") -> str:
+             depth: str = "standard", impact: str = "",
+             cross_file_context: str = "") -> str:
     """Run a single review lens via the configured model. Fully deterministic."""
     lens_name = lens["name"]
     max_comments = lens["max_comments"]
@@ -434,7 +438,8 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
                                 commit_messages=commit_messages,
                                 pr_description=pr_description,
                                 repomap=repomap,
-                                impact=impact)
+                                impact=impact,
+                                cross_file_context=cross_file_context)
     if not prompt:
         log.warning("Prompt file missing for lens: %s", lens_name)
         return ""
@@ -469,7 +474,8 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
 def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, config: dict,
                             commit_messages: str = "", pr_description: str = "",
                             model_override: str | None = None, repomap: str = "",
-                            depth: str = "standard", impact: str = "") -> list[tuple[str, str]]:
+                            depth: str = "standard", impact: str = "",
+                            cross_file_context: str = "") -> list[tuple[str, str]]:
     """Run multiple lenses in a single Claude session via sub-agents.
 
     Instead of N × claude -p (one per lens), this runs one orchestrator session
@@ -513,6 +519,8 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
             context += f"\n\n## Repository Structure\n\n{repomap}"
         if impact:
             context += f"\n\n## Impact Analysis\n\n{impact}"
+        if cross_file_context:
+            context += f"\n\n## Cross-File Context\n\n{cross_file_context}"
 
         processed_diff = preprocess_diff(diff)
         # Shuffle file order to break positional bias (LLMs fixate on early files)
@@ -553,7 +561,8 @@ After all agents complete, output ALL findings combined. Use the exact output fo
                           commit_messages=commit_messages,
                           pr_description=pr_description,
                           model_override=model_override,
-                          repomap=repomap, depth=depth, impact=impact)
+                          repomap=repomap, depth=depth, impact=impact,
+                          cross_file_context=cross_file_context)
         if result and result.strip():
             results.append((lens["name"], result))
 
@@ -747,6 +756,121 @@ def analyze_impact(repo_dir: Path, diff: str, max_refs: int = 20) -> str:
         return ""
 
     return "Files affected by this change:\n" + "\n".join(impacts)
+
+
+# ---------------------------------------------------------------------------
+# LLM-planned search queries — deep cross-file context
+# ---------------------------------------------------------------------------
+
+_PLANNER_PROMPT = """\
+You are a code review planner. Given a PR diff, generate ripgrep search queries
+to find cross-file context that a reviewer needs.
+
+Generate up to 8 search queries across these categories:
+
+1. **Callers/consumers** — find code that calls or imports symbols being changed
+2. **Symmetric counterparts** — if diff creates/encodes/writes X, find where X is validated/decoded/read
+3. **Test pairs** — if implementation changed, find its tests (and vice versa)
+4. **Config/limits** — if thresholds or constants changed, find where they're enforced
+5. **Upstream deps** — if imports/requires changed, find those implementations
+
+Rules:
+- Use EXACT symbol names from the diff (copy, don't invent)
+- Skip deleted symbols — only search for things that still exist
+- Skip generic names (e, err, data, result, ctx, args)
+- Each query should be a ripgrep-compatible regex pattern
+
+Output ONLY a JSON array. No explanation, no markdown:
+[{"pattern": "regex_pattern", "category": "callers|symmetric|tests|config|upstream", "rationale": "why this matters"}]
+
+If the diff is too simple for cross-file search (e.g., config-only, docs-only), return: []
+"""
+
+
+def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
+    """Use a fast LLM to generate targeted search queries, execute them, return context.
+
+    This is the "planner" pattern from Kodus: an LLM reads the diff, generates
+    ripgrep patterns, Python executes them, and the results are injected into
+    the review prompt as cross-file context.
+
+    Uses haiku (fast, cheap) for the planning step.
+    """
+    if not config.get("planned_searches", True):
+        return ""
+
+    planner_model = _resolve_model(config, "claude", "standard")
+    # Use the cheapest model for planning — it just needs to extract symbol names
+    planner_prompt = f"{_PLANNER_PROMPT}\n\nDiff:\n```\n{diff[:8000]}\n```"
+
+    cmd = [
+        "claude", "-p",
+        "--model", "haiku",
+        "--output-format", "json",
+        "--allowedTools", "",
+        "--max-turns", "1",
+    ]
+    try:
+        start = time.time()
+        result = subprocess.run(cmd, input=planner_prompt, capture_output=True,
+                                text=True, cwd=repo_dir, timeout=30)
+        duration = time.time() - start
+        log.info("Search planner completed in %.1fs", duration)
+
+        if result.returncode != 0:
+            log.warning("Search planner failed (exit %d)", result.returncode)
+            return ""
+
+        # Parse the JSON output
+        output = json.loads(result.stdout)
+        raw_result = output.get("result", "")
+
+        # Extract JSON array from the result (may have markdown wrapping)
+        import re as _re
+        json_match = _re.search(r'\[.*\]', raw_result, _re.DOTALL)
+        if not json_match:
+            return ""
+        queries = json.loads(json_match.group())
+
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
+        log.warning("Search planner error: %s", e)
+        return ""
+
+    if not queries:
+        return ""
+
+    # Execute searches
+    context_lines: list[str] = []
+    for query in queries[:8]:  # cap at 8 queries
+        pattern = query.get("pattern", "")
+        category = query.get("category", "")
+        rationale = query.get("rationale", "")
+        if not pattern:
+            continue
+
+        try:
+            rg = subprocess.run(
+                ["rg", "-n", "--max-count=3", "--max-columns=200", pattern,
+                 "--glob", "!*.lock", "--glob", "!*.min.*"],
+                capture_output=True, text=True, cwd=repo_dir, timeout=5,
+            )
+            matches = rg.stdout.strip()
+            if matches:
+                # Limit to first 10 lines per query
+                match_lines = matches.splitlines()[:10]
+                context_lines.append(
+                    f"### {category}: {rationale}\n"
+                    f"Pattern: `{pattern}`\n"
+                    + "\n".join(match_lines)
+                )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            continue
+
+    if not context_lines:
+        return ""
+
+    log.info("Planned searches: %d queries, %d with results", len(queries), len(context_lines))
+    return "Cross-file context (LLM-planned searches):\n\n" + "\n\n".join(context_lines)
 
 
 # ---------------------------------------------------------------------------
