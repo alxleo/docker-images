@@ -170,6 +170,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+          trivyignores: caddy-cloudflare/.trivyignore
       - name: Validate test Caddyfile
         env:
           WORKSPACE: ${{ github.workspace }}

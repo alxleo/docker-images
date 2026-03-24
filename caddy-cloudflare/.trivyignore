@@ -1,0 +1,4 @@
+# CVE-2026-33186: gRPC-Go authorization bypass via missing leading slash in :path
+# Affects gRPC servers only. Caddy uses HTTP, not gRPC — no gRPC endpoints exposed.
+# Transitive dep from caddy-docker-proxy. Remove when upstream updates grpc >= 1.79.3.
+CVE-2026-33186
