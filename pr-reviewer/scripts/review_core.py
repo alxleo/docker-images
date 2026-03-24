@@ -267,8 +267,15 @@ def generate_repomap(repo_dir: Path, max_chars: int = 8000) -> str:
 PLUGINS_DIR = Path("/app/plugins")
 PLUGIN_DIR = Path("/app/plugin")  # built-in reviewer plugin with lens agents
 
-# Default tool whitelist for Claude during review
-CLAUDE_REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch,Agent"
+# Tool whitelist for Claude during review — READ-ONLY
+# Bash restricted to read-only git commands and ast-grep. No Edit, Write, or git push/commit.
+CLAUDE_REVIEW_TOOLS = ",".join([
+    "Read", "Glob", "Grep",
+    "Bash(git log:*)", "Bash(git blame:*)", "Bash(git diff:*)", "Bash(git show:*)",
+    "Bash(sg:*)",
+    "WebSearch", "WebFetch",
+    "Agent",
+])
 
 # Default model config — overridden by config.yml
 DEFAULT_MODELS = {
@@ -508,6 +515,9 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
             context += f"\n\n## Impact Analysis\n\n{impact}"
 
         processed_diff = preprocess_diff(diff)
+        # Shuffle file order to break positional bias (LLMs fixate on early files)
+        if config.get("shuffle_diff", True):
+            processed_diff = shuffle_diff(processed_diff)
 
         orchestrator_prompt = f"""{preamble}
 
@@ -553,6 +563,54 @@ After all agents complete, output ALL findings combined. Use the exact output fo
 # ---------------------------------------------------------------------------
 # Diff preprocessing
 # ---------------------------------------------------------------------------
+
+
+def shuffle_diff(raw_diff: str) -> str:
+    """Shuffle file order in a unified diff to break positional bias.
+
+    LLMs fixate on early files and miss issues in later ones. Randomizing
+    file order each review produces different attention patterns.
+
+    Handles both raw diffs (split on `diff --git`) and preprocessed diffs
+    (split on `## filename` headers from preprocess_diff).
+    """
+    import random
+
+    # Detect format: preprocessed diffs start sections with "## "
+    if "\n## " in raw_diff or raw_diff.startswith("## "):
+        # Preprocessed format — split on ## headers
+        import re
+        sections = re.split(r'(?=^## )', raw_diff, flags=re.MULTILINE)
+        sections = [s for s in sections if s.strip()]
+        if len(sections) <= 1:
+            return raw_diff
+        random.shuffle(sections)
+        return "\n".join(sections)
+
+    # Raw unified diff format — split on diff --git
+    files: list[tuple[str, str]] = []
+    current_lines: list[str] = []
+    current_file = ""
+
+    for line in raw_diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            if current_file and current_lines:
+                files.append((current_file, "".join(current_lines)))
+            current_lines = [line]
+            parts = line.strip().split(" b/", 1)
+            current_file = parts[1] if len(parts) > 1 else ""
+        else:
+            current_lines.append(line)
+
+    if current_file and current_lines:
+        files.append((current_file, "".join(current_lines)))
+
+    if len(files) <= 1:
+        return raw_diff
+
+    random.shuffle(files)
+    return "".join(content for _, content in files)
+
 
 # Language detection by file extension
 _EXT_TO_LANG = {

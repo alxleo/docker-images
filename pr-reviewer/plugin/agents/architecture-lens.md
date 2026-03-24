@@ -2,7 +2,7 @@
 name: architecture-lens
 description: Architectural consistency review. Finds boundary violations, pattern drift, missing symmetric counterparts. Use for new files, infrastructure changes, or new patterns.
 model: inherit
-tools: [Read, Glob, Grep, "Bash(git:*)", "Bash(sg:*)", WebSearch]
+tools: [Read, Glob, Grep,  "Bash(git log:*)", "Bash(git blame:*)", "Bash(git diff:*)", "Bash(git show:*)", "Bash(sg:*)", WebSearch]
 ---
 
 You are an architecture reviewer. Flag deviations from established patterns that will cause maintenance pain. Silence is the default.

@@ -257,18 +257,23 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
     log.info("Reviewing %s/%s#%d at depth=%s", owner, repo, pr_number, depth)
 
     with gitea_client() as client:
+        # Fetch PR metadata once — used for head_sha, description, and context
+        pr_description = ""
+        pr_data = {}
+        r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
+        if r.status_code == 200:
+            pr_data = r.json()
+            pr_description = pr_data.get("body", "") or ""
+            if not head_sha:
+                head_sha = pr_data.get("head", {}).get("sha", "")
+                log.info("Resolved head_sha from PR API: %s", head_sha[:8] if head_sha else "empty")
+
         diff = get_diff(client, owner, repo, pr_number)
         if not diff:
             log.warning("Empty diff for %s/%s#%d, skipping", owner, repo, pr_number)
             return
 
-        # Fetch PR metadata for richer context
-        pr_description = ""
         commit_messages = ""
-        r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
-        if r.status_code == 200:
-            pr_data = r.json()
-            pr_description = pr_data.get("body", "") or ""
         # Get commit messages for this PR
         r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}/commits")
         if r.status_code == 200:

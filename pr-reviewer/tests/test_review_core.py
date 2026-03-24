@@ -403,9 +403,14 @@ class TestRunLensClaude:
         tools = cmd[tools_idx]
         assert "Read" in tools
         assert "Grep" in tools
-        assert "Bash(git:*)" in tools
+        assert "Bash(git log:*)" in tools
+        assert "Bash(git blame:*)" in tools
         assert "Bash(sg:*)" in tools
         assert "Agent" in tools
+        # MUST NOT have unrestricted git access (no commit/push/checkout)
+        assert "Bash(git:*)" not in tools
+        assert "Edit" not in tools
+        assert "Write" not in tools
 
     @patch("subprocess.run")
     def test_includes_max_turns(self, mock_run, tmp_path):
@@ -427,6 +432,20 @@ class TestRunLensClaude:
         cmd = mock_run.call_args[0][0]
         assert "--output-format" in cmd
         assert "json" in cmd
+
+    @patch("subprocess.run")
+    def test_config_model_reaches_cli(self, mock_run, config, tmp_path):
+        """Model from config.models should reach the subprocess command."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout='{"result": ""}', stderr=""
+        )
+        (core.PROMPTS_DIR / "simplification.md").write_text("prompt")
+        config["models"] = {"claude": "opus", "claude_deep": "opus"}
+        lens = {"name": "simplification", "max_comments": 5}
+        core.run_lens(lens, "diff", tmp_path, config, depth="standard")
+        cmd = mock_run.call_args[0][0]
+        model_idx = cmd.index("--model") + 1
+        assert cmd[model_idx] == "opus"
 
 
 # ---------------------------------------------------------------------------
@@ -451,6 +470,77 @@ class TestResolveModel:
 
     def test_unknown_model_passes_through(self):
         assert core._resolve_model({}, "unknown_model") == "unknown_model"
+
+
+# ---------------------------------------------------------------------------
+# generate_repomap
+# ---------------------------------------------------------------------------
+
+class TestGenerateRepomap:
+    def test_extracts_python_definitions(self, tmp_path):
+        py_file = tmp_path / "app.py"
+        py_file.write_text("class MyApp:\n    pass\n\ndef main():\n    pass\n")
+        result = core.generate_repomap(tmp_path)
+        assert "class MyApp:" in result
+        assert "def main():" in result
+        assert "app.py" in result
+
+    def test_skips_hidden_dirs(self, tmp_path):
+        hidden = tmp_path / ".git" / "objects"
+        hidden.mkdir(parents=True)
+        (hidden / "pack.py").write_text("def internal(): pass")
+        result = core.generate_repomap(tmp_path)
+        assert "internal" not in result
+
+    def test_respects_max_chars(self, tmp_path):
+        for i in range(20):
+            (tmp_path / f"mod{i}.py").write_text(f"def func_{i}(): pass\n" * 10)
+        result = core.generate_repomap(tmp_path, max_chars=200)
+        assert len(result) <= 300  # some slack for truncation message
+
+    def test_empty_repo_returns_empty(self, tmp_path):
+        assert core.generate_repomap(tmp_path) == ""
+
+    def test_non_code_files_skipped(self, tmp_path):
+        (tmp_path / "readme.md").write_text("# Hello")
+        (tmp_path / "config.yml").write_text("key: value")
+        assert core.generate_repomap(tmp_path) == ""
+
+
+# ---------------------------------------------------------------------------
+# shuffle_diff
+# ---------------------------------------------------------------------------
+
+class TestShuffleDiff:
+    def test_single_file_unchanged(self):
+        diff = "diff --git a/f.py b/f.py\n+added\n"
+        assert core.shuffle_diff(diff) == diff
+
+    def test_multi_file_contains_all_files(self):
+        diff = (
+            "diff --git a/a.py b/a.py\n+a_content\n"
+            "diff --git a/b.py b/b.py\n+b_content\n"
+            "diff --git a/c.py b/c.py\n+c_content\n"
+        )
+        result = core.shuffle_diff(diff)
+        assert "a_content" in result
+        assert "b_content" in result
+        assert "c_content" in result
+
+    def test_empty_diff(self):
+        assert core.shuffle_diff("") == ""
+
+    def test_preprocessed_format(self):
+        """Preprocessed diffs use ## headers instead of diff --git."""
+        diff = (
+            "## a.py [Python]\ndiff --git a/a.py b/a.py\n+a_content\n"
+            "## b.py [Python]\ndiff --git a/b.py b/b.py\n+b_content\n"
+        )
+        result = core.shuffle_diff(diff)
+        assert "a_content" in result
+        assert "b_content" in result
+        assert "## a.py" in result
+        assert "## b.py" in result
 
 
 # ---------------------------------------------------------------------------

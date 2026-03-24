@@ -286,11 +286,36 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         log.warning("Empty diff for %s#%d, skipping", repo, pr_number)
         return
 
+    # Fetch PR metadata for context
+    pr_description = ""
+    commit_messages = ""
+    pr_data = gh_json(["pr", "view", str(pr_number), "--json", "body,commits"], repo=repo)
+    if isinstance(pr_data, dict):
+        pr_description = pr_data.get("body", "") or ""
+        commits = pr_data.get("commits", [])
+        if commits:
+            commit_messages = "\n".join(
+                f"- {c.get('messageHeadline', '')}" for c in commits
+            )
+
+    # Generate structural map + impact analysis
+    repomap = core.generate_repomap(repo_dir)
+    if repomap:
+        log.info("Repomap: %d chars", len(repomap))
+    impact = core.analyze_impact(repo_dir, diff)
+    if impact:
+        log.info("Impact: %d references found", impact.count("referenced by"))
+
     lenses = core.enabled_lenses(config, depth)
 
     for lens in lenses:
-        result = core.run_lens(lens, diff, repo_dir, config)
+        result = core.run_lens(lens, diff, repo_dir, config,
+                               commit_messages=commit_messages,
+                               pr_description=pr_description,
+                               repomap=repomap, depth=depth,
+                               impact=impact)
         if result and result.strip():
+            result = core.cap_by_severity(result, lens["max_comments"])
             post_review(repo, pr_number, lens["name"], result, diff=diff)
         else:
             log.info("Lens %s: no issues found for %s#%d", lens["name"], repo, pr_number)
