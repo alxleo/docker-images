@@ -455,6 +455,104 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
 
 
 # ---------------------------------------------------------------------------
+# Orchestrated review — single Claude session spawns lens sub-agents
+# ---------------------------------------------------------------------------
+
+
+def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, config: dict,
+                            commit_messages: str = "", pr_description: str = "",
+                            model_override: str | None = None, repomap: str = "",
+                            depth: str = "standard", impact: str = "") -> list[tuple[str, str]]:
+    """Run multiple lenses in a single Claude session via sub-agents.
+
+    Instead of N × claude -p (one per lens), this runs one orchestrator session
+    that spawns each lens as a sub-agent via the Agent tool. Saves rate limit
+    budget and allows lenses to share context.
+
+    For non-Claude models, falls back to individual run_lens() calls.
+
+    Returns list of (lens_name, result) tuples for findings.
+    """
+    # Split lenses by model family
+    model_family = (model_override
+                    or config.get("default_model", DEFAULT_MODEL))
+
+    claude_lenses = []
+    other_lenses = []
+    for lens in lenses:
+        lens_model = (model_override
+                      or config.get("lenses", {}).get(lens["name"], {}).get("model")
+                      or config.get("default_model", DEFAULT_MODEL))
+        if lens_model in ("claude", "sonnet", "opus", "haiku"):
+            claude_lenses.append(lens)
+        else:
+            other_lenses.append(lens)
+
+    results = []
+
+    # Run Claude lenses via single orchestrated session
+    if claude_lenses:
+        model_name = _resolve_model(config, "claude", depth)
+        max_turns = 20 if depth == "deep" else 10
+        lens_names = [l["name"] for l in claude_lenses]
+
+        # Build orchestrator prompt
+        preamble_file = PROMPTS_DIR / "_preamble.md"
+        preamble = preamble_file.read_text() if preamble_file.exists() else ""
+
+        context = ""
+        if pr_description:
+            context += f"\n\n## PR Description\n\n{pr_description}"
+        if commit_messages:
+            context += f"\n\n## Commit Messages\n\n{commit_messages}"
+        if repomap:
+            context += f"\n\n## Repository Structure\n\n{repomap}"
+        if impact:
+            context += f"\n\n## Impact Analysis\n\n{impact}"
+
+        processed_diff = preprocess_diff(diff)
+
+        orchestrator_prompt = f"""{preamble}
+
+You are a PR review orchestrator. Your job is to spawn specialized review agents and collect their findings.
+
+For each of the following lenses, spawn the corresponding agent using the Agent tool:
+{chr(10).join(f'- **{name}** → spawn agent `pr-reviewer-lenses:{name}-lens`' for name in lens_names)}
+
+Pass each agent the PR diff below as its task. Collect all findings.
+
+After all agents complete, output ALL findings combined. Use the exact output format from each agent — do not summarize or rewrite their findings. If an agent found nothing, skip it silently.
+{context}
+
+## PR Diff
+
+```diff
+{processed_diff}
+```"""
+
+        log.info("Orchestrated review: %d Claude lenses via single session (model=%s, max_turns=%d)",
+                 len(claude_lenses), model_name, max_turns)
+
+        result = run_lens_claude(orchestrator_prompt, repo_dir, max_turns, model=model_name)
+        if result and result.strip():
+            # The orchestrator aggregates findings from all lenses.
+            # Tag each section so the webhook handler can post separately if needed.
+            results.append(("review", result))
+
+    # Run non-Claude lenses individually (Gemini, Codex)
+    for lens in other_lenses:
+        result = run_lens(lens, diff, repo_dir, config,
+                          commit_messages=commit_messages,
+                          pr_description=pr_description,
+                          model_override=model_override,
+                          repomap=repomap, depth=depth, impact=impact)
+        if result and result.strip():
+            results.append((lens["name"], result))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Diff preprocessing
 # ---------------------------------------------------------------------------
 

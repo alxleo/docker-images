@@ -316,29 +316,26 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                  diff_lines, len(lenses),
                  f" (model override: {model_override})" if model_override else "")
 
-        posted = 0
-        silent = 0
-        all_results: list[str] = []
-        for lens in lenses:
-            result = core.run_lens(lens, diff, repo_dir, config,
-                                   commit_messages=commit_messages,
-                                   pr_description=pr_description,
-                                   model_override=model_override,
-                                   repomap=repomap,
-                                   depth=depth,
-                                   impact=impact)
-            if result and result.strip():
-                # Cap findings by severity if max_comments is set
-                result = core.cap_by_severity(result, lens["max_comments"])
-                all_results.append(result)
-                post_review(client, owner, repo, pr_number,
-                            lens["name"], result, head_sha, diff=diff)
-                posted += 1
-            else:
-                log.info("Lens %s: silent (no findings or empty response) for %s/%s#%d",
-                         lens["name"], owner, repo, pr_number)
-                silent += 1
+        # Use orchestrated review (single Claude session with sub-agents)
+        # when multiple Claude lenses are requested
+        review_results = core.run_review_orchestrated(
+            lenses, diff, repo_dir, config,
+            commit_messages=commit_messages,
+            pr_description=pr_description,
+            model_override=model_override,
+            repomap=repomap, depth=depth, impact=impact,
+        )
 
+        posted = 0
+        all_results: list[str] = []
+        for lens_name, result in review_results:
+            result = core.cap_by_severity(result, 5)  # default cap
+            all_results.append(result)
+            post_review(client, owner, repo, pr_number,
+                        lens_name, result, head_sha, diff=diff)
+            posted += 1
+
+        silent = len(lenses) - posted
         log.info("Review complete for %s/%s#%d: %d posted, %d silent",
                  owner, repo, pr_number, posted, silent)
 
