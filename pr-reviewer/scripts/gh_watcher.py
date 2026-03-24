@@ -264,25 +264,30 @@ def post_status_comment(repo: str, pr_number: int, message: str):
     """Post or update a status comment on a PR."""
     body = message + "\n\n" + STATUS_TAG
 
-    # Look for existing status comment to edit via REST API
-    comments_json = gh_json(
-        ["api", f"repos/{repo}/issues/{pr_number}/comments", "--paginate",
-         "--jq", f'[.[] | select(.body | contains("{STATUS_TAG}")) | .id] | first'],
-    )
-    existing_id = None
-    if isinstance(comments_json, (int, float)):
-        existing_id = int(comments_json)
-
-    if existing_id:
-        payload = json.dumps({"body": body})
-        result = subprocess.run(
-            ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
-             "--method", "PATCH", "--input", "-"],
-            input=payload, capture_output=True, text=True, timeout=15,
+    # Look for existing status comment to edit
+    try:
+        comments = gh_json(
+            ["api", f"repos/{repo}/issues/{pr_number}/comments", "--paginate"],
         )
-        if result.returncode == 0:
-            log.info("Updated status comment on %s#%d", repo, pr_number)
-            return
+        existing_id = None
+        if isinstance(comments, list):
+            for c in comments:
+                if STATUS_TAG in c.get("body", ""):
+                    existing_id = c["id"]
+                    break
+
+        if existing_id:
+            payload = json.dumps({"body": body})
+            result = subprocess.run(
+                ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
+                 "--method", "PATCH", "--input", "-"],
+                input=payload, capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                log.info("Updated status comment on %s#%d", repo, pr_number)
+                return
+    except Exception:
+        log.debug("Failed to find existing status comment on %s#%d — creating new", repo, pr_number)
 
     # Create new comment
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
