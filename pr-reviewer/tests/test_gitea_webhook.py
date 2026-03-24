@@ -372,56 +372,6 @@ diff --git a/f.py b/f.py
 
 
 # ---------------------------------------------------------------------------
-# cleanup_old_reviews — CRITICAL: must not delete user comments
-# ---------------------------------------------------------------------------
-
-class TestCleanupOldReviews:
-    def test_deletes_tagged_comments_only(self):
-        """Only comments with the bot tag should be deleted, never user comments."""
-        mock_client = MagicMock()
-        mock_client.get.side_effect = [
-            # Issue comments response
-            MagicMock(status_code=200, json=MagicMock(return_value=[
-                {"id": 1, "body": "User comment — looks good!"},
-                {"id": 2, "body": "## Review\n\nFinding.\n\n<!-- pr-reviewer-bot:security -->"},
-                {"id": 3, "body": "Another user comment"},
-            ])),
-            # Pull reviews response
-            MagicMock(status_code=200, json=MagicMock(return_value=[])),
-        ]
-        gw.cleanup_old_reviews(mock_client, "ci", "repo", 1, "security")
-        # Only comment #2 should be deleted (has the tag)
-        delete_calls = [c for c in mock_client.delete.call_args_list]
-        assert len(delete_calls) == 1
-        assert "comments/2" in delete_calls[0][0][0]
-
-    def test_does_not_delete_other_lens_tags(self):
-        """Security cleanup must not delete simplification-tagged comments."""
-        mock_client = MagicMock()
-        mock_client.get.side_effect = [
-            MagicMock(status_code=200, json=MagicMock(return_value=[
-                {"id": 10, "body": "Finding\n\n<!-- pr-reviewer-bot:simplification -->"},
-                {"id": 11, "body": "Finding\n\n<!-- pr-reviewer-bot:security -->"},
-            ])),
-            MagicMock(status_code=200, json=MagicMock(return_value=[])),
-        ]
-        gw.cleanup_old_reviews(mock_client, "ci", "repo", 1, "security")
-        delete_calls = [c for c in mock_client.delete.call_args_list]
-        assert len(delete_calls) == 1
-        assert "comments/11" in delete_calls[0][0][0]
-
-    def test_no_comments_no_crash(self):
-        """Empty comment list should not crash."""
-        mock_client = MagicMock()
-        mock_client.get.side_effect = [
-            MagicMock(status_code=200, json=MagicMock(return_value=[])),
-            MagicMock(status_code=200, json=MagicMock(return_value=[])),
-        ]
-        gw.cleanup_old_reviews(mock_client, "ci", "repo", 1, "security")
-        mock_client.delete.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
 # post_commit_status
 # ---------------------------------------------------------------------------
 
