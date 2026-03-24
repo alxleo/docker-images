@@ -1,11 +1,13 @@
-# Custom Caddy with Cloudflare DNS plugin for ACME DNS-01 challenges.
-# Enables automatic HTTPS with Let's Encrypt wildcard certs via DNS-01
-# (no port 80 challenge needed — DNS validation via Cloudflare API).
+# Custom Caddy with Cloudflare DNS + caddy-docker-proxy plugins.
+# - Cloudflare DNS: ACME DNS-01 challenges for Let's Encrypt wildcard certs
+# - caddy-docker-proxy: label-based routing from Docker container metadata
 #
-# Remove when: never (Cloudflare DNS plugin isn't in upstream Caddy)
+# Remove when: never (neither plugin is in upstream Caddy)
 
 FROM caddy:2.11-builder AS builder
-RUN xcaddy build --with github.com/caddy-dns/cloudflare
+RUN xcaddy build \
+    --with github.com/caddy-dns/cloudflare \
+    --with github.com/lucaslorentz/caddy-docker-proxy/v2
 
 FROM caddy:2.11
 RUN apk --no-cache upgrade
