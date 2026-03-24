@@ -30,6 +30,8 @@ def _isolate_paths(tmp_path, monkeypatch):
 def config():
     return {
         "auto_lenses": ["simplification", "security"],
+        "auto_trigger": "every_commit",
+        "auto_create_pr": True,
         "lenses": {
             "simplification": {"max_comments": 5},
             "security": {"max_comments": 5},

@@ -392,7 +392,10 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
 
 
 def handle_push(config: dict, payload: dict):
-    """Auto-create PR for branch pushes (skip main)."""
+    """Auto-create PR for branch pushes (skip main). Controlled by auto_create_pr config."""
+    if not config.get("auto_create_pr", False):
+        return
+
     ref = payload.get("ref", "")
     if not ref.startswith("refs/heads/"):
         return
@@ -420,11 +423,11 @@ def handle_pull_request(config: dict, payload: dict):
 
     Trigger modes (config.auto_trigger):
         pr_open       — review only when PR is first opened
-        every_commit  — review on open + every push (default)
-        on_demand     — never auto-review, only via @pr-reviewer commands
+        every_commit  — review on open + every push
+        on_demand     — never auto-review, only via @pr-reviewer commands (default)
     """
     action = payload.get("action", "")
-    trigger = config.get("auto_trigger", "every_commit")
+    trigger = config.get("auto_trigger", "on_demand")
 
     if trigger == "on_demand":
         return
