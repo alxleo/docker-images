@@ -235,16 +235,34 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
             if head_sha and post_inline_review(repo, pr_number, lens_name, comments, head_sha):
                 return
 
-    # Fallback: top-level PR comment
+    # Fallback: body-only review (no inline comments) — lands in Reviews tab
     header = f"## {icon} {lens_name.title()} Review\n\n"
     full_body = header + body
+    head_sha = get_head_sha(repo, pr_number)
 
+    if head_sha:
+        payload = json.dumps({
+            "commit_id": head_sha,
+            "body": full_body,
+            "event": "COMMENT",
+        })
+        cmd = [
+            "gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews",
+            "--method", "POST", "--input", "-",
+        ]
+        result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            log.info("Posted %s review on %s#%d", lens_name, repo, pr_number)
+            return
+        log.warning("Review API failed (%s), falling back to comment", result.stderr.strip()[:100])
+
+    # Last resort: issue comment (if we can't get head_sha or review API fails)
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
     result = subprocess.run(cmd, input=full_body, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         log.error("Failed to post review for PR #%d lens %s: %s", pr_number, lens_name, result.stderr)
     else:
-        log.info("Posted %s review on %s#%d", lens_name, repo, pr_number)
+        log.info("Posted %s review comment on %s#%d (fallback)", lens_name, repo, pr_number)
 
 
 def react_eyes(repo: str, comment_id: str):
@@ -264,25 +282,31 @@ def post_status_comment(repo: str, pr_number: int, message: str):
     """Post or update a status comment on a PR."""
     body = message + "\n\n" + STATUS_TAG
 
-    # Look for existing status comment to edit via REST API
-    comments_json = gh_json(
-        ["api", f"repos/{repo}/issues/{pr_number}/comments", "--paginate",
-         "--jq", f'[.[] | select(.body | contains("{STATUS_TAG}")) | .id] | first'],
-    )
-    existing_id = None
-    if isinstance(comments_json, (int, float)):
-        existing_id = int(comments_json)
-
-    if existing_id:
-        payload = json.dumps({"body": body})
-        result = subprocess.run(
-            ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
-             "--method", "PATCH", "--input", "-"],
-            input=payload, capture_output=True, text=True, timeout=15,
+    # Look for existing status comment to edit
+    try:
+        comments = gh_json(
+            ["api", f"repos/{repo}/issues/{pr_number}/comments", "--paginate"],
         )
-        if result.returncode == 0:
-            log.info("Updated status comment on %s#%d", repo, pr_number)
-            return
+        existing_id = None
+        if isinstance(comments, list):
+            for c in comments:
+                if STATUS_TAG in c.get("body", ""):
+                    existing_id = c["id"]
+                    break
+
+        if existing_id:
+            payload = json.dumps({"body": body})
+            result = subprocess.run(
+                ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
+                 "--method", "PATCH", "--input", "-"],
+                input=payload, capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                log.info("Updated status comment on %s#%d", repo, pr_number)
+                return
+    except Exception:
+        log.debug("Failed to find existing status comment on %s#%d — creating new",
+                  repo, pr_number, exc_info=True)
 
     # Create new comment
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]

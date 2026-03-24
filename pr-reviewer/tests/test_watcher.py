@@ -561,21 +561,50 @@ class TestRunLens:
 
 class TestPostReview:
     @patch("subprocess.run")
-    def test_adds_header_with_icon(self, mock_run):
+    @patch.object(w, "get_head_sha", return_value="abc123")
+    def test_posts_as_review_with_header(self, mock_sha, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         w.post_review("o/r", 1, "security", "found issues")
-        body_sent = mock_run.call_args.kwargs["input"]
-        assert "Security Review" in body_sent
-        assert "\U0001f512" in body_sent  # 🔒
-        assert "found issues" in body_sent
+        payload = json.loads(mock_run.call_args.kwargs["input"])
+        assert "Security Review" in payload["body"]
+        assert "\U0001f512" in payload["body"]  # 🔒
+        assert "found issues" in payload["body"]
+        assert payload["event"] == "COMMENT"
+        cmd = mock_run.call_args[0][0]
+        assert "reviews" in " ".join(cmd)
 
     @patch("subprocess.run")
-    def test_uses_stdin_for_body(self, mock_run):
+    @patch.object(w, "get_head_sha", return_value="")
+    def test_falls_back_to_comment_without_sha(self, mock_sha, mock_run):
+        """When head_sha unavailable, falls back to issue comment."""
         mock_run.return_value = MagicMock(returncode=0)
         w.post_review("o/r", 1, "standards", "body")
         cmd = mock_run.call_args[0][0]
         assert "--body-file" in cmd
-        assert "-" in cmd
+
+
+# ---------------------------------------------------------------------------
+# post_status_comment
+# ---------------------------------------------------------------------------
+
+class TestPostStatusComment:
+    @patch("subprocess.run")
+    @patch.object(w, "gh_json", side_effect=json.JSONDecodeError("bad", "", 0))
+    def test_falls_back_on_json_error(self, mock_gh_json, mock_run):
+        """If gh_json raises JSONDecodeError, falls back to creating a new comment."""
+        mock_run.return_value = MagicMock(returncode=0)
+        w.post_status_comment("o/r", 1, "test message")
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert "pr" in cmd and "comment" in cmd
+
+    @patch("subprocess.run")
+    @patch.object(w, "gh_json", return_value=[])
+    def test_creates_new_when_no_existing(self, mock_gh_json, mock_run):
+        """No existing status comment → creates new one."""
+        mock_run.return_value = MagicMock(returncode=0)
+        w.post_status_comment("o/r", 1, "test message")
+        mock_run.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -769,19 +798,23 @@ class TestPostReviewInlineFallback:
         mock_parse.assert_called_once()
         mock_inline.assert_called_once()
 
-    def test_falls_back_to_comment_on_no_inline(self):
+    def test_falls_back_to_review_on_no_inline(self):
         with patch.object(core, "parse_inline_comments", return_value=[]), \
+             patch.object(w, "get_head_sha", return_value="sha456"), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             w.post_review("o/r", 1, "security", "No findings format", diff=SAMPLE_DIFF)
-        # Should have called gh pr comment
-        assert any("pr" in str(c) for c in mock_run.call_args_list)
+        # Should post as review (not issue comment)
+        payload = json.loads(mock_run.call_args.kwargs["input"])
+        assert payload["event"] == "COMMENT"
 
     def test_falls_back_when_no_diff(self):
-        with patch("subprocess.run") as mock_run:
+        with patch.object(w, "get_head_sha", return_value="sha789"), \
+             patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             w.post_review("o/r", 1, "security", "Body text", diff="")
-        assert mock_run.called
+        payload = json.loads(mock_run.call_args.kwargs["input"])
+        assert payload["event"] == "COMMENT"
 
 
     def test_refresh_passes_string_iss_to_jwt(self):
