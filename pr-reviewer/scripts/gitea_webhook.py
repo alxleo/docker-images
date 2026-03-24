@@ -14,6 +14,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -122,16 +123,64 @@ def checkout_branch(repo_dir: Path, branch: str):
     )
 
 
+BOT_TAG = "<!-- pr-reviewer-bot:{lens} -->"
+
+# Severity threshold for CI gating (commit status)
+_FAIL_SEVERITIES = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+
+
+def post_commit_status(client: httpx.Client, owner: str, repo: str, sha: str,
+                       state: str, description: str):
+    """Post a commit status to Gitea (success/failure/pending)."""
+    r = client.post(f"/repos/{owner}/{repo}/statuses/{sha}", json={
+        "state": state,
+        "description": description[:140],
+        "context": "pr-reviewer",
+        "target_url": "",
+    })
+    if r.status_code in (200, 201):
+        log.info("Commit status: %s on %s/%s@%s — %s", state, owner, repo, sha[:8], description)
+    else:
+        log.warning("Failed to post commit status: %d", r.status_code)
+
+
+def cleanup_old_reviews(client: httpx.Client, owner: str, repo: str, pr_number: int,
+                        lens_name: str):
+    """Delete old bot review comments for this lens before posting new ones."""
+    tag = BOT_TAG.format(lens=lens_name)
+    r = client.get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", params={"limit": 50})
+    if r.status_code != 200:
+        return
+    deleted = 0
+    for comment in r.json():
+        if tag in comment.get("body", ""):
+            client.delete(f"/repos/{owner}/{repo}/issues/comments/{comment['id']}")
+            deleted += 1
+    # Also clean up inline reviews
+    r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews")
+    if r.status_code == 200:
+        for review in r.json():
+            if tag in review.get("body", ""):
+                client.delete(f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews/{review['id']}")
+                deleted += 1
+    if deleted:
+        log.info("Cleaned up %d old %s review(s) on %s/%s#%d", deleted, lens_name, owner, repo, pr_number)
+
+
 def post_review(client: httpx.Client, owner: str, repo: str, pr_number: int,
                 lens_name: str, body: str, head_sha: str, diff: str = ""):
     """Post review on a Gitea PR — inline comments if possible, fallback to top-level."""
     icon = core.LENS_ICONS.get(lens_name, "\U0001f50d")
+    tag = BOT_TAG.format(lens=lens_name)
+
+    # Clean up previous bot reviews for this lens
+    cleanup_old_reviews(client, owner, repo, pr_number, lens_name)
 
     # Try inline review via Gitea's review API
     if diff:
         comments = core.parse_inline_comments(body, diff)
         if comments and head_sha:
-            review_body = f"{icon} **{lens_name.title()} Review** — {len(comments)} finding(s)"
+            review_body = f"{icon} **{lens_name.title()} Review** — {len(comments)} finding(s)\n{tag}"
             payload = {
                 "commit_id": head_sha,
                 "body": review_body,
@@ -150,7 +199,7 @@ def post_review(client: httpx.Client, owner: str, repo: str, pr_number: int,
 
     # Fallback: top-level issue comment
     header = f"## {icon} {lens_name.title()} Review\n\n"
-    full_body = header + body
+    full_body = header + body + f"\n\n{tag}"
     r = client.post(
         f"/repos/{owner}/{repo}/issues/{pr_number}/comments",
         json={"body": full_body},
@@ -241,30 +290,82 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                 cwd=repo_dir, capture_output=True, timeout=60,
             )
 
-        lenses = core.enabled_lenses(config, depth)
+        # Generate structural map + impact analysis for context
+        repomap = core.generate_repomap(repo_dir)
+        if repomap:
+            log.info("Repomap: %d chars", len(repomap))
+        impact = core.analyze_impact(repo_dir, diff)
+        if impact:
+            log.info("Impact: %d references found", impact.count("referenced by"))
+
+        all_lenses = core.enabled_lenses(config, depth)
+
+        # Intelligent routing: for auto/standard depth, only run relevant lenses
+        if depth in ("auto", "standard"):
+            relevant = core.analyze_diff_relevance(diff)
+            lenses = [l for l in all_lenses if l["name"] in relevant]
+            if len(lenses) < len(all_lenses):
+                skipped = [l["name"] for l in all_lenses if l["name"] not in relevant]
+                log.info("Routing: %d/%d lenses relevant (skipping: %s)",
+                         len(lenses), len(all_lenses), ", ".join(skipped))
+        else:
+            lenses = all_lenses  # deep/quick/single-lens: run what was requested
+
         diff_lines = len(diff.splitlines())
         log.info("Diff: %d lines, %d lenses to run%s",
                  diff_lines, len(lenses),
                  f" (model override: {model_override})" if model_override else "")
 
-        posted = 0
-        silent = 0
+        # Clean up old bot reviews for all lenses being run
         for lens in lenses:
-            result = core.run_lens(lens, diff, repo_dir, config,
-                                   commit_messages=commit_messages,
-                                   pr_description=pr_description,
-                                   model_override=model_override)
-            if result and result.strip():
-                post_review(client, owner, repo, pr_number,
-                            lens["name"], result, head_sha, diff=diff)
-                posted += 1
-            else:
-                log.info("Lens %s: silent (no findings or empty response) for %s/%s#%d",
-                         lens["name"], owner, repo, pr_number)
-                silent += 1
+            cleanup_old_reviews(client, owner, repo, pr_number, lens["name"])
+        # Also clean up the "review" tag from orchestrated reviews
+        cleanup_old_reviews(client, owner, repo, pr_number, "review")
 
-        log.info("Review complete for %s/%s#%d: %d posted, %d silent",
-                 owner, repo, pr_number, posted, silent)
+        # Use orchestrated review (single Claude session with sub-agents)
+        review_results = core.run_review_orchestrated(
+            lenses, diff, repo_dir, config,
+            commit_messages=commit_messages,
+            pr_description=pr_description,
+            model_override=model_override,
+            repomap=repomap, depth=depth, impact=impact,
+        )
+
+        posted = 0
+        all_results: list[str] = []
+        for lens_name, result in review_results:
+            # Use per-lens max_comments for cap; default to deep_overrides for orchestrated
+            lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+            max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
+            result = core.cap_by_severity(result, max_comments)
+            all_results.append(result)
+            post_review(client, owner, repo, pr_number,
+                        lens_name, result, head_sha, diff=diff)
+            posted += 1
+
+        log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses",
+                 owner, repo, pr_number, posted, len(lenses))
+
+        # CI gating: post commit status based on findings
+        fail_on = config.get("fail_on_severity", "")
+        if fail_on and head_sha:
+            # Check if any finding at or above the threshold exists
+            threshold = _FAIL_SEVERITIES.get(fail_on.upper(), 99)
+            combined = "\n".join(all_results)
+            found_severities = re.findall(r'###\s+\[(CRITICAL|HIGH|MEDIUM|LOW)\]', combined)
+            worst = min((_FAIL_SEVERITIES[s] for s in found_severities), default=99)
+            if worst <= threshold:
+                worst_name = next(k for k, v in _FAIL_SEVERITIES.items() if v == worst)
+                post_commit_status(client, owner, repo, head_sha, "failure",
+                                   f"Review found {worst_name} issue(s)")
+            else:
+                post_commit_status(client, owner, repo, head_sha, "success",
+                                   f"Review passed ({posted} findings, none above {fail_on})"
+                                   if posted else "Review passed (no findings)")
+        elif head_sha:
+            # No gating configured — always post success
+            post_commit_status(client, owner, repo, head_sha, "success",
+                               f"Review complete ({posted} findings)" if posted else "Review passed")
 
     # Update state — reload from disk to avoid clobbering concurrent comment tracking
     state_key = f"{owner}/{repo}"

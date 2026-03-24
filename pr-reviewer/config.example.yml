@@ -20,8 +20,15 @@ skip_drafts: true
 # Gitea auto-review: lenses to run on PR open/sync
 auto_lenses: [simplification, security]
 
-# Default AI model for review
+# Default AI model family for review (claude, gemini, codex)
 default_model: claude
+
+# Explicit model versions per family — deterministic invocation
+models:
+  claude: sonnet              # auto/standard reviews
+  claude_deep: opus           # deep reviews get the best model
+  gemini: gemini-2.5-pro
+  codex: o3
 
 # Lens configuration
 lenses:
