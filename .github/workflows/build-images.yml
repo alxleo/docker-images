@@ -381,12 +381,18 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+        if: github.event_name != 'pull_request'
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Single-platform build loaded into local Docker for smoke tests + Trivy
       - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: pr-reviewer
@@ -414,13 +420,21 @@ jobs:
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
             python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false  # no cache in a job that pushes images (zizmor cache-poisoning)
       - name: Unit tests
         run: uv run --with pytest --with pyyaml --with httpx --with grep-ast -- python -m pytest pr-reviewer/tests/ -v
-      - name: Push to GHCR
+      # Multi-arch build + push (amd64 + arm64) — after tests pass, only on main
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         if: github.event_name != 'pull_request'
-        run: |
-          docker push ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
-          docker push ghcr.io/alxleo/pr-reviewer:latest
+        with:
+          context: pr-reviewer
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
+            ghcr.io/alxleo/pr-reviewer:latest
 
   semaphore:
     name: Semaphore UI + homelab tools
