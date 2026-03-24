@@ -266,7 +266,8 @@ class TestStateRace:
 
         # check_comments dispatches once (for @pr-reviewer command).
         # poll should NOT dispatch again because state was updated.
-        with patch.object(w, "dispatch_review") as mock_dispatch:
+        with patch.object(w, "dispatch_review") as mock_dispatch, \
+             patch.object(w, "react_eyes"):
             w.poll(config)
 
         assert mock_dispatch.call_count == 1
@@ -309,41 +310,62 @@ class TestReadSecret:
         monkeypatch.setenv("tok_FILE", str(custom))
         assert w.read_secret("tok") == "secret_val"
 
+    def test_uppercase_env_fallback(self, monkeypatch):
+        """read_secret('gh_app_id') finds GH_APP_ID env var."""
+        monkeypatch.setenv("GH_APP_ID", "12345")
+        assert w.read_secret("gh_app_id") == "12345"
+
+    def test_newline_escape_restoration(self, monkeypatch):
+        r"""Env vars with literal \n are restored to real newlines (e.g. PEM keys)."""
+        monkeypatch.setenv("MULTI_LINE", r"line1\nline2\nline3")
+        val = w.read_secret("multi_line")
+        assert val == "line1\nline2\nline3"
+        assert r"\n" not in val
+
 
 # ---------------------------------------------------------------------------
 # check_comments
 # ---------------------------------------------------------------------------
 
 class TestCheckComments:
+    @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
-    def test_skips_already_processed(self, mock_dispatch, config):
+    def test_skips_already_processed(self, mock_dispatch, mock_react, config):
         w.save_state("o/r", 1, {"processed_comment_ids": ["c1"]})
         comments = [{"id": "c1", "body": "@pr-reviewer"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
+        mock_react.assert_not_called()
 
+    @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
-    def test_dispatches_new_command(self, mock_dispatch, config):
+    def test_dispatches_new_command(self, mock_dispatch, mock_react, config):
         comments = [{"id": "c1", "body": "@pr-reviewer security"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_called_once_with(config, "o/r", 1, "security")
+        mock_react.assert_called_once_with("o/r", "c1")
 
+    @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
-    def test_stop_no_dispatch(self, mock_dispatch, config):
+    def test_stop_no_dispatch(self, mock_dispatch, mock_react, config):
         comments = [{"id": "c1", "body": "@pr-reviewer stop"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
+        mock_react.assert_called_once()
         state = w.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
 
+    @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
-    def test_ignores_non_commands(self, mock_dispatch, config):
+    def test_ignores_non_commands(self, mock_dispatch, mock_react, config):
         comments = [{"id": "c1", "body": "looks good to me!"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
+        mock_react.assert_not_called()
 
+    @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
-    def test_multiple_commands_all_processed(self, mock_dispatch, config):
+    def test_multiple_commands_all_processed(self, mock_dispatch, mock_react, config):
         comments = [
             {"id": "c1", "body": "@pr-reviewer security"},
             {"id": "c2", "body": "@pr-reviewer standards"},
@@ -351,10 +373,38 @@ class TestCheckComments:
         ]
         w.check_comments(config, "o/r", 1, comments)
         assert mock_dispatch.call_count == 2
+        assert mock_react.call_count == 2
         state = w.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
         assert "c2" in state["processed_comment_ids"]
         assert "c3" not in state["processed_comment_ids"]
+
+    @patch.object(w, "react_eyes")
+    @patch.object(w, "dispatch_review", side_effect=RuntimeError("review exploded"))
+    def test_failed_dispatch_still_marks_processed(self, mock_dispatch, mock_react, config):
+        """If dispatch_review raises, the comment must still be marked processed
+        to avoid an infinite retry loop on the next poll cycle."""
+        comments = [{"id": "c1", "body": "@pr-reviewer"}]
+        w.check_comments(config, "o/r", 1, comments)
+        mock_dispatch.assert_called_once()
+        mock_react.assert_called_once()
+        state = w.load_state("o/r", 1)
+        assert "c1" in state["processed_comment_ids"]
+
+    @patch.object(w, "react_eyes")
+    @patch.object(w, "dispatch_review", side_effect=[RuntimeError("boom"), None])
+    def test_failed_dispatch_doesnt_block_subsequent_comments(self, mock_dispatch, mock_react, config):
+        """A failed review for one comment must not prevent processing later comments."""
+        comments = [
+            {"id": "c1", "body": "@pr-reviewer security"},
+            {"id": "c2", "body": "@pr-reviewer standards"},
+        ]
+        w.check_comments(config, "o/r", 1, comments)
+        assert mock_dispatch.call_count == 2
+        assert mock_react.call_count == 2
+        state = w.load_state("o/r", 1)
+        assert "c1" in state["processed_comment_ids"]
+        assert "c2" in state["processed_comment_ids"]
 
 
 # ---------------------------------------------------------------------------
@@ -399,9 +449,10 @@ class TestPoll:
         w.poll(config)
         mock_dispatch.assert_not_called()
 
+    @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_reviews_when_command_present(self, mock_gh_json, mock_dispatch, config):
+    def test_reviews_when_command_present(self, mock_gh_json, mock_dispatch, mock_react, config):
         """On-demand: reviews only when @pr-reviewer comment exists."""
         mock_gh_json.return_value = [
             {
@@ -413,6 +464,7 @@ class TestPoll:
         ]
         w.poll(config)
         mock_dispatch.assert_called_once_with(config, "owner/repo-a", 7, "standard")
+        mock_react.assert_called_once_with("owner/repo-a", "c1")
 
 
 # ---------------------------------------------------------------------------

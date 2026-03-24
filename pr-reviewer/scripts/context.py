@@ -153,7 +153,7 @@ def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
     try:
         start = time.time()
         result = subprocess.run(cmd, input=planner_prompt, capture_output=True,
-                                text=True, cwd=repo_dir, timeout=30)
+                                text=True, cwd=repo_dir, timeout=90)
         log.info("Search planner completed in %.1fs", time.time() - start)
 
         if result.returncode != 0:

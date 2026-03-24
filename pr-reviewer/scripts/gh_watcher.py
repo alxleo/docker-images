@@ -161,6 +161,9 @@ def gh_json(args: list[str], repo: str | None = None) -> list | dict:
     return json.loads(output)
 
 
+STATUS_TAG = "<!-- pr-reviewer-status -->"
+
+
 # ---------------------------------------------------------------------------
 # GitHub-specific repo/PR operations
 # ---------------------------------------------------------------------------
@@ -269,6 +272,50 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
         log.info("Posted %s review on %s#%d", lens_name, repo, pr_number)
 
 
+def react_eyes(repo: str, comment_id: str):
+    """Add 👀 reaction to a comment — immediate "I saw it" signal."""
+    result = subprocess.run(
+        ["gh", "api", f"repos/{repo}/issues/comments/{comment_id}/reactions",
+         "--method", "POST", "-f", "content=eyes"],
+        capture_output=True, text=True, timeout=15,
+    )
+    if result.returncode == 0:
+        log.info("Reacted 👀 on %s comment %s", repo, comment_id)
+    else:
+        log.debug("Reaction failed — non-critical: %s", result.stderr.strip()[:100])
+
+
+def post_status_comment(repo: str, pr_number: int, message: str):
+    """Post or update a status comment on a PR."""
+    body = message + "\n\n" + STATUS_TAG
+
+    # Look for existing status comment to edit via REST API
+    comments_json = gh_json(
+        ["api", f"repos/{repo}/issues/{pr_number}/comments", "--paginate",
+         "--jq", f'[.[] | select(.body | contains("{STATUS_TAG}")) | .id] | first'],
+    )
+    existing_id = None
+    if isinstance(comments_json, (int, float)):
+        existing_id = int(comments_json)
+
+    if existing_id:
+        payload = json.dumps({"body": body})
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
+             "--method", "PATCH", "--input", "-"],
+            input=payload, capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            log.info("Updated status comment on %s#%d", repo, pr_number)
+            return
+
+    # Create new comment
+    cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
+    result = subprocess.run(cmd, input=body, capture_output=True, text=True, timeout=15)
+    if result.returncode == 0:
+        log.info("Posted status comment on %s#%d", repo, pr_number)
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -277,6 +324,7 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
 def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     """Run all enabled lenses against a PR and post results."""
     log.info("Reviewing %s#%d at depth=%s", repo, pr_number, depth)
+    start_time = time.time()
 
     repo_dir = clone_or_update(repo)
     checkout_pr(repo_dir, pr_number)
@@ -323,6 +371,12 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     else:
         lenses = all_lenses
 
+    # Post status comment — "Reviewing with X lens(es)..."
+    model_name = config.get("default_model", "claude")
+    lens_list = ", ".join(l["name"] for l in lenses)
+    status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
+    post_status_comment(repo, pr_number, status_msg)
+
     # Orchestrated review (single Claude session with sub-agents)
     review_results = core.run_review_orchestrated(
         lenses, diff, repo_dir, config,
@@ -338,6 +392,12 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
         result = core.cap_by_severity(result, max_comments)
         post_review(repo, pr_number, lens_name, result, diff=diff)
+
+    # Update status comment — done
+    elapsed = int(time.time() - start_time)
+    posted = len(review_results)
+    done_msg = f"\u2705 **Review complete** — {posted} lens report(s) from {lens_list} via `{model_name}` ({elapsed}s)"
+    post_status_comment(repo, pr_number, done_msg)
 
     # Update state — reload from disk to avoid clobbering concurrent writes
     state = core.load_state(repo, pr_number)
@@ -364,10 +424,20 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
 
         processed_ids.add(comment_id)
 
+        # Immediate feedback: react with 👀 (best-effort, never blocks dispatch)
+        try:
+            react_eyes(repo, comment_id)
+        except Exception:
+            log.debug("Failed to add 👀 reaction for comment %s — non-critical", comment_id)
+
         if depth == "stop":
             log.info("Stop command received for %s#%d", repo, pr_number)
         else:
-            dispatch_review(config, repo, pr_number, depth)
+            try:
+                dispatch_review(config, repo, pr_number, depth)
+            except Exception:
+                log.exception("Review failed for %s#%d (comment %s) — marking processed to avoid retry loop",
+                              repo, pr_number, comment_id)
 
     # Reload state after dispatch_review may have updated it on disk,
     # then merge in our processed_comment_ids to avoid clobbering
