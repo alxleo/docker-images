@@ -1,0 +1,4 @@
+# CVE-2026-33186: gRPC-Go authorization bypass via missing leading slash in :path
+# cAdvisor uses gRPC for metrics collection but is read-only (no auth decisions).
+# Transitive dep — remove when upstream cadvisor updates grpc >= 1.79.3.
+CVE-2026-33186
