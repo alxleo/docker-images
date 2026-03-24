@@ -198,15 +198,29 @@ def post_review(client: httpx.Client, owner: str, repo: str, pr_number: int,
                 return
             log.warning("Inline review failed (%d), falling back to comment", r.status_code)
 
-    # Fallback: top-level issue comment
+    # Fallback: body-only review (no inline comments) — lands in Reviews tab
     header = f"## {icon} {lens_name.title()} Review\n\n"
     full_body = header + body + f"\n\n{tag}"
+
+    if head_sha:
+        payload = {
+            "commit_id": head_sha,
+            "body": full_body,
+            "event": "COMMENT",
+        }
+        r = client.post(f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews", json=payload)
+        if r.status_code in (200, 201):
+            log.info("Posted %s review on %s/%s#%d", lens_name, owner, repo, pr_number)
+            return
+        log.warning("Review API failed (%d), falling back to comment", r.status_code)
+
+    # Last resort: issue comment (if no head_sha or review API fails)
     r = client.post(
         f"/repos/{owner}/{repo}/issues/{pr_number}/comments",
         json={"body": full_body},
     )
     if r.status_code in (200, 201):
-        log.info("Posted %s review comment on %s/%s#%d", lens_name, owner, repo, pr_number)
+        log.info("Posted %s review comment on %s/%s#%d (fallback)", lens_name, owner, repo, pr_number)
     else:
         log.error("Failed to post review on %s/%s#%d: %d %s",
                   owner, repo, pr_number, r.status_code, r.text[:200])

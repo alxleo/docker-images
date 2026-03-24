@@ -334,12 +334,12 @@ diff --git a/f.py b/f.py
         call_args = mock_client.post.call_args
         assert "reviews" in call_args[0][0]
 
-    def test_fallback_to_comment(self):
+    def test_fallback_to_body_only_review(self):
         mock_client = MagicMock()
-        # Inline fails, then comment succeeds
+        # Inline fails, then body-only review succeeds
         mock_client.post.side_effect = [
             MagicMock(status_code=500),  # inline review fails
-            MagicMock(status_code=201),  # comment succeeds
+            MagicMock(status_code=201),  # body-only review succeeds
         ]
 
         diff = """\
@@ -356,17 +356,19 @@ diff --git a/f.py b/f.py
 
         assert mock_client.post.call_count == 2
         second_call = mock_client.post.call_args_list[1]
-        assert "comments" in second_call[0][0]
+        assert "reviews" in second_call[0][0]
+        assert second_call[1]["json"]["event"] == "COMMENT"
 
-    def test_comment_without_diff(self):
+    def test_review_without_diff(self):
         mock_client = MagicMock()
         mock_client.post.return_value = MagicMock(status_code=201)
 
         gw.post_review(mock_client, "ci", "repo", 1, "simplification", "Review body.", "sha1")
 
         call_args = mock_client.post.call_args
-        assert "comments" in call_args[0][0]
+        assert "reviews" in call_args[0][0]
         assert "Simplification Review" in call_args[1]["json"]["body"]
+        assert call_args[1]["json"]["event"] == "COMMENT"
 
 
 # ---------------------------------------------------------------------------

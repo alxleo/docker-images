@@ -235,16 +235,34 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
             if head_sha and post_inline_review(repo, pr_number, lens_name, comments, head_sha):
                 return
 
-    # Fallback: top-level PR comment
+    # Fallback: body-only review (no inline comments) — lands in Reviews tab
     header = f"## {icon} {lens_name.title()} Review\n\n"
     full_body = header + body
+    head_sha = get_head_sha(repo, pr_number)
 
+    if head_sha:
+        payload = json.dumps({
+            "commit_id": head_sha,
+            "body": full_body,
+            "event": "COMMENT",
+        })
+        cmd = [
+            "gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews",
+            "--method", "POST", "--input", "-",
+        ]
+        result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            log.info("Posted %s review on %s#%d", lens_name, repo, pr_number)
+            return
+        log.warning("Review API failed (%s), falling back to comment", result.stderr.strip()[:100])
+
+    # Last resort: issue comment (if we can't get head_sha or review API fails)
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
     result = subprocess.run(cmd, input=full_body, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         log.error("Failed to post review for PR #%d lens %s: %s", pr_number, lens_name, result.stderr)
     else:
-        log.info("Posted %s review on %s#%d", lens_name, repo, pr_number)
+        log.info("Posted %s review comment on %s#%d (fallback)", lens_name, repo, pr_number)
 
 
 def react_eyes(repo: str, comment_id: str):
