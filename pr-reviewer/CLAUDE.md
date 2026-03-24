@@ -138,7 +138,7 @@ lenses:
 ## Gotchas
 
 - **on_demand is the default.** Auto-PR creation and auto-review are off. Every branch push was triggering reviews before this was fixed.
-- **Planner (haiku) may timeout** at 30s — gracefully degrades, review continues without cross-file context.
+- **Planner (haiku) may timeout** — gracefully degrades, review continues without cross-file context.
 - **GitHub poller can hang** after completing a review — the poll loop blocks during review dispatch. Restart container to resume.
 - **Home-network prompt volume mount** overrides baked-in prompts. If deploying with a mount, keep prompts in sync. The local-cicd deployment uses baked-in prompts (no mount).
 - **Gemini CLI `-p` flag** requires prompt as string argument, not stdin.

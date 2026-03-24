@@ -260,12 +260,16 @@ def post_status_comment(client: httpx.Client, owner: str, repo: str, pr_number: 
         for comment in r.json():
             if STATUS_TAG in comment.get("body", ""):
                 comment_id = comment["id"]
-                client.patch(
+                r_patch = client.patch(
                     f"/repos/{owner}/{repo}/issues/comments/{comment_id}",
                     json={"body": f"{message}\n\n{STATUS_TAG}"},
                 )
-                log.info("Updated status comment %d on %s/%s#%d", comment_id, owner, repo, pr_number)
-                return comment_id
+                if r_patch.status_code in (200, 201):
+                    log.info("Updated status comment %d on %s/%s#%d", comment_id, owner, repo, pr_number)
+                    return comment_id
+                log.warning("Failed to update status comment %d (%d), creating new",
+                            comment_id, r_patch.status_code)
+                break
 
     # Create new status comment
     r = client.post(
@@ -407,7 +411,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
 
         # Update status comment — done
         elapsed = int(time.time() - start_time)
-        done_msg = f"\u2705 **Review complete** — {posted} finding(s) from {lens_list} via `{model_name}` ({elapsed}s)"
+        done_msg = f"\u2705 **Review complete** — {posted} lens report(s) from {lens_list} via `{model_name}` ({elapsed}s)"
         post_status_comment(client, owner, repo, pr_number, done_msg)
 
         # CI gating: post commit status based on findings
@@ -543,9 +547,12 @@ def handle_issue_comment(config: dict, payload: dict):
     state["processed_comment_ids"] = list(processed_ids)
     core.save_state(f"{owner}/{repo}", pr_number, state)
 
-    # Immediate feedback: react with 👀 on the command comment
-    with gitea_client() as client:
-        react_eyes(client, owner, repo, int(comment_id))
+    # Immediate feedback: react with 👀 (best-effort, never blocks dispatch)
+    try:
+        with gitea_client() as client:
+            react_eyes(client, owner, repo, int(comment_id))
+    except Exception:
+        log.debug("Failed to add 👀 reaction to comment %s — non-critical", comment_id)
 
     if depth == "stop":
         log.info("Stop command received for %s/%s#%d", owner, repo, pr_number)

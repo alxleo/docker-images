@@ -396,7 +396,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     # Update status comment — done
     elapsed = int(time.time() - start_time)
     posted = len(review_results)
-    done_msg = f"\u2705 **Review complete** — {posted} finding(s) from {lens_list} via `{model_name}` ({elapsed}s)"
+    done_msg = f"\u2705 **Review complete** — {posted} lens report(s) from {lens_list} via `{model_name}` ({elapsed}s)"
     post_status_comment(repo, pr_number, done_msg)
 
     # Update state — reload from disk to avoid clobbering concurrent writes
@@ -424,8 +424,11 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
 
         processed_ids.add(comment_id)
 
-        # Immediate feedback: react with 👀 on the command comment
-        react_eyes(repo, comment_id)
+        # Immediate feedback: react with 👀 (best-effort, never blocks dispatch)
+        try:
+            react_eyes(repo, comment_id)
+        except Exception:
+            log.debug("Failed to add 👀 reaction for comment %s — non-critical", comment_id)
 
         if depth == "stop":
             log.info("Stop command received for %s#%d", repo, pr_number)
