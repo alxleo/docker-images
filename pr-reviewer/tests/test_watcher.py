@@ -21,10 +21,9 @@ import gh_watcher as w
 def _isolate_paths(tmp_path, monkeypatch):
     """Redirect all module-level paths to tmp dirs.
 
-    Must patch the source module (config) plus the re-export facades
-    (review_core, gh_watcher).
+    Patches the canonical source (config) and the re-export facade (review_core).
     """
-    for mod in (cfg, core, w):
+    for mod in (cfg, core):
         if hasattr(mod, "STATE_DIR"):
             monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
         if hasattr(mod, "REPOS_DIR"):
@@ -63,55 +62,55 @@ def config():
 
 class TestParseCommand:
     def test_bare_review(self):
-        assert w.parse_command("@pr-reviewer") == ("standard", None)
+        assert core.parse_command("@pr-reviewer") == ("standard", None)
 
     def test_deep(self):
-        assert w.parse_command("@pr-reviewer deep") == ("deep", None)
+        assert core.parse_command("@pr-reviewer deep") == ("deep", None)
 
     def test_security(self):
-        assert w.parse_command("@pr-reviewer security") == ("security", None)
+        assert core.parse_command("@pr-reviewer security") == ("security", None)
 
     def test_standards(self):
-        assert w.parse_command("@pr-reviewer standards") == ("standards", None)
+        assert core.parse_command("@pr-reviewer standards") == ("standards", None)
 
     def test_drift(self):
-        assert w.parse_command("@pr-reviewer drift") == ("drift", None)
+        assert core.parse_command("@pr-reviewer drift") == ("drift", None)
 
     def test_simplification(self):
-        assert w.parse_command("@pr-reviewer simplification") == ("simplification", None)
+        assert core.parse_command("@pr-reviewer simplification") == ("simplification", None)
 
     def test_quick(self):
-        assert w.parse_command("@pr-reviewer quick") == ("quick", None)
+        assert core.parse_command("@pr-reviewer quick") == ("quick", None)
 
     def test_stop(self):
-        assert w.parse_command("@pr-reviewer stop") == ("stop", None)
+        assert core.parse_command("@pr-reviewer stop") == ("stop", None)
 
     def test_random_text_returns_none(self):
-        assert w.parse_command("just a regular comment") is None
+        assert core.parse_command("just a regular comment") is None
 
     def test_whitespace_stripped(self):
-        assert w.parse_command("  @pr-reviewer  ") == ("standard", None)
+        assert core.parse_command("  @pr-reviewer  ") == ("standard", None)
 
     def test_trailing_text_still_matches(self):
-        assert w.parse_command("@pr-reviewer deep please look at auth") == ("deep", None)
+        assert core.parse_command("@pr-reviewer deep please look at auth") == ("deep", None)
 
     def test_case_insensitive(self):
-        assert w.parse_command("@PR-Reviewer Deep") == ("deep", None)
+        assert core.parse_command("@PR-Reviewer Deep") == ("deep", None)
 
     def test_empty_string(self):
-        assert w.parse_command("") is None
+        assert core.parse_command("") is None
 
     def test_partial_prefix_no_match(self):
-        assert w.parse_command("@rev") is None
+        assert core.parse_command("@rev") is None
 
     def test_with_model_override(self):
-        assert w.parse_command("@pr-reviewer with gemini") == ("standard", "gemini")
+        assert core.parse_command("@pr-reviewer with gemini") == ("standard", "gemini")
 
     def test_depth_with_model(self):
-        assert w.parse_command("@pr-reviewer deep with codex") == ("deep", "codex")
+        assert core.parse_command("@pr-reviewer deep with codex") == ("deep", "codex")
 
     def test_invalid_model_ignored(self):
-        assert w.parse_command("@pr-reviewer with banana") == ("standard", None)
+        assert core.parse_command("@pr-reviewer with banana") == ("standard", None)
 
 
 
@@ -121,50 +120,50 @@ class TestParseCommand:
 
 class TestEnabledLenses:
     def test_single_lens_security(self, config):
-        result = w.enabled_lenses(config, "security")
+        result = core.enabled_lenses(config, "security")
         assert len(result) == 1
         assert result[0]["name"] == "security"
         assert result[0]["max_comments"] == 5
 
     def test_single_lens_simplification(self, config):
-        result = w.enabled_lenses(config, "simplification")
+        result = core.enabled_lenses(config, "simplification")
         assert len(result) == 1
         assert result[0]["name"] == "simplification"
 
     def test_single_lens_unknown_uses_defaults(self, config):
-        result = w.enabled_lenses(config, "standards")
+        result = core.enabled_lenses(config, "standards")
         assert result[0]["max_comments"] == 5
 
     def test_quick_defaults(self, config):
-        result = w.enabled_lenses(config, "quick")
+        result = core.enabled_lenses(config, "quick")
         assert len(result) == 1
         assert result[0]["name"] == "simplification"
         assert result[0]["max_comments"] == 3
 
     def test_quick_with_overrides(self, config):
         config["quick_overrides"] = {"lenses": ["security", "standards"], "max_comments": 2}
-        result = w.enabled_lenses(config, "quick")
+        result = core.enabled_lenses(config, "quick")
         assert len(result) == 2
         assert all(l["max_comments"] == 2 for l in result)
 
     def test_standard_skips_disabled(self, config):
-        result = w.enabled_lenses(config, "standard")
+        result = core.enabled_lenses(config, "standard")
         names = [l["name"] for l in result]
         assert "drift" not in names
         assert "simplification" in names
         assert "standards" in names
 
     def test_standard_includes_enabled(self, config):
-        result = w.enabled_lenses(config, "standard")
+        result = core.enabled_lenses(config, "standard")
         assert len(result) == 3  # simplification, standards, security (not drift)
 
     def test_deep_overrides_max_comments(self, config):
         config["deep_overrides"] = {"max_comments": 0}
-        result = w.enabled_lenses(config, "deep")
+        result = core.enabled_lenses(config, "deep")
         assert all(l["max_comments"] == 0 for l in result)
 
     def test_deep_default_unlimited(self, config):
-        result = w.enabled_lenses(config, "deep")
+        result = core.enabled_lenses(config, "deep")
         assert all(l["max_comments"] == 0 for l in result)
 
 
@@ -174,20 +173,20 @@ class TestEnabledLenses:
 
 class TestBuildReviewPrompt:
     def test_valid_prompt(self):
-        prompt_dir = w.PROMPTS_DIR
+        prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "security.md").write_text("You are a security reviewer.")
-        result = w.build_review_prompt("security", "diff content", 5)
+        result = core.build_review_prompt("security", "diff content", 5)
         assert "You are a security reviewer." in result
         assert "```diff\ndiff content\n```" in result
         assert "MAX COMMENTS: 5" in result
 
     def test_missing_prompt_file(self):
-        assert w.build_review_prompt("nonexistent", "diff", 5) == ""
+        assert core.build_review_prompt("nonexistent", "diff", 5) == ""
 
     def test_no_constraint_when_unlimited(self):
-        prompt_dir = w.PROMPTS_DIR
+        prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "deep.md").write_text("Deep review.")
-        result = w.build_review_prompt("deep", "diff", 0)
+        result = core.build_review_prompt("deep", "diff", 0)
         assert "MAX COMMENTS" not in result
         assert "Deep review." in result
 
@@ -198,37 +197,42 @@ class TestBuildReviewPrompt:
 
 class TestState:
     def test_load_empty(self):
-        assert w.load_state("owner/repo", 1) == {}
+        assert core.load_state("owner/repo", 1) == {}
 
     def test_save_load_roundtrip(self):
         data = {"last_head_sha": "abc", "last_reviewed_at": 123.4}
-        w.save_state("owner/repo", 42, data)
-        loaded = w.load_state("owner/repo", 42)
+        core.save_state("owner/repo", 42, data)
+        loaded = core.load_state("owner/repo", 42)
         assert loaded == data
 
     def test_repo_slash_in_filename(self):
-        w.save_state("owner/repo", 1, {"key": "val"})
-        expected = w.STATE_DIR / "owner_repo_pr1.json"
+        core.save_state("owner/repo", 1, {"key": "val"})
+        expected = core.STATE_DIR / "owner_repo_pr1.json"
         assert expected.exists()
 
     def test_save_creates_dir(self, tmp_path, monkeypatch):
         nested = tmp_path / "deep" / "state"
-        for mod in (cfg, core, w):
+        for mod in (cfg, core):
             monkeypatch.setattr(mod, "STATE_DIR", nested)
-        w.save_state("o/r", 1, {"x": 1})
+        core.save_state("o/r", 1, {"x": 1})
         assert (nested / "o_r_pr1.json").exists()
 
 
 class TestStateRace:
     """Verify the state race fix from Copilot review comments #1 and #2."""
 
+    @patch.object(w, "react_eyes")
     @patch.object(w, "clone_or_update")
     @patch.object(w, "checkout_pr")
     @patch.object(w, "get_diff", return_value="some diff")
     @patch.object(w, "get_head_sha", return_value="sha_after_review")
-    @patch.object(w, "run_lens", return_value="")
+    @patch.object(w, "post_status_comment")
+    @patch.object(core, "run_review_orchestrated", return_value=[])
+    @patch.object(core, "generate_repomap", return_value="")
+    @patch.object(core, "analyze_impact", return_value="")
+    @patch.object(core, "plan_searches", return_value="")
     def test_check_comments_preserves_dispatch_state(
-        self, _run, _sha, _diff, _checkout, _clone, config, tmp_path
+        self, _plan, _impact, _rmap, _orch, _status, _sha, _diff, _checkout, _clone, _react, config, tmp_path
     ):
         """check_comments must not overwrite last_head_sha set by dispatch_review."""
         _clone.return_value = tmp_path / "repos" / "fake"
@@ -237,7 +241,7 @@ class TestStateRace:
         comments = [{"id": "c1", "body": "@pr-reviewer security"}]
         w.check_comments(config, "owner/repo", 1, comments)
 
-        state = w.load_state("owner/repo", 1)
+        state = core.load_state("owner/repo", 1)
         # dispatch_review wrote last_head_sha; check_comments must preserve it
         assert state.get("last_head_sha") == "sha_after_review"
         # check_comments also wrote processed_comment_ids
@@ -247,10 +251,11 @@ class TestStateRace:
     @patch.object(w, "checkout_pr")
     @patch.object(w, "get_diff", return_value="some diff")
     @patch.object(w, "get_head_sha", return_value="sha_new")
-    @patch.object(w, "run_lens", return_value="")
+    @patch.object(w, "post_status_comment")
+    @patch.object(core, "run_review_orchestrated", return_value=[])
     @patch.object(w, "gh_json")
     def test_poll_reloads_state_after_check_comments(
-        self, mock_gh_json, _run, _sha, _diff, _checkout, _clone, config, tmp_path
+        self, mock_gh_json, _orch, _status, _sha, _diff, _checkout, _clone, config, tmp_path
     ):
         """poll dispatches exactly once for a single @pr-reviewer command."""
         _clone.return_value = tmp_path / "repos" / "fake"
@@ -282,43 +287,43 @@ class TestReadSecret:
         secret_file = tmp_path / "my_secret"
         secret_file.write_text("hunter2\n")
         monkeypatch.setenv("my_secret_FILE", str(secret_file))
-        assert w.read_secret("my_secret") == "hunter2"
+        assert core.read_secret("my_secret") == "hunter2"
 
     def test_placeholder_falls_through(self, tmp_path, monkeypatch):
         secret_file = tmp_path / "tok"
         secret_file.write_text("PLACEHOLDER_for_ci")
         monkeypatch.setenv("tok_FILE", str(secret_file))
         monkeypatch.setenv("tok", "real_value")
-        assert w.read_secret("tok") == "real_value"
+        assert core.read_secret("tok") == "real_value"
 
     def test_env_fallback(self, monkeypatch):
         monkeypatch.setenv("my_key", "from_env")
-        assert w.read_secret("my_key") == "from_env"
+        assert core.read_secret("my_key") == "from_env"
 
     def test_required_missing_exits(self, monkeypatch):
         monkeypatch.delenv("missing_key", raising=False)
         with pytest.raises(SystemExit):
-            w.read_secret("missing_key", required=True)
+            core.read_secret("missing_key", required=True)
 
     def test_optional_missing_returns_empty(self, monkeypatch):
         monkeypatch.delenv("opt_key", raising=False)
-        assert w.read_secret("opt_key", required=False) == ""
+        assert core.read_secret("opt_key", required=False) == ""
 
     def test_custom_file_env_override(self, tmp_path, monkeypatch):
         custom = tmp_path / "custom_loc"
         custom.write_text("secret_val")
         monkeypatch.setenv("tok_FILE", str(custom))
-        assert w.read_secret("tok") == "secret_val"
+        assert core.read_secret("tok") == "secret_val"
 
     def test_uppercase_env_fallback(self, monkeypatch):
         """read_secret('gh_app_id') finds GH_APP_ID env var."""
         monkeypatch.setenv("GH_APP_ID", "12345")
-        assert w.read_secret("gh_app_id") == "12345"
+        assert core.read_secret("gh_app_id") == "12345"
 
     def test_newline_escape_restoration(self, monkeypatch):
         r"""Env vars with literal \n are restored to real newlines (e.g. PEM keys)."""
         monkeypatch.setenv("MULTI_LINE", r"line1\nline2\nline3")
-        val = w.read_secret("multi_line")
+        val = core.read_secret("multi_line")
         assert val == "line1\nline2\nline3"
         assert r"\n" not in val
 
@@ -331,7 +336,7 @@ class TestCheckComments:
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
     def test_skips_already_processed(self, mock_dispatch, mock_react, config):
-        w.save_state("o/r", 1, {"processed_comment_ids": ["c1"]})
+        core.save_state("o/r", 1, {"processed_comment_ids": ["c1"]})
         comments = [{"id": "c1", "body": "@pr-reviewer"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
@@ -342,8 +347,16 @@ class TestCheckComments:
     def test_dispatches_new_command(self, mock_dispatch, mock_react, config):
         comments = [{"id": "c1", "body": "@pr-reviewer security"}]
         w.check_comments(config, "o/r", 1, comments)
-        mock_dispatch.assert_called_once_with(config, "o/r", 1, "security")
+        mock_dispatch.assert_called_once_with(config, "o/r", 1, "security", None)
         mock_react.assert_called_once_with("o/r", "c1")
+
+    @patch.object(w, "react_eyes")
+    @patch.object(w, "dispatch_review")
+    def test_model_override_passed_through(self, mock_dispatch, mock_react, config):
+        """'with gemini' model override reaches dispatch_review."""
+        comments = [{"id": "c1", "body": "@pr-reviewer with gemini"}]
+        w.check_comments(config, "o/r", 1, comments)
+        mock_dispatch.assert_called_once_with(config, "o/r", 1, "standard", "gemini")
 
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
@@ -352,7 +365,7 @@ class TestCheckComments:
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_not_called()
         mock_react.assert_called_once()
-        state = w.load_state("o/r", 1)
+        state = core.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
 
     @patch.object(w, "react_eyes")
@@ -374,26 +387,29 @@ class TestCheckComments:
         w.check_comments(config, "o/r", 1, comments)
         assert mock_dispatch.call_count == 2
         assert mock_react.call_count == 2
-        state = w.load_state("o/r", 1)
+        state = core.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
         assert "c2" in state["processed_comment_ids"]
         assert "c3" not in state["processed_comment_ids"]
 
+    @patch.object(w, "post_status_comment")
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review", side_effect=RuntimeError("review exploded"))
-    def test_failed_dispatch_still_marks_processed(self, mock_dispatch, mock_react, config):
+    def test_failed_dispatch_still_marks_processed(self, mock_dispatch, mock_react, mock_status, config):
         """If dispatch_review raises, the comment must still be marked processed
         to avoid an infinite retry loop on the next poll cycle."""
         comments = [{"id": "c1", "body": "@pr-reviewer"}]
         w.check_comments(config, "o/r", 1, comments)
         mock_dispatch.assert_called_once()
         mock_react.assert_called_once()
-        state = w.load_state("o/r", 1)
+        mock_status.assert_called_once()  # ❌ failure status posted
+        state = core.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
 
+    @patch.object(w, "post_status_comment")
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review", side_effect=[RuntimeError("boom"), None])
-    def test_failed_dispatch_doesnt_block_subsequent_comments(self, mock_dispatch, mock_react, config):
+    def test_failed_dispatch_doesnt_block_subsequent_comments(self, mock_dispatch, mock_react, mock_status, config):
         """A failed review for one comment must not prevent processing later comments."""
         comments = [
             {"id": "c1", "body": "@pr-reviewer security"},
@@ -402,7 +418,7 @@ class TestCheckComments:
         w.check_comments(config, "o/r", 1, comments)
         assert mock_dispatch.call_count == 2
         assert mock_react.call_count == 2
-        state = w.load_state("o/r", 1)
+        state = core.load_state("o/r", 1)
         assert "c1" in state["processed_comment_ids"]
         assert "c2" in state["processed_comment_ids"]
 
@@ -434,7 +450,7 @@ class TestPoll:
     def test_writes_poll_timestamp(self, mock_gh_json, mock_dispatch, config):
         mock_gh_json.return_value = []
         w.poll(config)
-        ts_file = w.STATE_DIR / "last_poll.json"
+        ts_file = core.STATE_DIR / "last_poll.json"
         assert ts_file.exists()
         data = json.loads(ts_file.read_text())
         assert abs(data["last_poll"] - time.time()) < 5
@@ -463,7 +479,7 @@ class TestPoll:
             },
         ]
         w.poll(config)
-        mock_dispatch.assert_called_once_with(config, "owner/repo-a", 7, "standard")
+        mock_dispatch.assert_called_once_with(config, "owner/repo-a", 7, "standard", None)
         mock_react.assert_called_once_with("owner/repo-a", "c1")
 
 
@@ -569,7 +585,7 @@ class TestPostReview:
 class TestSavePollTimestamp:
     def test_writes_timestamp(self):
         w.save_poll_timestamp()
-        ts_file = w.STATE_DIR / "last_poll.json"
+        ts_file = core.STATE_DIR / "last_poll.json"
         data = json.loads(ts_file.read_text())
         assert abs(data["last_poll"] - time.time()) < 2
 
@@ -649,7 +665,7 @@ diff --git a/services/bar.yml b/services/bar.yml
 class TestParseInlineComments:
     def test_basic_finding(self):
         body = '### [ansible/tasks/foo.yml:12] Unnecessary register\n\nThis register is unused.'
-        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
         assert len(comments) == 1
         assert comments[0]["path"] == "ansible/tasks/foo.yml"
         assert comments[0]["line"] == 12
@@ -660,36 +676,36 @@ class TestParseInlineComments:
             '### [ansible/tasks/foo.yml:12] First\n\nBody one.\n\n'
             '### [services/bar.yml:2] Second\n\nBody two.'
         )
-        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
         assert len(comments) == 2
         assert comments[0]["path"] == "ansible/tasks/foo.yml"
         assert comments[1]["path"] == "services/bar.yml"
 
     def test_severity_prefix_parsed(self):
         body = '### [CRITICAL] [ansible/tasks/foo.yml:12] Bad thing\n\nExplanation.'
-        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
         assert len(comments) == 1
         assert comments[0]["line"] == 12
 
     def test_line_not_in_diff_skipped(self):
         body = '### [ansible/tasks/foo.yml:99] Not in diff\n\nShould be skipped.'
-        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
         assert len(comments) == 0
 
     def test_nearby_line_fuzzy_match(self):
         # Line 16 is not in diff (lines 10-15 are), but 15 is within offset 1
         body = '### [ansible/tasks/foo.yml:16] Close enough\n\nFuzzy.'
-        comments = w.parse_inline_comments(body, SAMPLE_DIFF)
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
         assert len(comments) == 1
         assert comments[0]["line"] == 15
 
     def test_no_findings_returns_empty(self):
         body = 'This review has no structured findings.'
-        assert w.parse_inline_comments(body, SAMPLE_DIFF) == []
+        assert core.parse_inline_comments(body, SAMPLE_DIFF) == []
 
     def test_empty_diff(self):
         body = '### [foo.py:1] Something\n\nBody.'
-        assert w.parse_inline_comments(body, "") == []
+        assert core.parse_inline_comments(body, "") == []
 
     def test_deleted_lines_not_in_diff_set(self):
         diff = """\
@@ -702,7 +718,7 @@ diff --git a/f.py b/f.py
  also_keep
 """
         body = '### [f.py:1] On kept line\n\nOK.'
-        comments = w.parse_inline_comments(body, diff)
+        comments = core.parse_inline_comments(body, diff)
         assert len(comments) == 1
         assert comments[0]["line"] == 1
 

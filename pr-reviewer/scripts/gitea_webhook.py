@@ -295,6 +295,12 @@ def dispatch_review(config: dict, owner: str, repo: str, pr_number: int,
         _dispatch_review_inner(config, owner, repo, pr_number, head_sha, depth, model_override)
     except Exception:
         log.exception("Review failed for %s/%s#%d", owner, repo, pr_number)
+        try:
+            with gitea_client() as client:
+                post_status_comment(client, owner, repo, pr_number,
+                                    "\u274c **Review failed** — check container logs for details")
+        except Exception:
+            pass  # Best-effort — don't mask the original exception
 
 
 def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
