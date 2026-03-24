@@ -26,31 +26,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("gh-watcher")
 
-# Re-export core attributes so existing tests that do `w.STATE_DIR` etc. still work.
-# Tests monkeypatch these, and the core functions read from core.STATE_DIR etc.,
-# so we also need to patch the canonical location. The test fixture handles this
-# by patching both `w.*` and `core.*` — but for backwards compat, expose them here.
-CONFIG_PATH = core.CONFIG_PATH
-STATE_DIR = core.STATE_DIR
-REPOS_DIR = core.REPOS_DIR
-PROMPTS_DIR = core.PROMPTS_DIR
-COMMANDS = core.COMMANDS
-LENS_ICONS = core.LENS_ICONS
-
-# Re-export core functions used by tests and by this module's orchestration code
-load_config = core.load_config
-read_secret = core.read_secret
-load_state = core.load_state
-save_state = core.save_state
-enabled_lenses = core.enabled_lenses
-build_review_prompt = core.build_review_prompt
-run_lens_claude = core.run_lens_claude
-run_lens_gemini = core.run_lens_gemini
-run_lens_codex = core.run_lens_codex
-run_lens = core.run_lens
-parse_inline_comments = core.parse_inline_comments
-parse_command = core.parse_command
-
 
 # ---------------------------------------------------------------------------
 # GitHub App auth
@@ -105,21 +80,21 @@ class GitHubAppAuth:
 
 def setup_auth() -> GitHubAppAuth:
     """Configure authentication from secrets. Returns GitHub App auth manager."""
-    claude_token = read_secret("claude_code_oauth_token")
+    claude_token = core.read_secret("claude_code_oauth_token")
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 
     # GitHub App auth — installation tokens rotate hourly
-    app_id = read_secret("gh_app_id")
-    installation_id = read_secret("gh_app_installation_id")
-    private_key = read_secret("gh_app_private_key")
+    app_id = core.read_secret("gh_app_id")
+    installation_id = core.read_secret("gh_app_installation_id")
+    private_key = core.read_secret("gh_app_private_key")
     app_auth = GitHubAppAuth(int(app_id), int(installation_id), private_key)
 
     # Set initial token so gh CLI works immediately
     os.environ["GH_TOKEN"] = app_auth.get_token()
 
     # Optional: Gemini and Codex for multi-model review
-    gemini_key = read_secret("gemini_api_key", required=False)
-    openai_key = read_secret("openai_api_key", required=False)
+    gemini_key = core.read_secret("gemini_api_key", required=False)
+    openai_key = core.read_secret("openai_api_key", required=False)
     if gemini_key:
         os.environ["GEMINI_API_KEY"] = gemini_key
     if openai_key:
@@ -321,7 +296,8 @@ def post_status_comment(repo: str, pr_number: int, message: str):
 # ---------------------------------------------------------------------------
 
 
-def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
+def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
+                    model_override: str | None = None):
     """Run all enabled lenses against a PR and post results."""
     log.info("Reviewing %s#%d at depth=%s", repo, pr_number, depth)
     start_time = time.time()
@@ -372,7 +348,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         lenses = all_lenses
 
     # Post status comment — "Reviewing with X lens(es)..."
-    model_name = config.get("default_model", "claude")
+    model_name = model_override or config.get("default_model", "claude")
     lens_list = ", ".join(l["name"] for l in lenses)
     status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
     post_status_comment(repo, pr_number, status_msg)
@@ -382,6 +358,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         lenses, diff, repo_dir, config,
         commit_messages=commit_messages,
         pr_description=pr_description,
+        model_override=model_override,
         repomap=repomap, depth=depth, impact=impact,
         cross_file_context=cross_file_context,
     )
@@ -420,7 +397,7 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
         parsed = core.parse_command(body)
         if parsed is None:
             continue
-        depth, _model_override = parsed  # model override not used in GitHub mode (yet)
+        depth, model_override = parsed
 
         processed_ids.add(comment_id)
 
@@ -434,10 +411,12 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
             log.info("Stop command received for %s#%d", repo, pr_number)
         else:
             try:
-                dispatch_review(config, repo, pr_number, depth)
+                dispatch_review(config, repo, pr_number, depth, model_override)
             except Exception:
                 log.exception("Review failed for %s#%d (comment %s) — marking processed to avoid retry loop",
                               repo, pr_number, comment_id)
+                post_status_comment(repo, pr_number,
+                                    "\u274c **Review failed** — check container logs for details")
 
     # Reload state after dispatch_review may have updated it on disk,
     # then merge in our processed_comment_ids to avoid clobbering
@@ -489,7 +468,7 @@ def poll(config: dict):
 def main():
     log.info("PR Reviewer starting")
 
-    config = load_config()
+    config = core.load_config()
     app_auth = setup_auth()
 
     log.info(

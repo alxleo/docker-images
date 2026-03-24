@@ -26,7 +26,7 @@ Two containers in local-cicd, same image, different entrypoints:
 | `local-ci-reviewer` | Gitea webhooks | `gitea_webhook.py` | `reviewer-config.yml` |
 | `local-ci-reviewer-github` | GitHub polling | `gh_watcher.py` | `reviewer-config-github.yml` |
 
-GitHub container mounts home-network's decrypted GitHub App secrets at `/run/secrets/`. Both share the plugins volume.
+GitHub container receives GitHub App secrets via env vars (SOPS-encrypted in local-cicd). Both share the plugins volume.
 
 **Default: on_demand.** Reviews only run when someone comments `@pr-reviewer` on a PR. Auto-PR creation and auto-review are opt-in via config (`auto_trigger`, `auto_create_pr`).
 
@@ -34,6 +34,7 @@ GitHub container mounts home-network's decrypted GitHub App secrets at `/run/sec
 
 ```
 Webhook/poll picks up @pr-reviewer command
+  → React 👀 on command comment (immediate acknowledgement)
   → Fetch diff, PR metadata, commit messages
   → Resolve head_sha (fetch from PR API if missing)
   → Generate repomap (tree-sitter structural map)
@@ -42,10 +43,12 @@ Webhook/poll picks up @pr-reviewer command
   → Preprocess diff (strip delete-only files, language annotations, token budget)
   → Shuffle diff file ordering (breaks LLM positional bias)
   → Route to relevant lenses via analyze_diff_relevance()
+  → Post status comment ("⏳ Reviewing with X lens(es) via model...")
   → Orchestrated claude -p session spawns lens sub-agents
   → Cap findings by severity (keep highest when at max_comments)
   → Clean up old bot comments (tag-based: <!-- pr-reviewer-bot:LENS -->)
   → Post review (inline comments or top-level fallback)
+  → Update status comment ("✅ Review complete — N lens reports (Xs)")
   → Post commit status (success/failure based on fail_on_severity)
 ```
 
@@ -139,7 +142,7 @@ lenses:
 
 - **on_demand is the default.** Auto-PR creation and auto-review are off. Every branch push was triggering reviews before this was fixed.
 - **Planner (haiku) may timeout** — gracefully degrades, review continues without cross-file context.
-- **GitHub poller can hang** after completing a review — the poll loop blocks during review dispatch. Restart container to resume.
+- **GitHub poller retry loop** — if a review fails, the comment must be marked as processed to prevent infinite re-dispatch. Fixed with try/except in `check_comments`.
 - **Home-network prompt volume mount** overrides baked-in prompts. If deploying with a mount, keep prompts in sync. The local-cicd deployment uses baked-in prompts (no mount).
 - **Gemini CLI `-p` flag** requires prompt as string argument, not stdin.
 - **Codex `exec review` broken** with mounted OAuth creds (websocket path). Use `codex exec`.
@@ -147,7 +150,5 @@ lenses:
 
 ## Backlog
 
-- **User-facing feedback** — react with 👀 on command comment (immediate "I saw it"), post status comment showing which lenses are running, update when done
-- **Fix GitHub poller hang** — poll loop stops after first review. Needs investigation (likely blocking dispatch in main thread)
 - **Release process** — tagged versions (not just `:latest`), env-var-only config (no host file mounts), `.env.example`
 - **code-index-mcp sidecar** — tree-sitter AST indexing as MCP tools for deeper symbol analysis
