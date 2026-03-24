@@ -1,0 +1,4 @@
+# CVE-2026-33186: gRPC-Go authorization bypass via missing leading slash in :path
+# mcp-auth-proxy uses HTTP, not gRPC — no gRPC endpoints exposed.
+# Transitive dep — remove when upstream updates grpc >= 1.79.3.
+CVE-2026-33186
