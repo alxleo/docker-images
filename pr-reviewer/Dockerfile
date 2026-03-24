@@ -38,7 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-yaml \
     ca-certificates \
     curl \
-    && pip3 install --no-cache-dir --break-system-packages "PyJWT[crypto]==2.11.0" "httpx==0.28.1" \
+    && pip3 install --no-cache-dir --break-system-packages \
+       "PyJWT[crypto]==2.11.0" "httpx==0.28.1" "grep-ast==0.9.0" \
     && rm -rf /var/lib/apt/lists/* \
     # fd-find installs as fdfind on Debian — symlink to fd for Claude Code
     && ln -sf /usr/bin/fdfind /usr/bin/fd
@@ -78,10 +79,26 @@ RUN ARCH=$(dpkg --print-architecture) \
     && dpkg -i /tmp/glab.deb \
     && rm /tmp/glab.deb
 
+# Install ast-grep (structural code search via AST patterns)
+ARG AST_GREP_VERSION=0.42.0
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "amd64" ]; then SG_ARCH="x86_64-unknown-linux-gnu"; \
+       elif [ "$ARCH" = "arm64" ]; then SG_ARCH="aarch64-unknown-linux-gnu"; \
+       else echo "Unsupported: ${ARCH}" >&2; exit 1; fi \
+    && curl -fsSL "https://github.com/ast-grep/ast-grep/releases/download/${AST_GREP_VERSION}/app-${SG_ARCH}.zip" \
+       -o /tmp/sg.zip \
+    && apt-get update && apt-get install -y --no-install-recommends unzip \
+    && unzip -j /tmp/sg.zip -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/sg \
+    && rm /tmp/sg.zip \
+    && apt-get purge -y unzip && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY scripts/ scripts/
 COPY prompts/ prompts/
+COPY plugin/ plugin/
 
 # State, repos, and plugins dirs — mount as volumes for persistence
 # ~/.gemini and ~/.codex needed by their respective CLIs
