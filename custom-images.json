@@ -26,5 +26,12 @@
     "tag": "v2.5.3",
     "why": "Patched build — VARCHAR(255) fix for session storage (sigbit/mcp-auth-proxy#111)",
     "remove_when": "upstream merges the VARCHAR fix and publishes a new release"
+  },
+  {
+    "name": "semaphore",
+    "context": "semaphore",
+    "tag": "v2.17.16",
+    "why": "Semaphore UI + homelab tools (sops, age, dig, curl, jq, rsync) for Ansible playbooks",
+    "remove_when": "never — homelab tooling layer is always needed on top of upstream"
   }
 ]

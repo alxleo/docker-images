@@ -21,6 +21,7 @@
     "mcp-tavily",
     "mcp-youtube",
     "mcp-zen",
-    "mcp-exa"
+    "mcp-exa",
+    "semaphore"
   ]
 }
