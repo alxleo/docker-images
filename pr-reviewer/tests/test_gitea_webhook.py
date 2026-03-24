@@ -7,22 +7,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import config as cfg
 import review_core as core
 import gitea_webhook as gw
 
 
 @pytest.fixture(autouse=True)
 def _isolate_paths(tmp_path, monkeypatch):
-    for mod in (core, gw):
+    for mod in (cfg, core, gw):
         if hasattr(mod, "STATE_DIR"):
             monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
         if hasattr(mod, "REPOS_DIR"):
             monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
         if hasattr(mod, "PROMPTS_DIR"):
             monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
-    monkeypatch.setattr(core, "STATE_DIR", tmp_path / "state")
-    monkeypatch.setattr(core, "REPOS_DIR", tmp_path / "repos")
-    monkeypatch.setattr(core, "PROMPTS_DIR", tmp_path / "prompts")
     (tmp_path / "state").mkdir()
     (tmp_path / "repos").mkdir()
     (tmp_path / "prompts").mkdir()
