@@ -186,7 +186,12 @@ class TestHandleIssueComment:
             "comment": {"id": 42, "body": "@pr-reviewer security"},
             "repository": {"name": "repo", "owner": {"login": "ci"}},
         }
-        with patch.object(gw, "_executor") as mock_exec:
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = MagicMock(status_code=200)
+        with patch.object(gw, "_executor") as mock_exec, \
+             patch.object(gw, "gitea_client", return_value=mock_client):
             gw.handle_issue_comment(config, payload)
             mock_exec.submit.assert_called_once()
             # submit(dispatch_review, config, owner, repo, pr_number, head_sha, depth)
@@ -224,13 +229,40 @@ class TestHandleIssueComment:
             gw.handle_issue_comment(config, payload)
             mock_exec.submit.assert_not_called()
 
+    def test_reacts_eyes_on_command(self, config):
+        """Command comment gets a 👀 reaction as immediate feedback."""
+        payload = {
+            "issue": {
+                "number": 3,
+                "pull_request": {"head": {"sha": "sha1"}},
+            },
+            "comment": {"id": 42, "body": "@pr-reviewer"},
+            "repository": {"name": "repo", "owner": {"login": "ci"}},
+        }
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = MagicMock(status_code=200)
+        with patch.object(gw, "_executor"), \
+             patch.object(gw, "gitea_client", return_value=mock_client):
+            gw.handle_issue_comment(config, payload)
+        # Verify reaction was posted
+        react_call = mock_client.post.call_args_list[0]
+        assert "/reactions" in react_call[0][0]
+        assert react_call[1]["json"] == {"content": "eyes"}
+
     def test_stop_command_no_dispatch(self, config):
         payload = {
             "issue": {"number": 3, "pull_request": {"head": {"sha": "sha1"}}},
             "comment": {"id": 99, "body": "@pr-reviewer stop"},
             "repository": {"name": "repo", "owner": {"login": "ci"}},
         }
-        with patch.object(gw, "_executor") as mock_exec:
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = MagicMock(status_code=200)
+        with patch.object(gw, "_executor") as mock_exec, \
+             patch.object(gw, "gitea_client", return_value=mock_client):
             gw.handle_issue_comment(config, payload)
             mock_exec.submit.assert_not_called()
         # But comment ID is still tracked

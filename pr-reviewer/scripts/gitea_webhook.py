@@ -124,6 +124,7 @@ def checkout_branch(repo_dir: Path, branch: str):
 
 
 BOT_TAG = "<!-- pr-reviewer-bot:{lens} -->"
+STATUS_TAG = "<!-- pr-reviewer-status -->"
 
 # Severity threshold for CI gating (commit status)
 _FAIL_SEVERITIES = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
@@ -238,6 +239,46 @@ def ensure_pr(client: httpx.Client, owner: str, repo: str, branch: str) -> int |
     return None
 
 
+def react_eyes(client: httpx.Client, owner: str, repo: str, comment_id: int):
+    """Add 👀 reaction to a comment — immediate "I saw it" signal."""
+    r = client.post(
+        f"/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
+        json={"content": "eyes"},
+    )
+    if r.status_code in (200, 201):
+        log.info("Reacted 👀 on %s/%s comment %d", owner, repo, comment_id)
+    else:
+        log.debug("Reaction failed (%d) — non-critical", r.status_code)
+
+
+def post_status_comment(client: httpx.Client, owner: str, repo: str, pr_number: int,
+                        message: str) -> int | None:
+    """Post or update a status comment on a PR. Returns comment ID."""
+    # Look for existing status comment to edit
+    r = client.get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", params={"limit": 50})
+    if r.status_code == 200:
+        for comment in r.json():
+            if STATUS_TAG in comment.get("body", ""):
+                comment_id = comment["id"]
+                client.patch(
+                    f"/repos/{owner}/{repo}/issues/comments/{comment_id}",
+                    json={"body": f"{message}\n\n{STATUS_TAG}"},
+                )
+                log.info("Updated status comment %d on %s/%s#%d", comment_id, owner, repo, pr_number)
+                return comment_id
+
+    # Create new status comment
+    r = client.post(
+        f"/repos/{owner}/{repo}/issues/{pr_number}/comments",
+        json={"body": f"{message}\n\n{STATUS_TAG}"},
+    )
+    if r.status_code in (200, 201):
+        comment_id = r.json()["id"]
+        log.info("Posted status comment %d on %s/%s#%d", comment_id, owner, repo, pr_number)
+        return comment_id
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Review dispatch
 # ---------------------------------------------------------------------------
@@ -255,6 +296,7 @@ def dispatch_review(config: dict, owner: str, repo: str, pr_number: int,
 def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                            head_sha: str, depth: str, model_override: str | None = None):
     log.info("Reviewing %s/%s#%d at depth=%s", owner, repo, pr_number, depth)
+    start_time = time.time()
 
     with gitea_client() as client:
         # Fetch PR metadata once — used for head_sha, description, and context
@@ -326,6 +368,12 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                  diff_lines, len(lenses),
                  f" (model override: {model_override})" if model_override else "")
 
+        # Post status comment — "Reviewing with X lens(es)..."
+        model_name = model_override or config.get("default_model", "claude")
+        lens_list = ", ".join(l["name"] for l in lenses)
+        status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
+        post_status_comment(client, owner, repo, pr_number, status_msg)
+
         # Clean up old bot reviews for all lenses being run
         for lens in lenses:
             cleanup_old_reviews(client, owner, repo, pr_number, lens["name"])
@@ -356,6 +404,11 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
 
         log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses",
                  owner, repo, pr_number, posted, len(lenses))
+
+        # Update status comment — done
+        elapsed = int(time.time() - start_time)
+        done_msg = f"\u2705 **Review complete** — {posted} finding(s) from {lens_list} via `{model_name}` ({elapsed}s)"
+        post_status_comment(client, owner, repo, pr_number, done_msg)
 
         # CI gating: post commit status based on findings
         fail_on = config.get("fail_on_severity", "")
@@ -489,6 +542,10 @@ def handle_issue_comment(config: dict, payload: dict):
     processed_ids.add(comment_id)
     state["processed_comment_ids"] = list(processed_ids)
     core.save_state(f"{owner}/{repo}", pr_number, state)
+
+    # Immediate feedback: react with 👀 on the command comment
+    with gitea_client() as client:
+        react_eyes(client, owner, repo, int(comment_id))
 
     if depth == "stop":
         log.info("Stop command received for %s/%s#%d", owner, repo, pr_number)
