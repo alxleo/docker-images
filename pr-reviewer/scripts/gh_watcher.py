@@ -306,25 +306,38 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     if impact:
         log.info("Impact: %d references found", impact.count("referenced by"))
 
-    # LLM-planned cross-file search (uses haiku for fast/cheap planning)
     cross_file_context = core.plan_searches(diff, repo_dir, config)
     if cross_file_context:
         log.info("Planned searches: %d chars of cross-file context", len(cross_file_context))
 
-    lenses = core.enabled_lenses(config, depth)
+    all_lenses = core.enabled_lenses(config, depth)
 
-    for lens in lenses:
-        result = core.run_lens(lens, diff, repo_dir, config,
-                               commit_messages=commit_messages,
-                               pr_description=pr_description,
-                               repomap=repomap, depth=depth,
-                               impact=impact,
-                               cross_file_context=cross_file_context)
-        if result and result.strip():
-            result = core.cap_by_severity(result, lens["max_comments"])
-            post_review(repo, pr_number, lens["name"], result, diff=diff)
-        else:
-            log.info("Lens %s: no issues found for %s#%d", lens["name"], repo, pr_number)
+    # Intelligent routing: for auto/standard depth, only run relevant lenses
+    if depth in ("auto", "standard"):
+        relevant = core.analyze_diff_relevance(diff)
+        lenses = [l for l in all_lenses if l["name"] in relevant]
+        if len(lenses) < len(all_lenses):
+            skipped = [l["name"] for l in all_lenses if l["name"] not in relevant]
+            log.info("Routing: %d/%d lenses relevant (skipping: %s)",
+                     len(lenses), len(all_lenses), ", ".join(skipped))
+    else:
+        lenses = all_lenses
+
+    # Orchestrated review (single Claude session with sub-agents)
+    review_results = core.run_review_orchestrated(
+        lenses, diff, repo_dir, config,
+        commit_messages=commit_messages,
+        pr_description=pr_description,
+        repomap=repomap, depth=depth, impact=impact,
+        cross_file_context=cross_file_context,
+    )
+
+    for lens_name, result in review_results:
+        lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+        # Orchestrated "review" results aggregate multiple lenses — use deep_overrides cap (default: unlimited)
+        max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
+        result = core.cap_by_severity(result, max_comments)
+        post_review(repo, pr_number, lens_name, result, diff=diff)
 
     # Update state — reload from disk to avoid clobbering concurrent writes
     state = core.load_state(repo, pr_number)

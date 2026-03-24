@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import config as cfg
 import review_core as core
 import gh_watcher as w
 
@@ -20,13 +21,19 @@ import gh_watcher as w
 def _isolate_paths(tmp_path, monkeypatch):
     """Redirect all module-level paths to tmp dirs.
 
-    Must patch both review_core (where functions read the values) and
-    gh_watcher (for backwards-compat re-exports).
+    Must patch the source module (config) plus the re-export facades
+    (review_core, gh_watcher).
     """
-    for mod in (core, w):
-        monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
-        monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
-        monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
+    for mod in (cfg, core, w):
+        if hasattr(mod, "STATE_DIR"):
+            monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
+        if hasattr(mod, "REPOS_DIR"):
+            monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
+        if hasattr(mod, "PROMPTS_DIR"):
+            monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
+    # prompts.py imports PROMPTS_DIR from config
+    import prompts as prompts_mod
+    monkeypatch.setattr(prompts_mod, "PROMPTS_DIR", tmp_path / "prompts")
     (tmp_path / "state").mkdir()
     (tmp_path / "repos").mkdir()
     (tmp_path / "prompts").mkdir()
@@ -206,8 +213,8 @@ class TestState:
 
     def test_save_creates_dir(self, tmp_path, monkeypatch):
         nested = tmp_path / "deep" / "state"
-        monkeypatch.setattr(core, "STATE_DIR", nested)
-        monkeypatch.setattr(w, "STATE_DIR", nested)
+        for mod in (cfg, core, w):
+            monkeypatch.setattr(mod, "STATE_DIR", nested)
         w.save_state("o/r", 1, {"x": 1})
         assert (nested / "o_r_pr1.json").exists()
 
@@ -450,7 +457,7 @@ class TestGhHelper:
 # ---------------------------------------------------------------------------
 
 class TestRunLens:
-    @patch.object(core, "run_lens_claude", return_value="claude result")
+    @patch("routing.run_lens_claude", return_value="claude result")
     def test_defaults_to_claude(self, mock_claude, config, tmp_path):
         prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")
@@ -459,7 +466,7 @@ class TestRunLens:
         assert result == "claude result"
         mock_claude.assert_called_once()
 
-    @patch.object(core, "run_lens_gemini", return_value="gemini result")
+    @patch("routing.run_lens_gemini", return_value="gemini result")
     def test_routes_to_gemini(self, mock_gemini, config, tmp_path):
         prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "security.md").write_text("prompt")
@@ -471,7 +478,7 @@ class TestRunLens:
         lens = {"name": "nonexistent", "max_comments": 5}
         assert core.run_lens(lens, "diff", tmp_path, config) == ""
 
-    @patch.object(core, "run_lens_claude", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=300))
+    @patch("routing.run_lens_claude", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=300))
     def test_timeout_returns_empty(self, _mock, config, tmp_path):
         prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")

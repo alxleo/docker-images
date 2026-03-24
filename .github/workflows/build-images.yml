@@ -26,6 +26,7 @@
 #   - git-mcp-server: Git repo management with native HTTP transport
 #   - mcp-auth-proxy: OAuth proxy with VARCHAR(255) fix (sigbit/mcp-auth-proxy#111)
 #   - pr-reviewer: AI PR reviewer with Claude/Gemini/Codex CLIs + GitHub CLI
+#   - semaphore: Semaphore UI + homelab tools (sops, age, dig, jq, rsync) — arm64 only
 #   - mcp-*: 15 MCP service images (npm + python based)
 
 name: Build Custom Images
@@ -43,6 +44,7 @@ on:
       - 'git-mcp-server/**'
       - 'mcp-auth-proxy/**'
       - 'pr-reviewer/**'
+      - 'semaphore/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - 'custom-images.json'
@@ -54,6 +56,7 @@ on:
       - 'git-mcp-server/**'
       - 'mcp-auth-proxy/**'
       - 'pr-reviewer/**'
+      - 'semaphore/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - 'custom-images.json'
@@ -85,6 +88,7 @@ jobs:
       git-mcp-server: ${{ steps.filter.outputs.git-mcp-server }}
       mcp-auth-proxy: ${{ steps.filter.outputs.mcp-auth-proxy }}
       pr-reviewer: ${{ steps.filter.outputs.pr-reviewer }}
+      semaphore: ${{ steps.filter.outputs.semaphore }}
       mcp: ${{ steps.filter.outputs.mcp }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -109,6 +113,9 @@ jobs:
               - 'custom-images.json'
             pr-reviewer:
               - 'pr-reviewer/**'
+            semaphore:
+              - 'semaphore/**'
+              - 'custom-images.json'
             mcp:
               - 'mcp/**'
               - 'mcp-images.json'
@@ -170,6 +177,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+          trivyignores: caddy-cloudflare/.trivyignore
       - name: Validate test Caddyfile
         env:
           WORKSPACE: ${{ github.workspace }}
@@ -411,6 +419,45 @@ jobs:
         run: |
           docker push ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
           docker push ghcr.io/alxleo/pr-reviewer:latest
+
+  semaphore:
+    name: Semaphore UI + homelab tools
+    needs: changes
+    if: >-
+      always() &&
+      (needs.changes.outputs.semaphore == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # checkout
+      packages: write  # push to GHCR
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Read image tag from manifest
+        run: |
+          TAG=$(jq -r '.[] | select(.name == "semaphore") | .tag' custom-images.json)
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=${REGISTRY}/${OWNER}/semaphore:${TAG}" >> "$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: semaphore
+          platforms: linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.IMAGE_REF }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest
 
   load-mcp-matrix:
     name: Load MCP build matrix

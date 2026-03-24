@@ -7,14 +7,22 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+import config as cfg
 import review_core as core
 
 
 @pytest.fixture(autouse=True)
 def _isolate_paths(tmp_path, monkeypatch):
-    monkeypatch.setattr(core, "STATE_DIR", tmp_path / "state")
-    monkeypatch.setattr(core, "REPOS_DIR", tmp_path / "repos")
-    monkeypatch.setattr(core, "PROMPTS_DIR", tmp_path / "prompts")
+    """Patch paths in all modules that reference them."""
+    for mod in (cfg, core):
+        monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
+        monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
+        monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
+    # Modules that import PROMPTS_DIR from config at import time
+    import prompts as prompts_mod
+    import context as context_mod
+    monkeypatch.setattr(prompts_mod, "PROMPTS_DIR", tmp_path / "prompts")
+    monkeypatch.setattr(context_mod, "PROMPTS_DIR", tmp_path / "prompts")
     (tmp_path / "state").mkdir()
     (tmp_path / "repos").mkdir()
     (tmp_path / "prompts").mkdir()
@@ -529,6 +537,7 @@ class TestPlanSearches:
     @patch("subprocess.run")
     def test_planner_generates_and_executes_queries(self, mock_run, tmp_path):
         """If planner returns queries, rg should be called for each."""
+        (core.PROMPTS_DIR / "_planner.md").write_text("planner prompt")
         # First call: claude planner returns JSON queries
         planner_output = json.dumps({
             "result": '[{"pattern": "my_function", "category": "callers", "rationale": "find callers"}]'
@@ -593,7 +602,7 @@ class TestShuffleDiff:
 # ---------------------------------------------------------------------------
 
 class TestRunReviewOrchestrated:
-    @patch.object(core, "run_lens_claude", return_value="### [HIGH] [f.py:1] Finding\n\nDetail.")
+    @patch("orchestrator.run_lens_claude", return_value="### [HIGH] [f.py:1] Finding\n\nDetail.")
     def test_claude_lenses_use_single_session(self, mock_claude, config, tmp_path):
         """Multiple Claude lenses should result in ONE run_lens_claude call."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -607,8 +616,8 @@ class TestRunReviewOrchestrated:
         assert mock_claude.call_count == 1
         assert len(results) >= 1
 
-    @patch.object(core, "run_lens_claude", return_value="")
-    @patch.object(core, "run_lens_gemini", return_value="gemini finding")
+    @patch("orchestrator.run_lens_claude", return_value="")
+    @patch("routing.run_lens_gemini", return_value="gemini finding")
     def test_non_claude_lenses_use_individual_calls(self, mock_gemini, mock_claude, config, tmp_path):
         """Gemini lenses should bypass orchestrator and use run_lens individually."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -624,7 +633,7 @@ class TestRunReviewOrchestrated:
         assert mock_claude.call_count == 1
         assert mock_gemini.call_count == 1
 
-    @patch.object(core, "run_lens_claude", return_value="finding")
+    @patch("orchestrator.run_lens_claude", return_value="finding")
     def test_single_lens_returns_lens_name(self, mock_claude, config, tmp_path):
         """Single Claude lens should return the lens name, not 'review'."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -633,7 +642,7 @@ class TestRunReviewOrchestrated:
         results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         assert results[0][0] == "simplification"  # not "review"
 
-    @patch.object(core, "run_lens_claude", return_value="finding")
+    @patch("orchestrator.run_lens_claude", return_value="finding")
     def test_multi_lens_returns_review_label(self, mock_claude, config, tmp_path):
         """Multiple Claude lenses should return 'review' label."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -645,7 +654,7 @@ class TestRunReviewOrchestrated:
         results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         assert results[0][0] == "review"
 
-    @patch.object(core, "run_lens_claude", return_value="")
+    @patch("orchestrator.run_lens_claude", return_value="")
     def test_empty_result_not_returned(self, mock_claude, config, tmp_path):
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
         lenses = [{"name": "simplification", "max_comments": 5}]
@@ -653,7 +662,7 @@ class TestRunReviewOrchestrated:
         results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         assert results == []
 
-    @patch.object(core, "run_lens_claude", return_value="finding")
+    @patch("orchestrator.run_lens_claude", return_value="finding")
     def test_orchestrator_prompt_includes_agent_instructions(self, mock_claude, config, tmp_path):
         """The orchestrator prompt should tell Claude which agents to spawn."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
