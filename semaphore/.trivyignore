@@ -1,0 +1,9 @@
+# CVE-2026-33186: gRPC-Go authorization bypass via missing leading slash in :path
+# Upstream semaphore + bundled tofu binaries. Not exploitable — Semaphore uses
+# HTTP API, no gRPC endpoints exposed. Remove when upstream updates grpc >= 1.79.3.
+CVE-2026-33186
+
+# CVE-2025-68121: crypto/tls unexpected session resumption
+# Upstream semaphore + bundled tofu Go stdlib. Remove when upstream rebuilds
+# with Go >= 1.25.7.
+CVE-2025-68121

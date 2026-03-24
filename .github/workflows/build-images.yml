@@ -469,6 +469,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+          trivyignores: semaphore/.trivyignore
       - name: Smoke test — tools installed
         run: |
           docker run --rm --platform linux/arm64 "$IMAGE_REF" \
