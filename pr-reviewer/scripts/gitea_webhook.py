@@ -316,8 +316,13 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                  diff_lines, len(lenses),
                  f" (model override: {model_override})" if model_override else "")
 
+        # Clean up old bot reviews for all lenses being run
+        for lens in lenses:
+            cleanup_old_reviews(client, owner, repo, pr_number, lens["name"])
+        # Also clean up the "review" tag from orchestrated reviews
+        cleanup_old_reviews(client, owner, repo, pr_number, "review")
+
         # Use orchestrated review (single Claude session with sub-agents)
-        # when multiple Claude lenses are requested
         review_results = core.run_review_orchestrated(
             lenses, diff, repo_dir, config,
             commit_messages=commit_messages,
@@ -329,15 +334,17 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         posted = 0
         all_results: list[str] = []
         for lens_name, result in review_results:
-            result = core.cap_by_severity(result, 5)  # default cap
+            # Use per-lens max_comments for cap; default to deep_overrides for orchestrated
+            lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+            max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
+            result = core.cap_by_severity(result, max_comments)
             all_results.append(result)
             post_review(client, owner, repo, pr_number,
                         lens_name, result, head_sha, diff=diff)
             posted += 1
 
-        silent = len(lenses) - posted
-        log.info("Review complete for %s/%s#%d: %d posted, %d silent",
-                 owner, repo, pr_number, posted, silent)
+        log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses",
+                 owner, repo, pr_number, posted, len(lenses))
 
         # CI gating: post commit status based on findings
         fail_on = config.get("fail_on_severity", "")

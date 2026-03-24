@@ -268,7 +268,7 @@ PLUGINS_DIR = Path("/app/plugins")
 PLUGIN_DIR = Path("/app/plugin")  # built-in reviewer plugin with lens agents
 
 # Default tool whitelist for Claude during review
-CLAUDE_REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch"
+CLAUDE_REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch,Agent"
 
 # Default model config — overridden by config.yml
 DEFAULT_MODELS = {
@@ -473,20 +473,17 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
 
     Returns list of (lens_name, result) tuples for findings.
     """
-    # Split lenses by model family
-    model_family = (model_override
-                    or config.get("default_model", DEFAULT_MODEL))
-
+    # Split lenses by model family — anything not explicitly gemini/codex goes to Claude
     claude_lenses = []
     other_lenses = []
     for lens in lenses:
         lens_model = (model_override
                       or config.get("lenses", {}).get(lens["name"], {}).get("model")
                       or config.get("default_model", DEFAULT_MODEL))
-        if lens_model in ("claude", "sonnet", "opus", "haiku"):
-            claude_lenses.append(lens)
-        else:
+        if lens_model in ("gemini", "codex"):
             other_lenses.append(lens)
+        else:
+            claude_lenses.append(lens)
 
     results = []
 
@@ -535,9 +532,10 @@ After all agents complete, output ALL findings combined. Use the exact output fo
 
         result = run_lens_claude(orchestrator_prompt, repo_dir, max_turns, model=model_name)
         if result and result.strip():
-            # The orchestrator aggregates findings from all lenses.
-            # Tag each section so the webhook handler can post separately if needed.
-            results.append(("review", result))
+            # Post as the first lens name for cleanup tagging. The orchestrator
+            # aggregates all lens findings into one output.
+            label = lens_names[0] if len(lens_names) == 1 else "review"
+            results.append((label, result))
 
     # Run non-Claude lenses individually (Gemini, Codex)
     for lens in other_lenses:
