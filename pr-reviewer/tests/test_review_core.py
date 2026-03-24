@@ -511,6 +511,18 @@ class TestShuffleDiff:
     def test_empty_diff(self):
         assert core.shuffle_diff("") == ""
 
+    def test_preprocessed_format(self):
+        """Preprocessed diffs use ## headers instead of diff --git."""
+        diff = (
+            "## a.py [Python]\ndiff --git a/a.py b/a.py\n+a_content\n"
+            "## b.py [Python]\ndiff --git a/b.py b/b.py\n+b_content\n"
+        )
+        result = core.shuffle_diff(diff)
+        assert "a_content" in result
+        assert "b_content" in result
+        assert "## a.py" in result
+        assert "## b.py" in result
+
 
 # ---------------------------------------------------------------------------
 # run_review_orchestrated

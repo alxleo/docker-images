@@ -562,12 +562,25 @@ def shuffle_diff(raw_diff: str) -> str:
     """Shuffle file order in a unified diff to break positional bias.
 
     LLMs fixate on early files and miss issues in later ones. Randomizing
-    file order produces different attention patterns. Run 2 passes with
-    different shuffles and deduplicate findings for better coverage.
+    file order each review produces different attention patterns.
+
+    Handles both raw diffs (split on `diff --git`) and preprocessed diffs
+    (split on `## filename` headers from preprocess_diff).
     """
     import random
 
-    # Split into per-file chunks
+    # Detect format: preprocessed diffs start sections with "## "
+    if "\n## " in raw_diff or raw_diff.startswith("## "):
+        # Preprocessed format — split on ## headers
+        import re
+        sections = re.split(r'(?=^## )', raw_diff, flags=re.MULTILINE)
+        sections = [s for s in sections if s.strip()]
+        if len(sections) <= 1:
+            return raw_diff
+        random.shuffle(sections)
+        return "\n".join(sections)
+
+    # Raw unified diff format — split on diff --git
     files: list[tuple[str, str]] = []
     current_lines: list[str] = []
     current_file = ""
@@ -586,7 +599,7 @@ def shuffle_diff(raw_diff: str) -> str:
         files.append((current_file, "".join(current_lines)))
 
     if len(files) <= 1:
-        return raw_diff  # nothing to shuffle
+        return raw_diff
 
     random.shuffle(files)
     return "".join(content for _, content in files)
