@@ -1,10 +1,7 @@
 """Diff preprocessing: strip delete-only files, language annotations, token budget, shuffle."""
 
-import logging
 import random
 import re
-
-log = logging.getLogger(__name__)
 
 # Language detection by file extension
 _EXT_TO_LANG = {
@@ -58,7 +55,7 @@ def preprocess_diff(raw_diff: str, max_tokens: int = 30000) -> str:
 
         ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
         lang = _EXT_TO_LANG.get(ext.lower(), "")
-        if filename.lower().startswith("dockerfile"):
+        if "dockerfile" in filename.lower():
             lang = "Dockerfile"
         header = f"## {filename}" + (f" [{lang}]" if lang else "") + "\n"
         processed.append((filename, header + diff_text))

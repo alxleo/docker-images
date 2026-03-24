@@ -1,7 +1,5 @@
 """Prompt assembly: loads preamble + lens template, adds context sections."""
 
-from pathlib import Path
-
 from config import PROMPTS_DIR
 from diff import preprocess_diff
 

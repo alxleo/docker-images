@@ -29,7 +29,7 @@ def analyze_diff_relevance(diff: str) -> set[str]:
             filename = line[6:]
             ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
             changed_exts.add(ext.lower())
-            if filename.lower().startswith("dockerfile"):
+            if "dockerfile" in filename.lower():
                 changed_exts.add(".dockerfile")
 
     has_code = bool(changed_exts & _CODE_EXTENSIONS)
