@@ -579,6 +579,30 @@ class TestPostReview:
 
 
 # ---------------------------------------------------------------------------
+# post_status_comment
+# ---------------------------------------------------------------------------
+
+class TestPostStatusComment:
+    @patch("subprocess.run")
+    @patch.object(w, "gh_json", side_effect=json.JSONDecodeError("bad", "", 0))
+    def test_falls_back_on_json_error(self, mock_gh_json, mock_run):
+        """If gh_json raises JSONDecodeError, falls back to creating a new comment."""
+        mock_run.return_value = MagicMock(returncode=0)
+        w.post_status_comment("o/r", 1, "test message")
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert "pr" in cmd and "comment" in cmd
+
+    @patch("subprocess.run")
+    @patch.object(w, "gh_json", return_value=[])
+    def test_creates_new_when_no_existing(self, mock_gh_json, mock_run):
+        """No existing status comment → creates new one."""
+        mock_run.return_value = MagicMock(returncode=0)
+        w.post_status_comment("o/r", 1, "test message")
+        mock_run.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # save_poll_timestamp
 # ---------------------------------------------------------------------------
 

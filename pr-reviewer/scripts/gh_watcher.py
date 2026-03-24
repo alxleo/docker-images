@@ -287,7 +287,8 @@ def post_status_comment(repo: str, pr_number: int, message: str):
                 log.info("Updated status comment on %s#%d", repo, pr_number)
                 return
     except Exception:
-        log.debug("Failed to find existing status comment on %s#%d — creating new", repo, pr_number)
+        log.debug("Failed to find existing status comment on %s#%d — creating new",
+                  repo, pr_number, exc_info=True)
 
     # Create new comment
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
