@@ -403,9 +403,14 @@ class TestRunLensClaude:
         tools = cmd[tools_idx]
         assert "Read" in tools
         assert "Grep" in tools
-        assert "Bash(git:*)" in tools
+        assert "Bash(git log:*)" in tools
+        assert "Bash(git blame:*)" in tools
         assert "Bash(sg:*)" in tools
         assert "Agent" in tools
+        # MUST NOT have unrestricted git access (no commit/push/checkout)
+        assert "Bash(git:*)" not in tools
+        assert "Edit" not in tools
+        assert "Write" not in tools
 
     @patch("subprocess.run")
     def test_includes_max_turns(self, mock_run, tmp_path):

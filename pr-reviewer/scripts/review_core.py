@@ -267,8 +267,15 @@ def generate_repomap(repo_dir: Path, max_chars: int = 8000) -> str:
 PLUGINS_DIR = Path("/app/plugins")
 PLUGIN_DIR = Path("/app/plugin")  # built-in reviewer plugin with lens agents
 
-# Default tool whitelist for Claude during review
-CLAUDE_REVIEW_TOOLS = "Read,Glob,Grep,Bash(git:*),Bash(sg:*),WebSearch,WebFetch,Agent"
+# Tool whitelist for Claude during review — READ-ONLY
+# Bash restricted to read-only git commands and ast-grep. No Edit, Write, or git push/commit.
+CLAUDE_REVIEW_TOOLS = ",".join([
+    "Read", "Glob", "Grep",
+    "Bash(git log:*)", "Bash(git blame:*)", "Bash(git diff:*)", "Bash(git show:*)",
+    "Bash(sg:*)",
+    "WebSearch", "WebFetch",
+    "Agent",
+])
 
 # Default model config — overridden by config.yml
 DEFAULT_MODELS = {

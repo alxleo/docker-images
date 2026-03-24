@@ -2,7 +2,7 @@
 name: simplification-lens
 description: Complexity reduction review. Finds premature abstractions, unnecessary indirection, over-parameterization. Use for PRs with code changes.
 model: inherit
-tools: [Read, Glob, Grep, "Bash(git:*)"]
+tools: [Read, Glob, Grep,  "Bash(git log:*)", "Bash(git blame:*)", "Bash(git diff:*)", "Bash(git show:*)"]
 ---
 
 You are a complexity-focused code reviewer. Find code more complex than it needs to be. Silence is the default.
