@@ -405,6 +405,7 @@ class TestRunLensClaude:
         assert "Grep" in tools
         assert "Bash(git:*)" in tools
         assert "Bash(sg:*)" in tools
+        assert "Agent" in tools
 
     @patch("subprocess.run")
     def test_includes_max_turns(self, mock_run, tmp_path):
@@ -450,3 +451,84 @@ class TestResolveModel:
 
     def test_unknown_model_passes_through(self):
         assert core._resolve_model({}, "unknown_model") == "unknown_model"
+
+
+# ---------------------------------------------------------------------------
+# run_review_orchestrated
+# ---------------------------------------------------------------------------
+
+class TestRunReviewOrchestrated:
+    @patch.object(core, "run_lens_claude", return_value="### [HIGH] [f.py:1] Finding\n\nDetail.")
+    def test_claude_lenses_use_single_session(self, mock_claude, config, tmp_path):
+        """Multiple Claude lenses should result in ONE run_lens_claude call."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        lenses = [
+            {"name": "simplification", "max_comments": 5},
+            {"name": "security", "max_comments": 5},
+        ]
+        config["default_model"] = "claude"
+        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        # One call, not two
+        assert mock_claude.call_count == 1
+        assert len(results) >= 1
+
+    @patch.object(core, "run_lens_claude", return_value="")
+    @patch.object(core, "run_lens_gemini", return_value="gemini finding")
+    def test_non_claude_lenses_use_individual_calls(self, mock_gemini, mock_claude, config, tmp_path):
+        """Gemini lenses should bypass orchestrator and use run_lens individually."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        (core.PROMPTS_DIR / "security.md").write_text("security lens")
+        lenses = [
+            {"name": "simplification", "max_comments": 5},
+            {"name": "security", "max_comments": 5},
+        ]
+        config["default_model"] = "claude"
+        config["lenses"]["security"]["model"] = "gemini"
+        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        # Claude called once (for simplification), Gemini called once (for security)
+        assert mock_claude.call_count == 1
+        assert mock_gemini.call_count == 1
+
+    @patch.object(core, "run_lens_claude", return_value="finding")
+    def test_single_lens_returns_lens_name(self, mock_claude, config, tmp_path):
+        """Single Claude lens should return the lens name, not 'review'."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        lenses = [{"name": "simplification", "max_comments": 5}]  # simplification uses default=claude
+        config["default_model"] = "claude"
+        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        assert results[0][0] == "simplification"  # not "review"
+
+    @patch.object(core, "run_lens_claude", return_value="finding")
+    def test_multi_lens_returns_review_label(self, mock_claude, config, tmp_path):
+        """Multiple Claude lenses should return 'review' label."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        lenses = [
+            {"name": "simplification", "max_comments": 5},
+            {"name": "standards", "max_comments": 5},  # standards uses default=claude
+        ]
+        config["default_model"] = "claude"
+        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        assert results[0][0] == "review"
+
+    @patch.object(core, "run_lens_claude", return_value="")
+    def test_empty_result_not_returned(self, mock_claude, config, tmp_path):
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        lenses = [{"name": "simplification", "max_comments": 5}]
+        config["default_model"] = "claude"
+        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        assert results == []
+
+    @patch.object(core, "run_lens_claude", return_value="finding")
+    def test_orchestrator_prompt_includes_agent_instructions(self, mock_claude, config, tmp_path):
+        """The orchestrator prompt should tell Claude which agents to spawn."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        # Use lenses that all default to claude (simplification + standards)
+        lenses = [
+            {"name": "simplification", "max_comments": 5},
+            {"name": "standards", "max_comments": 5},
+        ]
+        config["default_model"] = "claude"
+        core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        prompt = mock_claude.call_args.kwargs.get("prompt") or mock_claude.call_args[0][0]
+        assert "pr-reviewer-lenses:simplification-lens" in prompt
+        assert "pr-reviewer-lenses:standards-lens" in prompt

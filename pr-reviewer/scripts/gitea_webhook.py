@@ -316,31 +316,35 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                  diff_lines, len(lenses),
                  f" (model override: {model_override})" if model_override else "")
 
-        posted = 0
-        silent = 0
-        all_results: list[str] = []
+        # Clean up old bot reviews for all lenses being run
         for lens in lenses:
-            result = core.run_lens(lens, diff, repo_dir, config,
-                                   commit_messages=commit_messages,
-                                   pr_description=pr_description,
-                                   model_override=model_override,
-                                   repomap=repomap,
-                                   depth=depth,
-                                   impact=impact)
-            if result and result.strip():
-                # Cap findings by severity if max_comments is set
-                result = core.cap_by_severity(result, lens["max_comments"])
-                all_results.append(result)
-                post_review(client, owner, repo, pr_number,
-                            lens["name"], result, head_sha, diff=diff)
-                posted += 1
-            else:
-                log.info("Lens %s: silent (no findings or empty response) for %s/%s#%d",
-                         lens["name"], owner, repo, pr_number)
-                silent += 1
+            cleanup_old_reviews(client, owner, repo, pr_number, lens["name"])
+        # Also clean up the "review" tag from orchestrated reviews
+        cleanup_old_reviews(client, owner, repo, pr_number, "review")
 
-        log.info("Review complete for %s/%s#%d: %d posted, %d silent",
-                 owner, repo, pr_number, posted, silent)
+        # Use orchestrated review (single Claude session with sub-agents)
+        review_results = core.run_review_orchestrated(
+            lenses, diff, repo_dir, config,
+            commit_messages=commit_messages,
+            pr_description=pr_description,
+            model_override=model_override,
+            repomap=repomap, depth=depth, impact=impact,
+        )
+
+        posted = 0
+        all_results: list[str] = []
+        for lens_name, result in review_results:
+            # Use per-lens max_comments for cap; default to deep_overrides for orchestrated
+            lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+            max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
+            result = core.cap_by_severity(result, max_comments)
+            all_results.append(result)
+            post_review(client, owner, repo, pr_number,
+                        lens_name, result, head_sha, diff=diff)
+            posted += 1
+
+        log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses",
+                 owner, repo, pr_number, posted, len(lenses))
 
         # CI gating: post commit status based on findings
         fail_on = config.get("fail_on_severity", "")
