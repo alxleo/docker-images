@@ -310,6 +310,18 @@ class TestReadSecret:
         monkeypatch.setenv("tok_FILE", str(custom))
         assert w.read_secret("tok") == "secret_val"
 
+    def test_uppercase_env_fallback(self, monkeypatch):
+        """read_secret('gh_app_id') finds GH_APP_ID env var."""
+        monkeypatch.setenv("GH_APP_ID", "12345")
+        assert w.read_secret("gh_app_id") == "12345"
+
+    def test_newline_escape_restoration(self, monkeypatch):
+        r"""Env vars with literal \n are restored to real newlines (e.g. PEM keys)."""
+        monkeypatch.setenv("MULTI_LINE", r"line1\nline2\nline3")
+        val = w.read_secret("multi_line")
+        assert val == "line1\nline2\nline3"
+        assert r"\n" not in val
+
 
 # ---------------------------------------------------------------------------
 # check_comments

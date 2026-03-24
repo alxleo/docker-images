@@ -81,19 +81,26 @@ def load_config() -> dict:
 
 
 def read_secret(path: str, required: bool = True) -> str:
-    """Read a Docker secret from /run/secrets/ or env var fallback."""
+    """Read a Docker secret from /run/secrets/ or env var fallback.
+
+    Checks: {path}_FILE env → /run/secrets/{path} file → {path} env → {PATH} env (uppercase).
+    """
     secret_file = os.environ.get(f"{path}_FILE", f"/run/secrets/{path}")
     if os.path.isfile(secret_file):
         val = Path(secret_file).read_text().strip()
         if val and not val.startswith("PLACEHOLDER"):
             return val
-    val = os.environ.get(path, "")
+    # Try env var: exact case, then uppercase
+    val = os.environ.get(path, "") or os.environ.get(path.upper(), "")
     if not val:
         if required:
             log.error("Secret %s not found at %s or in environment", path, secret_file)
             sys.exit(1)
         log.info("Optional secret %s not configured", path)
         return ""
+    # Restore literal \n (PEM keys passed via env vars)
+    if r"\n" in val:
+        val = val.replace(r"\n", "\n")
     return val
 
 
