@@ -329,7 +329,8 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
 
     for lens_name, result in review_results:
         lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
-        max_comments = lens_cfg["max_comments"] if lens_cfg else 0
+        # Orchestrated "review" results aggregate multiple lenses — use deep_overrides cap (default: unlimited)
+        max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
         result = core.cap_by_severity(result, max_comments)
         post_review(repo, pr_number, lens_name, result, diff=diff)
 
