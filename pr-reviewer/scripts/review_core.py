@@ -256,7 +256,7 @@ def generate_repomap(repo_dir: Path, max_chars: int = 8000) -> str:
         if defs:
             file_block = f"{rel}:\n" + "\n".join(defs) + "\n"
             if total + len(file_block) > max_chars:
-                lines.append(f"... ({len(list(repo_dir.rglob('*')))} files total, truncated)\n")
+                lines.append("... (truncated)\n")
                 break
             lines.append(file_block)
             total += len(file_block)
@@ -472,7 +472,7 @@ _EXT_TO_LANG = {
 def preprocess_diff(raw_diff: str, max_tokens: int = 30000) -> str:
     """Preprocess a unified diff for better LLM consumption.
 
-    1. Strip delete-only hunks (reviews focus on new code)
+    1. Strip delete-only files (files with no additions — reviews focus on new code)
     2. Annotate files with language
     3. If over token budget, sort files by size and truncate
 
