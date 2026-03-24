@@ -799,7 +799,6 @@ def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
     if not config.get("planned_searches", True):
         return ""
 
-    planner_model = _resolve_model(config, "claude", "standard")
     # Use the cheapest model for planning — it just needs to extract symbol names
     planner_prompt = f"{_PLANNER_PROMPT}\n\nDiff:\n```\n{diff[:8000]}\n```"
 
@@ -850,7 +849,7 @@ def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
 
         try:
             rg = subprocess.run(
-                ["rg", "-n", "--max-count=3", "--max-columns=200", pattern,
+                ["rg", "-e", pattern, "-n", "--max-count=3", "--max-columns=200",
                  "--glob", "!*.lock", "--glob", "!*.min.*"],
                 capture_output=True, text=True, cwd=repo_dir, timeout=5,
             )

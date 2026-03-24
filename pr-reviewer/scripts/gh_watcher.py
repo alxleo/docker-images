@@ -306,6 +306,11 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     if impact:
         log.info("Impact: %d references found", impact.count("referenced by"))
 
+    # LLM-planned cross-file search (uses haiku for fast/cheap planning)
+    cross_file_context = core.plan_searches(diff, repo_dir, config)
+    if cross_file_context:
+        log.info("Planned searches: %d chars of cross-file context", len(cross_file_context))
+
     lenses = core.enabled_lenses(config, depth)
 
     for lens in lenses:
@@ -313,7 +318,8 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
                                commit_messages=commit_messages,
                                pr_description=pr_description,
                                repomap=repomap, depth=depth,
-                               impact=impact)
+                               impact=impact,
+                               cross_file_context=cross_file_context)
         if result and result.strip():
             result = core.cap_by_severity(result, lens["max_comments"])
             post_review(repo, pr_number, lens["name"], result, diff=diff)

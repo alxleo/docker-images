@@ -520,11 +520,11 @@ class TestGenerateRepomap:
 # ---------------------------------------------------------------------------
 
 class TestPlanSearches:
-    @patch.object(core, "run_lens_claude")
-    def test_disabled_returns_empty(self, mock_claude, tmp_path):
+    @patch("subprocess.run")
+    def test_disabled_returns_empty(self, mock_run, tmp_path):
         config = {"planned_searches": False}
         assert core.plan_searches("diff", tmp_path, config) == ""
-        mock_claude.assert_not_called()
+        mock_run.assert_not_called()
 
     @patch("subprocess.run")
     def test_planner_generates_and_executes_queries(self, mock_run, tmp_path):
