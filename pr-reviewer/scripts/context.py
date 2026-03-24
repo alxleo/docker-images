@@ -1,8 +1,13 @@
-"""Context gathering: repomap (tree-sitter), impact analysis (ripgrep)."""
+"""Context gathering: repomap (tree-sitter), impact analysis (ripgrep), LLM-planned searches."""
 
+import json
 import logging
+import re
 import subprocess
+import time
 from pathlib import Path
+
+from config import PROMPTS_DIR
 
 log = logging.getLogger(__name__)
 
@@ -117,3 +122,86 @@ def analyze_impact(repo_dir: Path, diff: str, max_refs: int = 20) -> str:
         return ""
 
     return "Files affected by this change:\n" + "\n".join(impacts)
+
+
+def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
+    """Use a fast LLM to generate targeted search queries, execute them, return context.
+
+    A haiku-class model reads the diff, generates ripgrep patterns across five
+    categories (callers, symmetric counterparts, test pairs, config limits,
+    upstream deps). Python executes the searches and returns the results as
+    cross-file context for the review prompt.
+    """
+    if not config.get("planned_searches", True):
+        return ""
+
+    planner_file = PROMPTS_DIR / "_planner.md"
+    if not planner_file.exists():
+        log.warning("Planner prompt not found at %s", planner_file)
+        return ""
+
+    planner_instructions = planner_file.read_text()
+    planner_prompt = f"{planner_instructions}\n\nDiff:\n```\n{diff[:8000]}\n```"
+
+    cmd = [
+        "claude", "-p",
+        "--model", "haiku",
+        "--output-format", "json",
+        "--allowedTools", "",
+        "--max-turns", "1",
+    ]
+    try:
+        start = time.time()
+        result = subprocess.run(cmd, input=planner_prompt, capture_output=True,
+                                text=True, cwd=repo_dir, timeout=30)
+        log.info("Search planner completed in %.1fs", time.time() - start)
+
+        if result.returncode != 0:
+            log.warning("Search planner failed (exit %d)", result.returncode)
+            return ""
+
+        output = json.loads(result.stdout)
+        raw_result = output.get("result", "")
+
+        json_match = re.search(r'\[.*\]', raw_result, re.DOTALL)
+        if not json_match:
+            return ""
+        queries = json.loads(json_match.group())
+
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
+        log.warning("Search planner error: %s", e)
+        return ""
+
+    if not queries:
+        return ""
+
+    context_lines: list[str] = []
+    for query in queries[:8]:
+        pattern = query.get("pattern", "")
+        category = query.get("category", "")
+        rationale = query.get("rationale", "")
+        if not pattern:
+            continue
+
+        try:
+            rg = subprocess.run(
+                ["rg", "-e", pattern, "-n", "--max-count=3", "--max-columns=200",
+                 "--glob", "!*.lock", "--glob", "!*.min.*"],
+                capture_output=True, text=True, cwd=repo_dir, timeout=5,
+            )
+            matches = rg.stdout.strip()
+            if matches:
+                match_lines = matches.splitlines()[:10]
+                context_lines.append(
+                    f"### {category}: {rationale}\n"
+                    f"Pattern: `{pattern}`\n"
+                    + "\n".join(match_lines)
+                )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            continue
+
+    if not context_lines:
+        return ""
+
+    log.info("Planned searches: %d queries, %d with results", len(queries), len(context_lines))
+    return "Cross-file context (LLM-planned searches):\n\n" + "\n\n".join(context_lines)
