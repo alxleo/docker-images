@@ -1,4 +1,5 @@
-FROM semaphoreui/semaphore@sha256:b321b08f9f39a1dbf2d38b577d53aafa0079e528f7c0f47fecc64af2a077fea0
+# hadolint ignore=DL3029
+FROM --platform=linux/arm64 semaphoreui/semaphore@sha256:b321b08f9f39a1dbf2d38b577d53aafa0079e528f7c0f47fecc64af2a077fea0
 
 USER root
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]

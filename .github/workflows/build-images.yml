@@ -456,10 +456,28 @@ jobs:
         with:
           context: semaphore
           platforms: linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
+          load: true
           tags: |
             ${{ env.IMAGE_REF }}
             ${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+      - name: Smoke test — tools installed
+        run: |
+          docker run --rm --platform linux/arm64 "$IMAGE_REF" \
+            sh -c "sops --version && age --version && dig -v 2>&1 && curl --version | head -1 && jq --version && rsync --version | head -1"
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push "$IMAGE_REF"
+          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest"
 
   load-mcp-matrix:
     name: Load MCP build matrix
