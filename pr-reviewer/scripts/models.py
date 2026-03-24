@@ -40,9 +40,11 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
         for plugin_dir in PLUGINS_DIR.iterdir():
             if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin").is_dir():
                 cmd.extend(["--plugin-dir", str(plugin_dir)])
+    # Timeout scales with max_turns: 60s per turn, minimum 300s
+    timeout = max(300, max_turns * 60)
     start = time.time()
-    log.info("Claude invocation: --model %s --max-turns %d", model, max_turns)
-    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    log.info("Claude invocation: --model %s --max-turns %d --timeout %ds", model, max_turns, timeout)
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=timeout)
     _log_lens_result("claude", result, time.time() - start)
     if result.returncode != 0:
         return ""

@@ -306,6 +306,10 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
     if impact:
         log.info("Impact: %d references found", impact.count("referenced by"))
 
+    cross_file_context = core.plan_searches(diff, repo_dir, config)
+    if cross_file_context:
+        log.info("Planned searches: %d chars of cross-file context", len(cross_file_context))
+
     all_lenses = core.enabled_lenses(config, depth)
 
     # Intelligent routing: for auto/standard depth, only run relevant lenses
@@ -325,6 +329,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str):
         commit_messages=commit_messages,
         pr_description=pr_description,
         repomap=repomap, depth=depth, impact=impact,
+        cross_file_context=cross_file_context,
     )
 
     for lens_name, result in review_results:

@@ -18,9 +18,11 @@ def _isolate_paths(tmp_path, monkeypatch):
         monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
         monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
         monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
-    # prompts.py imports PROMPTS_DIR from config at import time
+    # Modules that import PROMPTS_DIR from config at import time
     import prompts as prompts_mod
+    import context as context_mod
     monkeypatch.setattr(prompts_mod, "PROMPTS_DIR", tmp_path / "prompts")
+    monkeypatch.setattr(context_mod, "PROMPTS_DIR", tmp_path / "prompts")
     (tmp_path / "state").mkdir()
     (tmp_path / "repos").mkdir()
     (tmp_path / "prompts").mkdir()
@@ -374,12 +376,20 @@ class TestBuildReviewPromptStructure:
         assert "Commit Messages" in result
         assert "fix auth bug" in result
 
+    def test_includes_cross_file_context(self):
+        (core.PROMPTS_DIR / "security.md").write_text("Security lens.")
+        result = core.build_review_prompt("security", "diff", 5,
+                                          cross_file_context="callers: app.py:42 my_func()")
+        assert "Cross-File Context" in result
+        assert "my_func" in result
+
     def test_no_extras_when_empty(self):
         (core.PROMPTS_DIR / "security.md").write_text("Security lens.")
         result = core.build_review_prompt("security", "diff", 5)
         assert "Repository Structure" not in result
         assert "Impact Analysis" not in result
         assert "Commit Messages" not in result
+        assert "Cross-File Context" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -511,6 +521,44 @@ class TestGenerateRepomap:
         (tmp_path / "readme.md").write_text("# Hello")
         (tmp_path / "config.yml").write_text("key: value")
         assert core.generate_repomap(tmp_path) == ""
+
+
+# ---------------------------------------------------------------------------
+# plan_searches
+# ---------------------------------------------------------------------------
+
+class TestPlanSearches:
+    @patch("subprocess.run")
+    def test_disabled_returns_empty(self, mock_run, tmp_path):
+        config = {"planned_searches": False}
+        assert core.plan_searches("diff", tmp_path, config) == ""
+        mock_run.assert_not_called()
+
+    @patch("subprocess.run")
+    def test_planner_generates_and_executes_queries(self, mock_run, tmp_path):
+        """If planner returns queries, rg should be called for each."""
+        (core.PROMPTS_DIR / "_planner.md").write_text("planner prompt")
+        # First call: claude planner returns JSON queries
+        planner_output = json.dumps({
+            "result": '[{"pattern": "my_function", "category": "callers", "rationale": "find callers"}]'
+        })
+        # Second call: rg finds matches
+        rg_output = "scripts/app.py:42:    my_function()"
+
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=planner_output, stderr=""),  # claude
+            MagicMock(returncode=0, stdout=rg_output, stderr=""),       # rg
+        ]
+        result = core.plan_searches("diff content", tmp_path, {})
+        assert "my_function" in result
+        assert "callers" in result
+        assert mock_run.call_count == 2
+
+    @patch("subprocess.run")
+    def test_planner_failure_returns_empty(self, mock_run, tmp_path):
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+        result = core.plan_searches("diff", tmp_path, {})
+        assert result == ""
 
 
 # ---------------------------------------------------------------------------
