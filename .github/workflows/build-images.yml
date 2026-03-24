@@ -382,6 +382,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+        if: github.event_name != 'pull_request'
         with:
           platforms: arm64
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
@@ -418,7 +419,12 @@ jobs:
         run: |
           docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
             python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
-      # Multi-arch build + push (amd64 + arm64) — before setup-uv to avoid cache-poisoning warning
+      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          enable-cache: false  # no cache in a job that pushes images (zizmor cache-poisoning)
+      - name: Unit tests
+        run: uv run --with pytest --with pyyaml --with httpx --with grep-ast -- python -m pytest pr-reviewer/tests/ -v
+      # Multi-arch build + push (amd64 + arm64) — after tests pass, only on main
       - name: Build and push multi-arch image
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         if: github.event_name != 'pull_request'
@@ -429,11 +435,6 @@ jobs:
           tags: |
             ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
             ghcr.io/alxleo/pr-reviewer:latest
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-        with:
-          enable-cache: false  # no cache in a job that pushes images (zizmor cache-poisoning)
-      - name: Unit tests
-        run: uv run --with pytest --with pyyaml --with httpx --with grep-ast -- python -m pytest pr-reviewer/tests/ -v
 
   semaphore:
     name: Semaphore UI + homelab tools
