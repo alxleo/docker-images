@@ -9,7 +9,8 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 #   jq                — JSON parsing in connectivity-test.sh, pihole push
 #   rsync             — pihole config push, deploy rsync mode
 #   age               — SOPS age-key decryption (sops shells out to age)
-RUN apk add --no-cache bind-tools curl jq rsync age && \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache bind-tools curl jq rsync age && \
     wget -q https://github.com/getsops/sops/releases/download/v3.12.1/sops-v3.12.1.linux.arm64 -O /usr/local/bin/sops && \
     echo "c7904d07bf1fb3ffdc329b0103ce70ff6a884aa7af7931427402bea0c09cc522  /usr/local/bin/sops" | sha256sum -c && \
     chmod +x /usr/local/bin/sops
