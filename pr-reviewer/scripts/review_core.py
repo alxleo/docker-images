@@ -508,6 +508,9 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
             context += f"\n\n## Impact Analysis\n\n{impact}"
 
         processed_diff = preprocess_diff(diff)
+        # Shuffle file order to break positional bias (LLMs fixate on early files)
+        if config.get("shuffle_diff", True):
+            processed_diff = shuffle_diff(processed_diff)
 
         orchestrator_prompt = f"""{preamble}
 
@@ -553,6 +556,41 @@ After all agents complete, output ALL findings combined. Use the exact output fo
 # ---------------------------------------------------------------------------
 # Diff preprocessing
 # ---------------------------------------------------------------------------
+
+
+def shuffle_diff(raw_diff: str) -> str:
+    """Shuffle file order in a unified diff to break positional bias.
+
+    LLMs fixate on early files and miss issues in later ones. Randomizing
+    file order produces different attention patterns. Run 2 passes with
+    different shuffles and deduplicate findings for better coverage.
+    """
+    import random
+
+    # Split into per-file chunks
+    files: list[tuple[str, str]] = []
+    current_lines: list[str] = []
+    current_file = ""
+
+    for line in raw_diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            if current_file and current_lines:
+                files.append((current_file, "".join(current_lines)))
+            current_lines = [line]
+            parts = line.strip().split(" b/", 1)
+            current_file = parts[1] if len(parts) > 1 else ""
+        else:
+            current_lines.append(line)
+
+    if current_file and current_lines:
+        files.append((current_file, "".join(current_lines)))
+
+    if len(files) <= 1:
+        return raw_diff  # nothing to shuffle
+
+    random.shuffle(files)
+    return "".join(content for _, content in files)
+
 
 # Language detection by file extension
 _EXT_TO_LANG = {

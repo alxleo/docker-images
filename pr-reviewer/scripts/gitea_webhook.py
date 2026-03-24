@@ -257,6 +257,13 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
     log.info("Reviewing %s/%s#%d at depth=%s", owner, repo, pr_number, depth)
 
     with gitea_client() as client:
+        # Resolve head_sha if missing (e.g., issue_comment webhooks don't include it)
+        if not head_sha:
+            r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
+            if r.status_code == 200:
+                head_sha = r.json().get("head", {}).get("sha", "")
+                log.info("Resolved head_sha from PR API: %s", head_sha[:8] if head_sha else "empty")
+
         diff = get_diff(client, owner, repo, pr_number)
         if not diff:
             log.warning("Empty diff for %s/%s#%d, skipping", owner, repo, pr_number)

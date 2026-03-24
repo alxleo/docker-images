@@ -80,13 +80,17 @@ RUN ARCH=$(dpkg --print-architecture) \
     && rm /tmp/glab.deb
 
 # Install ast-grep (structural code search via AST patterns)
+# Pinned version + SHA256 — update both when bumping
 ARG AST_GREP_VERSION=0.42.0
+ARG SG_SHA256_AMD64=e825a05603f0bcc4cd9076c4cc8c9abd6d008b7cd07d9aa3cc323ba4b8606651
+ARG SG_SHA256_ARM64=5c830eae8456569e2f7212434ed9c238f58dca412d76045418ed6d394a755836
 RUN ARCH=$(dpkg --print-architecture) \
-    && if [ "$ARCH" = "amd64" ]; then SG_ARCH="x86_64-unknown-linux-gnu"; \
-       elif [ "$ARCH" = "arm64" ]; then SG_ARCH="aarch64-unknown-linux-gnu"; \
+    && if [ "$ARCH" = "amd64" ]; then SG_ARCH="x86_64-unknown-linux-gnu"; EXPECTED="$SG_SHA256_AMD64"; \
+       elif [ "$ARCH" = "arm64" ]; then SG_ARCH="aarch64-unknown-linux-gnu"; EXPECTED="$SG_SHA256_ARM64"; \
        else echo "Unsupported: ${ARCH}" >&2; exit 1; fi \
     && curl -fsSL "https://github.com/ast-grep/ast-grep/releases/download/${AST_GREP_VERSION}/app-${SG_ARCH}.zip" \
        -o /tmp/sg.zip \
+    && echo "${EXPECTED}  /tmp/sg.zip" | sha256sum -c - \
     && apt-get update && apt-get install -y --no-install-recommends unzip \
     && unzip -j /tmp/sg.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/sg \
