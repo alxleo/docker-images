@@ -145,37 +145,12 @@ def post_commit_status(client: httpx.Client, owner: str, repo: str, sha: str,
         log.warning("Failed to post commit status: %d", r.status_code)
 
 
-def cleanup_old_reviews(client: httpx.Client, owner: str, repo: str, pr_number: int,
-                        lens_name: str):
-    """Delete old bot review comments for this lens before posting new ones."""
-    tag = BOT_TAG.format(lens=lens_name)
-    r = client.get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", params={"limit": 50})
-    if r.status_code != 200:
-        return
-    deleted = 0
-    for comment in r.json():
-        if tag in comment.get("body", ""):
-            client.delete(f"/repos/{owner}/{repo}/issues/comments/{comment['id']}")
-            deleted += 1
-    # Also clean up inline reviews
-    r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews")
-    if r.status_code == 200:
-        for review in r.json():
-            if tag in review.get("body", ""):
-                client.delete(f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews/{review['id']}")
-                deleted += 1
-    if deleted:
-        log.info("Cleaned up %d old %s review(s) on %s/%s#%d", deleted, lens_name, owner, repo, pr_number)
-
 
 def post_review(client: httpx.Client, owner: str, repo: str, pr_number: int,
                 lens_name: str, body: str, head_sha: str, diff: str = ""):
     """Post review on a Gitea PR — inline comments if possible, fallback to top-level."""
     icon = core.LENS_ICONS.get(lens_name, "\U0001f50d")
     tag = BOT_TAG.format(lens=lens_name)
-
-    # Clean up previous bot reviews for this lens
-    cleanup_old_reviews(client, owner, repo, pr_number, lens_name)
 
     # Try inline review via Gitea's review API
     if diff:
@@ -397,12 +372,6 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         lens_list = ", ".join(l["name"] for l in lenses)
         status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
         post_status_comment(client, owner, repo, pr_number, status_msg)
-
-        # Clean up old bot reviews for all lenses being run
-        for lens in lenses:
-            cleanup_old_reviews(client, owner, repo, pr_number, lens["name"])
-        # Also clean up the "review" tag from orchestrated reviews
-        cleanup_old_reviews(client, owner, repo, pr_number, "review")
 
         # Use orchestrated review (single Claude session with sub-agents)
         review_results = core.run_review_orchestrated(

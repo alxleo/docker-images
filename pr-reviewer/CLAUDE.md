@@ -46,8 +46,7 @@ Webhook/poll picks up @pr-reviewer command
   → Post status comment ("⏳ Reviewing with X lens(es) via model...")
   → Orchestrated claude -p session spawns lens sub-agents
   → Cap findings by severity (keep highest when at max_comments)
-  → Clean up old bot comments (tag-based: <!-- pr-reviewer-bot:LENS -->)
-  → Post review (inline comments or top-level fallback)
+  → Post review (via Reviews API — inline comments or body-only fallback)
   → Update status comment ("✅ Review complete — N lens reports (Xs)")
   → Post commit status (success/failure based on fail_on_severity)
 ```
