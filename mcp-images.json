@@ -47,6 +47,13 @@
     "secrets": ["CONTEXT7_API_KEY"]
   },
   {
+    "name": "mcp-searxng",
+    "dockerfile": "Dockerfile.npm",
+    "build_args": "MCP_PACKAGE=mcp-searxng@0.10.0",
+    "tag": "0.10.0",
+    "description": "Self-hosted metasearch via SearXNG"
+  },
+  {
     "name": "mcp-sequential-thinking",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2025.12.18",
