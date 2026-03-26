@@ -76,7 +76,8 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
         if findings:
             log.info("Inline parse: strict format missed, relaxed matched %d findings", len(findings))
         else:
-            log.info("Inline parse: 0 findings matched (body=%d chars). Preview: %.200s", len(body), body)
+            log.info("Inline parse: 0 findings matched (body=%d chars)", len(body))
+            log.debug("Inline body preview: %.200s", body)
             return []
 
     comments = []

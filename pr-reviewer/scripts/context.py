@@ -116,19 +116,22 @@ def _parse_changed_files(diff: str) -> list[str]:
     return [line[6:] for line in diff.splitlines() if line.startswith("+++ b/")]
 
 
-def _get_parser(lang_name: str, _cache: dict = {}) -> tuple | None:
+_PARSER_CACHE: dict[str, tuple | None] = {}
+
+
+def _get_parser(lang_name: str) -> tuple | None:
     """Get (language, parser) for a language name, caching instances."""
-    if lang_name in _cache:
-        return _cache[lang_name]
+    if lang_name in _PARSER_CACHE:
+        return _PARSER_CACHE[lang_name]
     try:
         from tree_sitter_language_pack import get_language
         from tree_sitter import Parser
         lang = get_language(lang_name)
         parser = Parser(lang)
-        _cache[lang_name] = (lang, parser)
+        _PARSER_CACHE[lang_name] = (lang, parser)
         return (lang, parser)
     except Exception:
-        _cache[lang_name] = None
+        _PARSER_CACHE[lang_name] = None
         return None
 
 
@@ -369,7 +372,7 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
     lines = []
     total = 0
     count = 0
-    for path in sorted(repo_dir.rglob("*")):
+    for path in repo_dir.rglob("*"):
         if not path.is_file():
             continue
         rel = str(path.relative_to(repo_dir))

@@ -51,7 +51,7 @@ def _parse_claude_json(stdout: str, max_turns: int) -> ReviewResult:
     try:
         output = json.loads(stdout)
     except json.JSONDecodeError:
-        return ReviewResult(text=stdout.strip())
+        return ReviewResult(text=stdout.strip(), max_turns=max_turns)
 
     usage = output.get("usage", {})
     return ReviewResult(
@@ -107,7 +107,11 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
         return ReviewResult(text="", max_turns=max_turns)
     review = _parse_claude_json(result.stdout, max_turns)
     log.info("Claude review: %s", review.summary())
-    _save_session_metadata(review.session_id, json.loads(result.stdout))
+    try:
+        raw_json = json.loads(result.stdout)
+        _save_session_metadata(review.session_id, raw_json)
+    except json.JSONDecodeError:
+        pass  # Non-JSON output — no session metadata to save
     return review
 
 
