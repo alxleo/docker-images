@@ -110,3 +110,21 @@ jobs:
       - run: pytest pr-reviewer/tests/ -x
         env:
           PYTHONPATH: pr-reviewer/scripts
+
+  log-audit:
+    name: log audit (no sensitive data at INFO)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Check for content leaked in INFO/WARNING logs
+        run: |
+          # Fail if any log.info/log.warning passes raw content variables as format args.
+          # Safe: log.info("... %d chars", len(body))  — logs metadata
+          # Unsafe: log.info("Preview: %s", body)       — logs content
+          pattern='log\.(info|warning)\(.*[%,]\s*(body|diff|raw_result|review_body|result\.stdout|result\.text)\s*[,)]'
+          if grep -rPn "$pattern" pr-reviewer/scripts/; then
+            echo "::error::Sensitive data passed to INFO/WARNING log. Use DEBUG for content, INFO for metadata only."
+            exit 1
+          fi
