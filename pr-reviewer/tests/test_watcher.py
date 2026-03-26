@@ -3,7 +3,6 @@
 import json
 import subprocess
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -147,11 +146,11 @@ class TestEnabledLenses:
         config["quick_overrides"] = {"lenses": ["security", "standards"], "max_comments": 2}
         result = core.enabled_lenses(config, "quick")
         assert len(result) == 2
-        assert all(l["max_comments"] == 2 for l in result)
+        assert all(lens["max_comments"] == 2 for lens in result)
 
     def test_standard_skips_disabled(self, config):
         result = core.enabled_lenses(config, "standard")
-        names = [l["name"] for l in result]
+        names = [lens["name"] for lens in result]
         assert "drift" not in names
         assert "simplification" in names
         assert "standards" in names
@@ -163,11 +162,11 @@ class TestEnabledLenses:
     def test_deep_overrides_max_comments(self, config):
         config["deep_overrides"] = {"max_comments": 0}
         result = core.enabled_lenses(config, "deep")
-        assert all(l["max_comments"] == 0 for l in result)
+        assert all(lens["max_comments"] == 0 for lens in result)
 
     def test_deep_default_unlimited(self, config):
         result = core.enabled_lenses(config, "deep")
-        assert all(l["max_comments"] == 0 for l in result)
+        assert all(lens["max_comments"] == 0 for lens in result)
 
 
 # ---------------------------------------------------------------------------

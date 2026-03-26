@@ -44,7 +44,7 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
         diff_lines = len(diff.splitlines()) if isinstance(diff, str) else 0
         multiplier = config.get("context", {}).get("max_turns_multiplier", 1.5)
         max_turns = int(base_turns * multiplier) if diff_lines > 500 else base_turns
-        lens_names = [l["name"] for l in claude_lenses]
+        lens_names = [lens["name"] for lens in claude_lenses]
 
         preamble_file = PROMPTS_DIR / "_preamble.md"
         preamble = preamble_file.read_text() if preamble_file.exists() else ""

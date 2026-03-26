@@ -366,9 +366,9 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
     # Intelligent routing: for auto/standard depth, only run relevant lenses
     if depth in ("auto", "standard"):
         relevant = core.analyze_diff_relevance(diff)
-        lenses = [l for l in all_lenses if l["name"] in relevant]
+        lenses = [lens for lens in all_lenses if lens["name"] in relevant]
         if len(lenses) < len(all_lenses):
-            skipped = [l["name"] for l in all_lenses if l["name"] not in relevant]
+            skipped = [lens["name"] for lens in all_lenses if lens["name"] not in relevant]
             log.info("Routing: %d/%d lenses relevant (skipping: %s)",
                      len(lenses), len(all_lenses), ", ".join(skipped))
     else:
@@ -376,7 +376,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
 
     # Post status comment — "Reviewing with X lens(es)..."
     model_name = model_override or config.get("default_model", "claude")
-    lens_list = ", ".join(l["name"] for l in lenses)
+    lens_list = ", ".join(lens["name"] for lens in lenses)
     status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
     post_status_comment(repo, pr_number, status_msg)
 
@@ -391,7 +391,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
     )
 
     for lens_name, result in review_results:
-        lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+        lens_cfg = next((lens for lens in lenses if lens["name"] == lens_name), None)
         # Orchestrated "review" results aggregate multiple lenses — use deep_overrides cap (default: unlimited)
         max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
         result = core.cap_by_severity(result, max_comments)

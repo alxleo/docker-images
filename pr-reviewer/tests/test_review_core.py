@@ -1,8 +1,6 @@
 """Tests for review_core.py — shared review engine logic."""
 
 import json
-import subprocess
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -51,22 +49,22 @@ def config():
 class TestAutoLenses:
     def test_auto_uses_configured_lenses(self, config):
         result = core.enabled_lenses(config, "auto")
-        names = [l["name"] for l in result]
+        names = [lens["name"] for lens in result]
         assert names == ["simplification", "security"]
 
     def test_auto_default_max_comments(self, config):
         result = core.enabled_lenses(config, "auto")
-        assert all(l["max_comments"] == 5 for l in result)
+        assert all(lens["max_comments"] == 5 for lens in result)
 
     def test_auto_respects_override(self, config):
         config["auto_overrides"] = {"max_comments": 3}
         result = core.enabled_lenses(config, "auto")
-        assert all(l["max_comments"] == 3 for l in result)
+        assert all(lens["max_comments"] == 3 for lens in result)
 
     def test_auto_defaults_without_config(self):
         config = {"lenses": {}}
         result = core.enabled_lenses(config, "auto")
-        names = [l["name"] for l in result]
+        names = [lens["name"] for lens in result]
         assert names == ["simplification", "security"]
 
     def test_auto_custom_lens_list(self, config):
@@ -781,7 +779,7 @@ class TestRunReviewOrchestrated:
         ]
         config["default_model"] = "claude"
         config["lenses"]["security"]["model"] = "gemini"
-        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         # Claude called once (for simplification), Gemini called once (for security)
         assert mock_claude.call_count == 1
         assert mock_gemini.call_count == 1
