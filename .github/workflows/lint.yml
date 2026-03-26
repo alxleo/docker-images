@@ -92,7 +92,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: astral-sh/ruff-action@2b0940a3cead26dc2ab37a3e5c3e70a0ef2be378 # v3
+      - uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3
         with:
           src: pr-reviewer/scripts pr-reviewer/tests
 
@@ -106,7 +106,9 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
-      - run: pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast tree-sitter-language-pack
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast tree-sitter-language-pack
       - run: pytest pr-reviewer/tests/ -x
         env:
           PYTHONPATH: pr-reviewer/scripts
