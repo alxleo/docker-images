@@ -20,6 +20,13 @@ repos:
     hooks:
       - id: zizmor
 
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^pr-reviewer/
+
   - repo: local
     hooks:
       - id: shellcheck
@@ -44,6 +51,12 @@ repos:
         entry: yamllint
         language: system
         types: [yaml]
+      - id: log-audit
+        name: log audit (no sensitive data at INFO)
+        entry: bash -c 'pattern="log\\.(info|warning)\\(.*[%,]\\s*(body|diff|raw_result|review_body|result\\.stdout|result\\.text)\\s*[,)]"; if grep -rPn "$pattern" "$@"; then echo "Sensitive data in INFO/WARNING log — use DEBUG"; exit 1; fi' --
+        language: system
+        files: ^pr-reviewer/scripts/.*\.py$
+        types: [python]
       - id: block-secret-files
         name: Block secret/env files
         entry: "Found a file that should never be committed to a public repo"

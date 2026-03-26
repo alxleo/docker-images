@@ -80,7 +80,8 @@ class GitHubAppAuth:
 
 def setup_auth() -> GitHubAppAuth:
     """Configure authentication from secrets. Returns GitHub App auth manager."""
-    claude_token = core.read_secret("claude_code_oauth_token")
+    claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
+                    or core.read_secret("claude_code_oauth_token"))
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 
     # GitHub App auth — installation tokens rotate hourly
@@ -231,9 +232,15 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
     if diff:
         comments = core.parse_inline_comments(body, diff)
         if comments:
+            log.info("Inline: %d comments extracted for %s#%d", len(comments), repo, pr_number)
             head_sha = get_head_sha(repo, pr_number)
             if head_sha and post_inline_review(repo, pr_number, lens_name, comments, head_sha):
                 return
+            log.warning("Inline: post failed, falling back to body-only for %s#%d", repo, pr_number)
+        else:
+            log.info("Inline: 0 comments matched diff for %s#%d, using body-only", repo, pr_number)
+    else:
+        log.info("Inline: no diff available for %s#%d, using body-only", repo, pr_number)
 
     # Fallback: body-only review (no inline comments) — lands in Reviews tab
     header = f"## {icon} {lens_name.title()} Review\n\n"
@@ -346,13 +353,9 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
                 f"- {c.get('messageHeadline', '')}" for c in commits
             )
 
-    # Generate structural map + impact analysis
-    repomap = core.generate_repomap(repo_dir)
-    if repomap:
-        log.info("Repomap: %d chars", len(repomap))
-    impact = core.analyze_impact(repo_dir, diff)
-    if impact:
-        log.info("Impact: %d references found", impact.count("referenced by"))
+    # Generate structural map (PageRank-ranked, diff-personalized)
+    repomap = core.generate_repomap(repo_dir, diff=diff)
+    impact = ""  # Subsumed by graph-ranked repomap
 
     cross_file_context = core.plan_searches(diff, repo_dir, config)
     if cross_file_context:
@@ -363,9 +366,9 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
     # Intelligent routing: for auto/standard depth, only run relevant lenses
     if depth in ("auto", "standard"):
         relevant = core.analyze_diff_relevance(diff)
-        lenses = [l for l in all_lenses if l["name"] in relevant]
+        lenses = [lens for lens in all_lenses if lens["name"] in relevant]
         if len(lenses) < len(all_lenses):
-            skipped = [l["name"] for l in all_lenses if l["name"] not in relevant]
+            skipped = [lens["name"] for lens in all_lenses if lens["name"] not in relevant]
             log.info("Routing: %d/%d lenses relevant (skipping: %s)",
                      len(lenses), len(all_lenses), ", ".join(skipped))
     else:
@@ -373,7 +376,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
 
     # Post status comment — "Reviewing with X lens(es)..."
     model_name = model_override or config.get("default_model", "claude")
-    lens_list = ", ".join(l["name"] for l in lenses)
+    lens_list = ", ".join(lens["name"] for lens in lenses)
     status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
     post_status_comment(repo, pr_number, status_msg)
 
@@ -388,7 +391,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
     )
 
     for lens_name, result in review_results:
-        lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+        lens_cfg = next((lens for lens in lenses if lens["name"] == lens_name), None)
         # Orchestrated "review" results aggregate multiple lenses — use deep_overrides cap (default: unlimited)
         max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
         result = core.cap_by_severity(result, max_comments)
@@ -464,7 +467,8 @@ def poll(config: dict):
 
         try:
             prs = gh_json(
-                ["pr", "list", "--state", "open", "--json", "number,updatedAt,isDraft,headRefOid,comments"],
+                ["pr", "list", "--state", "open", "--limit", "500",
+                 "--json", "number,updatedAt,isDraft,headRefOid,comments"],
                 repo=repo,
             )
         except Exception as e:

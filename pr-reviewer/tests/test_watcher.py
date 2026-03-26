@@ -3,7 +3,6 @@
 import json
 import subprocess
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +10,7 @@ import pytest
 import config as cfg
 import review_core as core
 import gh_watcher as w
+from models import ReviewResult
 
 
 # ---------------------------------------------------------------------------
@@ -23,9 +23,11 @@ def _isolate_paths(tmp_path, monkeypatch):
 
     Patches the canonical source (config) and the re-export facade (review_core).
     """
-    for mod in (cfg, core):
+    import models as models_mod
+    for mod in (cfg, core, models_mod):
         if hasattr(mod, "STATE_DIR"):
             monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
+    for mod in (cfg, core):
         if hasattr(mod, "REPOS_DIR"):
             monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
         if hasattr(mod, "PROMPTS_DIR"):
@@ -144,11 +146,11 @@ class TestEnabledLenses:
         config["quick_overrides"] = {"lenses": ["security", "standards"], "max_comments": 2}
         result = core.enabled_lenses(config, "quick")
         assert len(result) == 2
-        assert all(l["max_comments"] == 2 for l in result)
+        assert all(lens["max_comments"] == 2 for lens in result)
 
     def test_standard_skips_disabled(self, config):
         result = core.enabled_lenses(config, "standard")
-        names = [l["name"] for l in result]
+        names = [lens["name"] for lens in result]
         assert "drift" not in names
         assert "simplification" in names
         assert "standards" in names
@@ -160,11 +162,11 @@ class TestEnabledLenses:
     def test_deep_overrides_max_comments(self, config):
         config["deep_overrides"] = {"max_comments": 0}
         result = core.enabled_lenses(config, "deep")
-        assert all(l["max_comments"] == 0 for l in result)
+        assert all(lens["max_comments"] == 0 for lens in result)
 
     def test_deep_default_unlimited(self, config):
         result = core.enabled_lenses(config, "deep")
-        assert all(l["max_comments"] == 0 for l in result)
+        assert all(lens["max_comments"] == 0 for lens in result)
 
 
 # ---------------------------------------------------------------------------
@@ -525,7 +527,7 @@ class TestGhHelper:
 # ---------------------------------------------------------------------------
 
 class TestRunLens:
-    @patch("routing.run_lens_claude", return_value="claude result")
+    @patch("routing.run_lens_claude", return_value=ReviewResult(text="claude result"))
     def test_defaults_to_claude(self, mock_claude, config, tmp_path):
         prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")

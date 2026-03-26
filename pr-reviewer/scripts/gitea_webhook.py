@@ -156,6 +156,7 @@ def post_review(client: httpx.Client, owner: str, repo: str, pr_number: int,
     if diff:
         comments = core.parse_inline_comments(body, diff)
         if comments and head_sha:
+            log.info("Inline: %d comments extracted for %s/%s#%d", len(comments), owner, repo, pr_number)
             review_body = f"{icon} **{lens_name.title()} Review** — {len(comments)} finding(s)\n{tag}"
             payload = {
                 "commit_id": head_sha,
@@ -337,12 +338,9 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             )
 
         # Generate structural map + impact analysis for context
-        repomap = core.generate_repomap(repo_dir)
-        if repomap:
-            log.info("Repomap: %d chars", len(repomap))
-        impact = core.analyze_impact(repo_dir, diff)
-        if impact:
-            log.info("Impact: %d references found", impact.count("referenced by"))
+        # Generate structural map (PageRank-ranked, diff-personalized)
+        repomap = core.generate_repomap(repo_dir, diff=diff)
+        impact = ""  # Subsumed by graph-ranked repomap
 
         # LLM-planned cross-file search (uses haiku for fast/cheap planning)
         cross_file_context = core.plan_searches(diff, repo_dir, config)
@@ -354,9 +352,9 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         # Intelligent routing: for auto/standard depth, only run relevant lenses
         if depth in ("auto", "standard"):
             relevant = core.analyze_diff_relevance(diff)
-            lenses = [l for l in all_lenses if l["name"] in relevant]
+            lenses = [lens for lens in all_lenses if lens["name"] in relevant]
             if len(lenses) < len(all_lenses):
-                skipped = [l["name"] for l in all_lenses if l["name"] not in relevant]
+                skipped = [lens["name"] for lens in all_lenses if lens["name"] not in relevant]
                 log.info("Routing: %d/%d lenses relevant (skipping: %s)",
                          len(lenses), len(all_lenses), ", ".join(skipped))
         else:
@@ -369,7 +367,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
 
         # Post status comment — "Reviewing with X lens(es)..."
         model_name = model_override or config.get("default_model", "claude")
-        lens_list = ", ".join(l["name"] for l in lenses)
+        lens_list = ", ".join(lens["name"] for lens in lenses)
         status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
         post_status_comment(client, owner, repo, pr_number, status_msg)
 
@@ -387,7 +385,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         all_results: list[str] = []
         for lens_name, result in review_results:
             # Use per-lens max_comments for cap; default to deep_overrides for orchestrated
-            lens_cfg = next((l for l in lenses if l["name"] == lens_name), None)
+            lens_cfg = next((lens for lens in lenses if lens["name"] == lens_name), None)
             max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
             result = core.cap_by_severity(result, max_comments)
             all_results.append(result)
@@ -614,9 +612,9 @@ def main():
     log.info("Gitea PR Reviewer webhook handler starting")
 
     # Setup Claude auth from env
-    claude_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
-    if not claude_token:
-        claude_token = core.read_secret("claude_code_oauth_token", required=False)
+    claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
+                    or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+                    or core.read_secret("claude_code_oauth_token", required=False))
     if claude_token:
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 

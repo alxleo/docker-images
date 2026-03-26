@@ -84,3 +84,49 @@ jobs:
           persist-credentials: false
       - run: pipx install zizmor
       - run: zizmor .github/workflows/
+
+  ruff:
+    name: ruff (Python lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3
+        with:
+          src: pr-reviewer/scripts pr-reviewer/tests
+
+  pytest:
+    name: pytest (pr-reviewer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast tree-sitter-language-pack
+      - run: pytest pr-reviewer/tests/ -x
+        env:
+          PYTHONPATH: pr-reviewer/scripts
+
+  log-audit:
+    name: log audit (no sensitive data at INFO)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Check for content leaked in INFO/WARNING logs
+        run: |
+          # Fail if any log.info/log.warning passes raw content variables as format args.
+          # Safe: log.info("... %d chars", len(body))  — logs metadata
+          # Unsafe: log.info("Preview: %s", body)       — logs content
+          pattern='log\.(info|warning)\(.*[%,]\s*(body|diff|raw_result|review_body|result\.stdout|result\.text)\s*[,)]'
+          if grep -rPn "$pattern" pr-reviewer/scripts/; then
+            echo "::error::Sensitive data passed to INFO/WARNING log. Use DEBUG for content, INFO for metadata only."
+            exit 1
+          fi

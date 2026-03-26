@@ -1,14 +1,71 @@
 """AI model invocation: Claude, Gemini, Codex. Fully deterministic CLI calls."""
 
+import dataclasses
 import json
 import logging
 import subprocess
 import time
 from pathlib import Path
 
-from config import CLAUDE_REVIEW_TOOLS, PLUGIN_DIR, PLUGINS_DIR
+from config import CLAUDE_REVIEW_TOOLS, PLUGIN_DIR, PLUGINS_DIR, STATE_DIR
 
 log = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class ReviewResult:
+    """Structured result from a Claude review invocation."""
+    text: str
+    session_id: str = ""
+    num_turns: int = 0
+    max_turns: int = 0
+    cost_usd: float = 0.0
+    duration_ms: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    model: str = ""
+    stop_reason: str = ""
+
+    def __bool__(self):
+        return bool(self.text and self.text.strip())
+
+    def summary(self) -> str:
+        tokens_in = f"{self.input_tokens // 1000}k" if self.input_tokens >= 1000 else str(self.input_tokens)
+        tokens_out = f"{self.output_tokens // 1000}k" if self.output_tokens >= 1000 else str(self.output_tokens)
+        return (f"session={self.session_id[:12]} turns={self.num_turns}/{self.max_turns} "
+                f"cost=${self.cost_usd:.2f} tokens={tokens_in}\u2192{tokens_out} "
+                f"duration={self.duration_ms // 1000}s stop={self.stop_reason}")
+
+
+def _save_session_metadata(session_id: str, raw_json: dict):
+    """Persist full Claude JSON response for post-mortem debugging."""
+    if not session_id:
+        return
+    session_dir = STATE_DIR / "sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / f"{session_id}.json").write_text(json.dumps(raw_json, indent=2))
+
+
+def _parse_claude_json(stdout: str, max_turns: int) -> ReviewResult:
+    """Parse Claude CLI JSON output into ReviewResult."""
+    try:
+        output = json.loads(stdout)
+    except json.JSONDecodeError:
+        return ReviewResult(text=stdout.strip(), max_turns=max_turns)
+
+    usage = output.get("usage", {})
+    return ReviewResult(
+        text=output.get("result", ""),
+        session_id=output.get("session_id", ""),
+        num_turns=output.get("num_turns", 0),
+        max_turns=max_turns,
+        cost_usd=output.get("total_cost_usd", 0.0),
+        duration_ms=output.get("duration_ms", 0),
+        input_tokens=usage.get("input_tokens", 0) + usage.get("cache_read_input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        model=output.get("model", ""),
+        stop_reason=output.get("stop_reason", ""),
+    )
 
 
 def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s: float):
@@ -25,7 +82,7 @@ def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s
 
 
 def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
-                    model: str = "sonnet") -> str:
+                    model: str = "sonnet") -> ReviewResult:
     """Run review via Claude Code CLI. Fully deterministic invocation."""
     cmd = [
         "claude", "-p",
@@ -47,12 +104,15 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=timeout)
     _log_lens_result("claude", result, time.time() - start)
     if result.returncode != 0:
-        return ""
+        return ReviewResult(text="", max_turns=max_turns)
+    review = _parse_claude_json(result.stdout, max_turns)
+    log.info("Claude review: %s", review.summary())
     try:
-        output = json.loads(result.stdout)
-        return output.get("result", "")
+        raw_json = json.loads(result.stdout)
+        _save_session_metadata(review.session_id, raw_json)
     except json.JSONDecodeError:
-        return result.stdout.strip()
+        pass  # Non-JSON output — no session metadata to save
+    return review
 
 
 def run_lens_gemini(prompt: str, repo_dir: Path, model: str = "gemini-2.5-pro") -> str:

@@ -435,8 +435,10 @@ jobs:
       - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
         with:
           enable-cache: false  # no cache in a job that pushes images (zizmor cache-poisoning)
+      - name: Install ripgrep (needed for repomap graph expansion)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
       - name: Unit tests
-        run: uv run --with pytest --with pyyaml --with httpx --with grep-ast -- python -m pytest pr-reviewer/tests/ -v
+        run: uv run --with pytest --with pyyaml --with httpx --with grep-ast --with tree-sitter-language-pack -- python -m pytest pr-reviewer/tests/ -v
       # Multi-arch build + push (amd64 + arm64) — after tests pass, only on main/tags
       - name: Build and push multi-arch image
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7

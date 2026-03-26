@@ -1,21 +1,22 @@
 """Tests for review_core.py — shared review engine logic."""
 
 import json
-import subprocess
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 import config as cfg
 import review_core as core
+from models import ReviewResult
 
 
 @pytest.fixture(autouse=True)
 def _isolate_paths(tmp_path, monkeypatch):
     """Patch paths in all modules that reference them."""
-    for mod in (cfg, core):
+    import models as models_mod
+    for mod in (cfg, core, models_mod):
         monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
+    for mod in (cfg, core):
         monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
         monkeypatch.setattr(mod, "PROMPTS_DIR", tmp_path / "prompts")
     # Modules that import PROMPTS_DIR from config at import time
@@ -48,22 +49,22 @@ def config():
 class TestAutoLenses:
     def test_auto_uses_configured_lenses(self, config):
         result = core.enabled_lenses(config, "auto")
-        names = [l["name"] for l in result]
+        names = [lens["name"] for lens in result]
         assert names == ["simplification", "security"]
 
     def test_auto_default_max_comments(self, config):
         result = core.enabled_lenses(config, "auto")
-        assert all(l["max_comments"] == 5 for l in result)
+        assert all(lens["max_comments"] == 5 for lens in result)
 
     def test_auto_respects_override(self, config):
         config["auto_overrides"] = {"max_comments": 3}
         result = core.enabled_lenses(config, "auto")
-        assert all(l["max_comments"] == 3 for l in result)
+        assert all(lens["max_comments"] == 3 for lens in result)
 
     def test_auto_defaults_without_config(self):
         config = {"lenses": {}}
         result = core.enabled_lenses(config, "auto")
-        names = [l["name"] for l in result]
+        names = [lens["name"] for lens in result]
         assert names == ["simplification", "security"]
 
     def test_auto_custom_lens_list(self, config):
@@ -400,7 +401,7 @@ class TestRunLensClaude:
     @patch("subprocess.run")
     def test_includes_model_flag(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"result": ""}', stderr=""
+            returncode=0, stdout='{"result": "", "session_id": "test-session", "num_turns": 1, "total_cost_usd": 0.01, "duration_ms": 1000, "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0}, "stop_reason": "end_turn"}', stderr=""
         )
         core.run_lens_claude("prompt", tmp_path, max_turns=5, model="sonnet")
         cmd = mock_run.call_args[0][0]
@@ -410,7 +411,7 @@ class TestRunLensClaude:
     @patch("subprocess.run")
     def test_includes_allowed_tools(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"result": ""}', stderr=""
+            returncode=0, stdout='{"result": "", "session_id": "test-session", "num_turns": 1, "total_cost_usd": 0.01, "duration_ms": 1000, "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0}, "stop_reason": "end_turn"}', stderr=""
         )
         core.run_lens_claude("prompt", tmp_path, max_turns=5, model="sonnet")
         cmd = mock_run.call_args[0][0]
@@ -431,7 +432,7 @@ class TestRunLensClaude:
     @patch("subprocess.run")
     def test_includes_max_turns(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"result": ""}', stderr=""
+            returncode=0, stdout='{"result": "", "session_id": "test-session", "num_turns": 1, "total_cost_usd": 0.01, "duration_ms": 1000, "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0}, "stop_reason": "end_turn"}', stderr=""
         )
         core.run_lens_claude("prompt", tmp_path, max_turns=15, model="opus")
         cmd = mock_run.call_args[0][0]
@@ -442,7 +443,7 @@ class TestRunLensClaude:
     @patch("subprocess.run")
     def test_includes_output_format_json(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"result": ""}', stderr=""
+            returncode=0, stdout='{"result": "", "session_id": "test-session", "num_turns": 1, "total_cost_usd": 0.01, "duration_ms": 1000, "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0}, "stop_reason": "end_turn"}', stderr=""
         )
         core.run_lens_claude("prompt", tmp_path, max_turns=5, model="sonnet")
         cmd = mock_run.call_args[0][0]
@@ -453,7 +454,7 @@ class TestRunLensClaude:
     def test_config_model_reaches_cli(self, mock_run, config, tmp_path):
         """Model from config.models should reach the subprocess command."""
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"result": ""}', stderr=""
+            returncode=0, stdout='{"result": "", "session_id": "test-session", "num_turns": 1, "total_cost_usd": 0.01, "duration_ms": 1000, "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0}, "stop_reason": "end_turn"}', stderr=""
         )
         (core.PROMPTS_DIR / "simplification.md").write_text("prompt")
         config["models"] = {"claude": "opus", "claude_deep": "opus"}
@@ -462,6 +463,72 @@ class TestRunLensClaude:
         cmd = mock_run.call_args[0][0]
         model_idx = cmd.index("--model") + 1
         assert cmd[model_idx] == "opus"
+
+
+    @patch("subprocess.run")
+    def test_returns_review_result_with_metadata(self, mock_run, tmp_path):
+        """run_lens_claude should return ReviewResult with all fields populated."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=json.dumps({
+                "result": "finding text",
+                "session_id": "abc-123",
+                "num_turns": 7,
+                "total_cost_usd": 0.42,
+                "duration_ms": 180000,
+                "usage": {"input_tokens": 12000, "output_tokens": 3000, "cache_read_input_tokens": 5000},
+                "stop_reason": "end_turn",
+            }),
+            stderr="",
+        )
+        result = core.run_lens_claude("prompt", tmp_path, max_turns=10, model="sonnet")
+        assert result.text == "finding text"
+        assert result.session_id == "abc-123"
+        assert result.num_turns == 7
+        assert result.max_turns == 10
+        assert result.cost_usd == 0.42
+        assert result.duration_ms == 180000
+        assert result.input_tokens == 17000  # 12000 + 5000 cache_read
+        assert result.output_tokens == 3000
+        assert result.stop_reason == "end_turn"
+
+    @patch("subprocess.run")
+    def test_saves_session_metadata_to_disk(self, mock_run, tmp_path):
+        """Full Claude JSON should be persisted to state/sessions/."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=json.dumps({
+                "result": "text",
+                "session_id": "persist-test-123",
+                "num_turns": 1,
+                "total_cost_usd": 0.01,
+                "duration_ms": 1000,
+                "usage": {"input_tokens": 100, "output_tokens": 50},
+                "stop_reason": "end_turn",
+            }),
+            stderr="",
+        )
+        core.run_lens_claude("prompt", tmp_path, max_turns=5, model="sonnet")
+        session_file = tmp_path / "state" / "sessions" / "persist-test-123.json"
+        assert session_file.exists()
+        saved = json.loads(session_file.read_text())
+        assert saved["session_id"] == "persist-test-123"
+        assert saved["total_cost_usd"] == 0.01
+
+    @patch("subprocess.run")
+    def test_failure_returns_empty_review_result(self, mock_run, tmp_path):
+        """Non-zero exit code should return empty ReviewResult."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+        result = core.run_lens_claude("prompt", tmp_path, max_turns=5, model="sonnet")
+        assert not result
+        assert result.text == ""
+        assert result.max_turns == 5
+
+    def test_review_result_bool(self):
+        """ReviewResult should be truthy only when text is non-empty."""
+        assert ReviewResult(text="finding")
+        assert not ReviewResult(text="")
+        assert not ReviewResult(text="   ")
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +588,90 @@ class TestGenerateRepomap:
         (tmp_path / "readme.md").write_text("# Hello")
         (tmp_path / "config.yml").write_text("key: value")
         assert core.generate_repomap(tmp_path) == ""
+
+    def test_diff_triggers_pagerank_path(self, tmp_path):
+        """When diff is provided, files referenced by diff should rank higher."""
+        # Create a small multi-file repo with cross-references
+        (tmp_path / "models.py").write_text("class User:\n    pass\n\nclass Order:\n    pass\n")
+        (tmp_path / "views.py").write_text("from models import User\ndef get_user():\n    return User()\n")
+        (tmp_path / "tests.py").write_text("from views import get_user\ndef test_user():\n    get_user()\n")
+        (tmp_path / "unrelated.py").write_text("def standalone():\n    pass\n")
+
+        diff = "--- a/views.py\n+++ b/views.py\n@@ -1,3 +1,3 @@\n+from models import User\n"
+        result = core.generate_repomap(tmp_path, diff=diff)
+        # views.py is in the diff, models.py is referenced by views.py — both should appear
+        assert "views.py" in result
+        assert "models.py" in result
+
+    def test_no_diff_uses_simple_fallback(self, tmp_path):
+        """Empty diff should produce alphabetical listing (backwards compat)."""
+        (tmp_path / "alpha.py").write_text("def a_func(): pass\n")
+        (tmp_path / "beta.py").write_text("def b_func(): pass\n")
+        result = core.generate_repomap(tmp_path)
+        assert "alpha.py" in result
+        assert "beta.py" in result
+
+    def test_max_chars_with_diff(self, tmp_path):
+        for i in range(20):
+            (tmp_path / f"mod{i}.py").write_text(f"def func_{i}(): pass\n" * 10)
+        diff = "--- a/mod0.py\n+++ b/mod0.py\n@@ -1 +1 @@\n+def func_0(): pass\n"
+        result = core.generate_repomap(tmp_path, diff=diff, max_chars=200)
+        assert len(result) <= 300  # slack for truncation marker
+
+
+class TestPageRank:
+    def test_personalization_biases_ranking(self):
+        """Diff files should rank higher than unrelated files."""
+        from context import pagerank
+        edges = {
+            "app.py": {"utils.py": 1.4, "models.py": 1.0},
+            "utils.py": {"models.py": 1.0},
+            "models.py": {"models.py": 0.1},
+            "unrelated.py": {"unrelated.py": 0.1},
+        }
+        ranks = pagerank(edges, {"app.py": 1.0})
+        # app.py is personalized — models.py is the hub it points to
+        assert ranks["models.py"] > ranks["unrelated.py"]
+        assert ranks["app.py"] > ranks["unrelated.py"]
+
+    def test_empty_graph(self):
+        from context import pagerank
+        assert pagerank({}, {}) == {}
+
+    def test_single_node(self):
+        from context import pagerank
+        edges = {"a.py": {"a.py": 0.1}}
+        ranks = pagerank(edges, {"a.py": 1.0})
+        assert "a.py" in ranks
+        assert ranks["a.py"] > 0
+
+
+class TestExtractFileTags:
+    def test_extracts_defs_and_refs(self, tmp_path):
+        from context import extract_file_tags, _get_parser
+        py_file = tmp_path / "example.py"
+        py_file.write_text("import os\n\ndef hello():\n    os.path.join('a', 'b')\n\nclass Foo:\n    def method(self):\n        hello()\n")
+        pair = _get_parser("python")
+        assert pair is not None
+        lang, parser = pair
+        tags = extract_file_tags(py_file, lang, parser)
+        assert tags is not None
+        assert "hello" in tags.defs
+        assert "Foo" in tags.defs
+        assert "method" in tags.defs
+        assert "os" in tags.refs
+        # hello is a def, not a ref in this file
+        assert "hello" not in tags.refs
+
+    def test_nested_class_methods(self, tmp_path):
+        from context import extract_file_tags, _get_parser
+        py_file = tmp_path / "nested.py"
+        py_file.write_text("class Outer:\n    class Inner:\n        def deep_method(self):\n            pass\n")
+        pair = _get_parser("python")
+        lang, parser = pair
+        tags = extract_file_tags(py_file, lang, parser)
+        assert "Outer" in tags.defs
+        assert "deep_method" in tags.defs
 
 
 # ---------------------------------------------------------------------------
@@ -602,7 +753,7 @@ class TestShuffleDiff:
 # ---------------------------------------------------------------------------
 
 class TestRunReviewOrchestrated:
-    @patch("orchestrator.run_lens_claude", return_value="### [HIGH] [f.py:1] Finding\n\nDetail.")
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text="### [HIGH] [f.py:1] Finding\n\nDetail."))
     def test_claude_lenses_use_single_session(self, mock_claude, config, tmp_path):
         """Multiple Claude lenses should result in ONE run_lens_claude call."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -616,7 +767,7 @@ class TestRunReviewOrchestrated:
         assert mock_claude.call_count == 1
         assert len(results) >= 1
 
-    @patch("orchestrator.run_lens_claude", return_value="")
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text=""))
     @patch("routing.run_lens_gemini", return_value="gemini finding")
     def test_non_claude_lenses_use_individual_calls(self, mock_gemini, mock_claude, config, tmp_path):
         """Gemini lenses should bypass orchestrator and use run_lens individually."""
@@ -628,12 +779,12 @@ class TestRunReviewOrchestrated:
         ]
         config["default_model"] = "claude"
         config["lenses"]["security"]["model"] = "gemini"
-        results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
+        core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         # Claude called once (for simplification), Gemini called once (for security)
         assert mock_claude.call_count == 1
         assert mock_gemini.call_count == 1
 
-    @patch("orchestrator.run_lens_claude", return_value="finding")
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text="finding"))
     def test_single_lens_returns_lens_name(self, mock_claude, config, tmp_path):
         """Single Claude lens should return the lens name, not 'review'."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -642,7 +793,7 @@ class TestRunReviewOrchestrated:
         results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         assert results[0][0] == "simplification"  # not "review"
 
-    @patch("orchestrator.run_lens_claude", return_value="finding")
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text="finding"))
     def test_multi_lens_returns_review_label(self, mock_claude, config, tmp_path):
         """Multiple Claude lenses should return 'review' label."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
@@ -654,7 +805,7 @@ class TestRunReviewOrchestrated:
         results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         assert results[0][0] == "review"
 
-    @patch("orchestrator.run_lens_claude", return_value="")
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text=""))
     def test_empty_result_not_returned(self, mock_claude, config, tmp_path):
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
         lenses = [{"name": "simplification", "max_comments": 5}]
@@ -662,7 +813,7 @@ class TestRunReviewOrchestrated:
         results = core.run_review_orchestrated(lenses, "diff", tmp_path, config)
         assert results == []
 
-    @patch("orchestrator.run_lens_claude", return_value="finding")
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text="finding"))
     def test_orchestrator_prompt_includes_agent_instructions(self, mock_claude, config, tmp_path):
         """The orchestrator prompt should tell Claude which agents to spawn."""
         (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
