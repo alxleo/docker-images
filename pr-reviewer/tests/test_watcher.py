@@ -11,6 +11,7 @@ import pytest
 import config as cfg
 import review_core as core
 import gh_watcher as w
+from models import ReviewResult
 
 
 # ---------------------------------------------------------------------------
@@ -23,9 +24,11 @@ def _isolate_paths(tmp_path, monkeypatch):
 
     Patches the canonical source (config) and the re-export facade (review_core).
     """
-    for mod in (cfg, core):
+    import models as models_mod
+    for mod in (cfg, core, models_mod):
         if hasattr(mod, "STATE_DIR"):
             monkeypatch.setattr(mod, "STATE_DIR", tmp_path / "state")
+    for mod in (cfg, core):
         if hasattr(mod, "REPOS_DIR"):
             monkeypatch.setattr(mod, "REPOS_DIR", tmp_path / "repos")
         if hasattr(mod, "PROMPTS_DIR"):
@@ -525,7 +528,7 @@ class TestGhHelper:
 # ---------------------------------------------------------------------------
 
 class TestRunLens:
-    @patch("routing.run_lens_claude", return_value="claude result")
+    @patch("routing.run_lens_claude", return_value=ReviewResult(text="claude result"))
     def test_defaults_to_claude(self, mock_claude, config, tmp_path):
         prompt_dir = core.PROMPTS_DIR
         (prompt_dir / "simplification.md").write_text("prompt")

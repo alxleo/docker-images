@@ -80,7 +80,8 @@ class GitHubAppAuth:
 
 def setup_auth() -> GitHubAppAuth:
     """Configure authentication from secrets. Returns GitHub App auth manager."""
-    claude_token = core.read_secret("claude_code_oauth_token")
+    claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
+                    or core.read_secret("claude_code_oauth_token"))
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 
     # GitHub App auth — installation tokens rotate hourly
@@ -231,9 +232,15 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
     if diff:
         comments = core.parse_inline_comments(body, diff)
         if comments:
+            log.info("Inline: %d comments extracted for %s#%d", len(comments), repo, pr_number)
             head_sha = get_head_sha(repo, pr_number)
             if head_sha and post_inline_review(repo, pr_number, lens_name, comments, head_sha):
                 return
+            log.warning("Inline: post failed, falling back to body-only for %s#%d", repo, pr_number)
+        else:
+            log.info("Inline: 0 comments matched diff for %s#%d, using body-only", repo, pr_number)
+    else:
+        log.info("Inline: no diff available for %s#%d, using body-only", repo, pr_number)
 
     # Fallback: body-only review (no inline comments) — lands in Reviews tab
     header = f"## {icon} {lens_name.title()} Review\n\n"
@@ -346,13 +353,9 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
                 f"- {c.get('messageHeadline', '')}" for c in commits
             )
 
-    # Generate structural map + impact analysis
-    repomap = core.generate_repomap(repo_dir)
-    if repomap:
-        log.info("Repomap: %d chars", len(repomap))
-    impact = core.analyze_impact(repo_dir, diff)
-    if impact:
-        log.info("Impact: %d references found", impact.count("referenced by"))
+    # Generate structural map (PageRank-ranked, diff-personalized)
+    repomap = core.generate_repomap(repo_dir, diff=diff)
+    impact = ""  # Subsumed by graph-ranked repomap
 
     cross_file_context = core.plan_searches(diff, repo_dir, config)
     if cross_file_context:
@@ -464,7 +467,8 @@ def poll(config: dict):
 
         try:
             prs = gh_json(
-                ["pr", "list", "--state", "open", "--json", "number,updatedAt,isDraft,headRefOid,comments"],
+                ["pr", "list", "--state", "open", "--limit", "500",
+                 "--json", "number,updatedAt,isDraft,headRefOid,comments"],
                 repo=repo,
             )
         except Exception as e:

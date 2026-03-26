@@ -39,6 +39,8 @@ For each finding:
 
 Severity: CRITICAL (blocks merge), HIGH (fix before merge), MEDIUM (fix soon), LOW (consider)
 
+**CRITICAL: Every finding MUST use the `### [SEVERITY] [file:line]` header exactly as shown. This enables inline PR comments on the exact line of code. Without it, findings appear as a single comment body — much less useful. The `file` path must match the diff path exactly (e.g., `src/utils/auth.ts`, not just `auth.ts`).**
+
 If you can provide corrected code, include a suggestion block:
 
 ````

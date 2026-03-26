@@ -156,6 +156,7 @@ def post_review(client: httpx.Client, owner: str, repo: str, pr_number: int,
     if diff:
         comments = core.parse_inline_comments(body, diff)
         if comments and head_sha:
+            log.info("Inline: %d comments extracted for %s/%s#%d", len(comments), owner, repo, pr_number)
             review_body = f"{icon} **{lens_name.title()} Review** — {len(comments)} finding(s)\n{tag}"
             payload = {
                 "commit_id": head_sha,
@@ -337,12 +338,9 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
             )
 
         # Generate structural map + impact analysis for context
-        repomap = core.generate_repomap(repo_dir)
-        if repomap:
-            log.info("Repomap: %d chars", len(repomap))
-        impact = core.analyze_impact(repo_dir, diff)
-        if impact:
-            log.info("Impact: %d references found", impact.count("referenced by"))
+        # Generate structural map (PageRank-ranked, diff-personalized)
+        repomap = core.generate_repomap(repo_dir, diff=diff)
+        impact = ""  # Subsumed by graph-ranked repomap
 
         # LLM-planned cross-file search (uses haiku for fast/cheap planning)
         cross_file_context = core.plan_searches(diff, repo_dir, config)
@@ -614,9 +612,9 @@ def main():
     log.info("Gitea PR Reviewer webhook handler starting")
 
     # Setup Claude auth from env
-    claude_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
-    if not claude_token:
-        claude_token = core.read_secret("claude_code_oauth_token", required=False)
+    claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
+                    or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+                    or core.read_secret("claude_code_oauth_token", required=False))
     if claude_token:
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 

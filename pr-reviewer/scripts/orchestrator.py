@@ -40,7 +40,10 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
 
     if claude_lenses:
         model_name = resolve_model(config, "claude", depth)
-        max_turns = 20 if depth == "deep" else 10
+        base_turns = 20 if depth == "deep" else 10
+        diff_lines = len(diff.splitlines()) if isinstance(diff, str) else 0
+        multiplier = config.get("context", {}).get("max_turns_multiplier", 1.5)
+        max_turns = int(base_turns * multiplier) if diff_lines > 500 else base_turns
         lens_names = [l["name"] for l in claude_lenses]
 
         preamble_file = PROMPTS_DIR / "_preamble.md"
@@ -71,7 +74,7 @@ For each of the following lenses, spawn the corresponding agent using the Agent 
 
 Pass each agent the PR diff below as its task. Collect all findings.
 
-After all agents complete, output ALL findings combined. Use the exact output format from each agent — do not summarize or rewrite their findings. If an agent found nothing, skip it silently.
+After all agents complete, output ALL findings combined verbatim. CRITICAL: preserve the exact `### [SEVERITY] [file:line]` format from each agent — do not summarize, reformat, add headers, or wrap findings. Just concatenate agent outputs. If an agent found nothing, skip it silently.
 {context}
 
 ## PR Diff
@@ -83,10 +86,10 @@ After all agents complete, output ALL findings combined. Use the exact output fo
         log.info("Orchestrated review: %d Claude lenses via single session (model=%s, max_turns=%d)",
                  len(claude_lenses), model_name, max_turns)
 
-        result = run_lens_claude(orchestrator_prompt, repo_dir, max_turns, model=model_name)
-        if result and result.strip():
+        review = run_lens_claude(orchestrator_prompt, repo_dir, max_turns, model=model_name)
+        if review:
             label = lens_names[0] if len(lens_names) == 1 else "review"
-            results.append((label, result))
+            results.append((label, review.text))
 
     for lens in other_lenses:
         result = run_lens(lens, diff, repo_dir, config,

@@ -84,7 +84,8 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
         elif model_family == "codex":
             return run_lens_codex(prompt, repo_dir, model=model_name)
         else:
-            return run_lens_claude(prompt, repo_dir, max_turns, model=model_name)
+            review = run_lens_claude(prompt, repo_dir, max_turns, model=model_name)
+            return review.text
     except subprocess.TimeoutExpired:
         log.error("Lens %s (%s) timed out after 300s", lens_name, model_family)
         return ""

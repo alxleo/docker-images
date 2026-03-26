@@ -1,6 +1,9 @@
 """Output parsing: inline comment extraction, severity capping."""
 
+import logging
 import re
+
+log = logging.getLogger(__name__)
 
 _SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
@@ -63,7 +66,18 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
     findings = list(pattern.finditer(body))
 
     if not findings:
-        return []
+        # Relaxed fallback: try common variants Claude produces
+        relaxed = re.compile(
+            r'^(?:##|###)\s+(?:\*?\*?\[?(?:CRITICAL|HIGH|MEDIUM|LOW)\]?\*?\*?\s+)?'
+            r'(?:`)?([^:\]`\n]+):(\d+)(?:`)?',
+            re.MULTILINE,
+        )
+        findings = list(relaxed.finditer(body))
+        if findings:
+            log.info("Inline parse: strict format missed, relaxed matched %d findings", len(findings))
+        else:
+            log.info("Inline parse: 0 findings matched (body=%d chars). Preview: %.200s", len(body), body)
+            return []
 
     comments = []
     for i, match in enumerate(findings):
