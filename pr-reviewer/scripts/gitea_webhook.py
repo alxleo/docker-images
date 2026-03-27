@@ -41,13 +41,13 @@ _executor = ThreadPoolExecutor(max_workers=2)
 
 GITEA_URL = os.environ.get("GITEA_URL", "http://local-ci-gitea:3000")
 GITEA_ORG = os.environ.get("GITEA_ORG", "ci")
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
+WEBHOOK_SECRET = core.read_secret("reviewer_webhook_secret", required=False) or os.environ.get("WEBHOOK_SECRET", "")
 LISTEN_PORT = int(os.environ.get("PORT", "8000"))
 
 
 def gitea_client() -> httpx.Client:
     """Create an httpx client with Gitea token auth."""
-    token = os.environ.get("GITEA_TOKEN", "")
+    token = core.read_secret("gitea_token", required=False) or os.environ.get("GITEA_TOKEN", "")
     return httpx.Client(
         base_url=f"{GITEA_URL}/api/v1",
         headers={
@@ -77,7 +77,7 @@ def get_diff(client: httpx.Client, owner: str, repo: str, pr_number: int) -> str
 
 def _authenticated_url(owner: str, repo: str) -> str:
     """Build a git clone URL with token auth embedded."""
-    token = os.environ.get("GITEA_TOKEN", "")
+    token = core.read_secret("gitea_token", required=False) or os.environ.get("GITEA_TOKEN", "")
     # Insert token into URL: http://token@host:port/owner/repo.git
     url = GITEA_URL.replace("://", f"://token:{token}@") if token else GITEA_URL
     return f"{url}/{owner}/{repo}.git"
@@ -611,9 +611,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
 def main():
     log.info("Gitea PR Reviewer webhook handler starting")
 
-    # Setup Claude auth from env
-    claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
-                    or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+    # Setup Claude auth — check file secrets first, then env vars
+    claude_token = (core.read_secret("reviewer_claude_token", required=False)
                     or core.read_secret("claude_code_oauth_token", required=False))
     if claude_token:
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
