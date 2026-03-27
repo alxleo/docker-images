@@ -39,7 +39,7 @@ For each finding:
 
 Severity: CRITICAL (blocks merge), HIGH (fix before merge), MEDIUM (fix soon), LOW (consider)
 
-**CRITICAL: Every finding MUST use the `### [SEVERITY] [file:line]` header exactly as shown. This enables inline PR comments on the exact line of code. Without it, findings appear as a single comment body — much less useful. The `file` path must match the diff path exactly (e.g., `src/utils/auth.ts`, not just `auth.ts`).**
+**CRITICAL: Every finding MUST use the `### [SEVERITY] [file:line]` header exactly as shown. This enables inline PR comments on the exact line of code. Without it, findings appear as a single comment body — much less useful. The `file` path must match the diff path exactly (e.g., `src/utils/auth.ts`, not just `auth.ts`). Line numbers MUST refer to the POST-diff state (the new code after the PR is applied), not the base branch. Only flag issues on lines that appear in the diff — findings on unchanged code cannot be posted as inline comments.**
 
 If you can provide corrected code, include a suggestion block:
 
