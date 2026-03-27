@@ -59,7 +59,7 @@ repos:
         types: [python]
       - id: no-unicode-in-config
         name: No unicode in config files
-        entry: bash -c 'for f in "$@"; do if grep -Pn "[\x80-\xff]" "$f"; then echo "Non-ASCII in $f — use plain ASCII"; exit 1; fi; done' --
+        entry: bash -c 'for f in "$@"; do if LC_ALL=C grep -n "[^[:print:][:space:]]" "$f"; then echo "Non-ASCII in $f - use plain ASCII"; exit 1; fi; done' --
         language: system
         files: '\.(trivyignore|env|cfg|ini|conf)$|\.ci\.json$'
       - id: block-secret-files

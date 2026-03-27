@@ -17,6 +17,7 @@
 # Output: JSON array suitable for GitHub Actions matrix.
 
 set -euo pipefail
+shopt -s nullglob
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SKIP_DIRS="^(mcp|test|scripts|\.github|\.claude)$"
