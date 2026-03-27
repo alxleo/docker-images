@@ -13,3 +13,5 @@ sops.yaml
 # Language artifacts
 node_modules/
 __pycache__/
+
+.claude/
