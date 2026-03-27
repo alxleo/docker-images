@@ -19,7 +19,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SKIP_DIRS="mcp|test|scripts|.github|.claude"
+SKIP_DIRS="^(mcp|test|scripts|\.github|\.claude)$"
 
 images="[]"
 
@@ -28,7 +28,7 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     name=$(basename "$dir")
 
     # Skip non-image directories
-    if echo "$name" | grep -qE "^($SKIP_DIRS)$"; then
+    if echo "$name" | grep -qE "$SKIP_DIRS"; then
         continue
     fi
 
@@ -39,15 +39,18 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     fi
 
     # Apply conventions + overrides from .ci.json
+    # name override: allows image name to differ from directory (e.g. mcp-git in git-mcp-server/)
+    image_name=$(echo "$ci_json" | jq -r --arg default "$name" '.name // $default')
     tag=$(echo "$ci_json" | jq -r '.tag // "latest"')
     platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64"')
     test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
     test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
 
     # Derived fields
+    dir_name="$name"
     trivyignore=""
     if [ -f "$dir/.trivyignore" ]; then
-        trivyignore="${name}/.trivyignore"
+        trivyignore="${dir_name}/.trivyignore"
     fi
 
     push_method="docker"
@@ -57,8 +60,8 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
 
     # Build matrix entry
     entry=$(jq -n \
-        --arg name "$name" \
-        --arg context "$name" \
+        --arg name "$image_name" \
+        --arg context "$dir_name" \
         --arg tag "$tag" \
         --arg platforms "$platforms" \
         --arg trivyignore "$trivyignore" \

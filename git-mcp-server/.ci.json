@@ -1,4 +1,5 @@
 {
+  "name": "mcp-git",
   "tag": "2.10.3",
   "test_setup": "pip install -q uv",
   "test_commands": [
