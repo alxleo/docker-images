@@ -23,7 +23,7 @@
 #   gemini_api_key             — Gemini API key (optional)
 #   openai_api_key             — OpenAI/Codex API key (optional)
 
-FROM node:22-slim
+FROM ghcr.io/alxleo/base-images/node:22-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
