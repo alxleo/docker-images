@@ -12,8 +12,9 @@
 ARG DAGU_VERSION=latest
 FROM ghcr.io/dagu-org/dagu:${DAGU_VERSION}
 
+# ARG names avoid RCLONE_ prefix — rclone interprets RCLONE_* env vars as CLI flags
 ARG RESTIC_VERSION=0.18.1
-ARG RCLONE_VERSION=1.73.3
+ARG RCLONE_DL_VERSION=1.73.3
 ARG TARGETARCH
 
 # Install system packages
@@ -42,7 +43,7 @@ RUN set -eux; \
 
 # Install rclone
 RUN set -eux; \
-    curl -fsSL "https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-${TARGETARCH}.zip" \
+    curl -fsSL "https://downloads.rclone.org/v${RCLONE_DL_VERSION}/rclone-v${RCLONE_DL_VERSION}-linux-${TARGETARCH}.zip" \
       -o /tmp/rclone.zip; \
     unzip -j /tmp/rclone.zip "*/rclone" -d /usr/local/bin/; \
     chmod +x /usr/local/bin/rclone; \
