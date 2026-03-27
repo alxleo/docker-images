@@ -1,0 +1,34 @@
+# Auto-versioning via release-please.
+#
+# On push to main: scans conventional commits, opens a release PR per
+# component with version bump + CHANGELOG. On merge of release PR:
+# creates GitHub Release + git tag.
+#
+# Components: pr-reviewer, caddy-cloudflare, cadvisor, git-mcp-server,
+# mcp-auth-proxy, semaphore, dagu-ops, mcp (shared for all MCP images).
+#
+# Conventional commit scopes map to components:
+#   feat(pr-reviewer): ... → bumps pr-reviewer minor
+#   fix(caddy-cloudflare): ... → bumps caddy-cloudflare patch
+
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@a02a34c4d625f9be7cb89e3e0834a1c5d3b03386 # v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
