@@ -3,15 +3,18 @@
 # Custom MCP server wrapping substack-api. Uses mcp-proxy for HTTP transport.
 #
 # Secrets (Docker secrets → /run/secrets/ → env vars):
-#   SUBSTACK_SID: session cookie from browser
-#   SUBSTACK_USERNAME: Substack username (for listing subscriptions)
+#   SUBSTACK_EMAIL: account email for login
+#   SUBSTACK_PASSWORD: account password for login
+#   SUBSTACK_USERNAME: Substack profile handle (for listing subscriptions)
+#
+# Paid content: delegates to crawl4ai (same Docker network) for JS rendering.
 
 # Stage 1: Install uv
-FROM python:3.13-slim AS build
+FROM ghcr.io/alxleo/base-images/python:3.13-slim AS build
 RUN pip install --no-cache-dir uv==0.11.2
 
 # Stage 2: Runtime
-FROM python:3.13-slim
+FROM ghcr.io/alxleo/base-images/python:3.13-slim
 
 # Healthcheck binary: 75KB static C/musl, localhost-only by design
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
