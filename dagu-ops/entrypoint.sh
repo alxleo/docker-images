@@ -18,15 +18,16 @@ if [ -s "$SECRET_PATH" ]; then
     chmod 600 "$RCLONE_CONF"
     echo "[dagu-ops] Seeded rclone.conf from secret"
   else
-    OLD_CREDS=$(grep -E '^client_id|^client_secret' "$RCLONE_CONF" 2>/dev/null | sort)
-    NEW_CREDS=$(grep -E '^client_id|^client_secret' "$SECRET_PATH" 2>/dev/null | sort)
+    # Compare credential fields only (not tokens — those refresh automatically)
+    OLD_CREDS=$(grep -E '^[[:space:]]*(client_id|client_secret)[[:space:]]*=' "$RCLONE_CONF" 2>/dev/null | sort)
+    NEW_CREDS=$(grep -E '^[[:space:]]*(client_id|client_secret)[[:space:]]*=' "$SECRET_PATH" 2>/dev/null | sort)
     if [ "$OLD_CREDS" != "$NEW_CREDS" ]; then
       cp "$SECRET_PATH" "$RCLONE_CONF"
-      chmod 600 "$RCLONE_CONF"
       echo "[dagu-ops] Credentials changed — re-seeded rclone.conf"
     else
       echo "[dagu-ops] rclone.conf exists, credentials unchanged"
     fi
+    chmod 600 "$RCLONE_CONF"
   fi
 else
   echo "[dagu-ops] No rclone secret at $SECRET_PATH — skipping seed"

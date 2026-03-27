@@ -9,12 +9,13 @@
 #
 # Remove when: never — ops tooling layer is always needed on top of Dagu
 
-ARG DAGU_VERSION=latest
+ARG DAGU_VERSION=2.3.7
 FROM ghcr.io/dagu-org/dagu:${DAGU_VERSION}
 
 # ARG names avoid RCLONE_ prefix — rclone interprets RCLONE_* env vars as CLI flags
 ARG RESTIC_VERSION=0.18.1
 ARG RCLONE_DL_VERSION=1.73.3
+ARG DOCKER_CLI_VERSION=27.5.1
 ARG TARGETARCH
 
 # Install system packages
@@ -30,7 +31,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install Docker CLI (official static binary — no Docker daemon)
 RUN set -eux; \
-    curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-27.5.1.tgz" \
+    curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
       | tar xz --strip-components=1 -C /usr/local/bin docker/docker; \
     docker --version
 
