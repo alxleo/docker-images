@@ -94,18 +94,15 @@ def setup_auth(config: dict) -> dict[str, GitHubAppAuth]:
     apps_config = config.get("apps", {})
 
     if apps_config:
-        # Multi-app mode: config specifies env var names per org
+        # Multi-app mode: config specifies env var/secret names per org
         for org, app_cfg in apps_config.items():
             try:
-                app_id = os.environ.get(app_cfg.get("app_id_env", ""), "")
-                installation_id = os.environ.get(app_cfg.get("installation_id_env", ""), "")
-                private_key = os.environ.get(app_cfg.get("private_key_env", ""), "")
+                app_id = core.read_secret(app_cfg.get("app_id_env", ""), required=False)
+                installation_id = core.read_secret(app_cfg.get("installation_id_env", ""), required=False)
+                private_key = core.read_secret(app_cfg.get("private_key_env", ""), required=False)
                 if not all([app_id, installation_id, private_key]):
                     log.warning("Incomplete app credentials for org %s, skipping", org)
                     continue
-                # Restore literal \n in PEM keys passed via env vars
-                if r"\n" in private_key:
-                    private_key = private_key.replace(r"\n", "\n")
                 app_auths[org] = GitHubAppAuth(int(app_id), int(installation_id), private_key)
             except Exception:
                 log.exception("Failed to configure app auth for org %s", org)
@@ -500,8 +497,12 @@ def poll(config: dict, app_auths: dict[str, GitHubAppAuth]):
             log.warning("No app configured for org %s, skipping %s", org, repo)
             continue
 
-        # Set token for this org before any gh CLI calls
-        os.environ["GH_TOKEN"] = app_auth.get_token()
+        try:
+            # Set token for this org before any gh CLI calls
+            os.environ["GH_TOKEN"] = app_auth.get_token()
+        except Exception as e:
+            log.error("Token refresh failed for org %s, skipping %s: %s", org, repo, e)
+            continue
 
         try:
             prs = gh_json(
