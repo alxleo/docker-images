@@ -50,7 +50,7 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
     current_line = 0
     for diff_line in diff.splitlines():
         if diff_line.startswith("+++ b/"):
-            current_file = diff_line[6:]
+            current_file = diff_line[6:].lstrip("./")
         elif diff_line.startswith("@@ "):
             match = re.search(r'\+(\d+)', diff_line)
             if match:
@@ -81,8 +81,10 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
             return []
 
     comments = []
+    matched = 0
+    unmatched = 0
     for i, match in enumerate(findings):
-        file_path = match.group(1)
+        file_path = match.group(1).lstrip("./")
         line_num = int(match.group(2))
 
         start = match.end()
@@ -91,15 +93,23 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
 
         if (file_path, line_num) in diff_lines:
             comments.append({"path": file_path, "line": line_num, "body": comment_body})
+            matched += 1
         else:
             posted = False
-            for offset in range(1, 4):
+            for offset in range(1, 6):
                 for candidate in (line_num + offset, line_num - offset):
                     if (file_path, candidate) in diff_lines:
                         comments.append({"path": file_path, "line": candidate, "body": comment_body})
                         posted = True
+                        matched += 1
                         break
                 if posted:
                     break
+            if not posted:
+                unmatched += 1
+                log.info("Inline: %s:%d not in diff (no match within ±5 lines)", file_path, line_num)
+
+    if findings:
+        log.info("Inline: %d/%d findings matched diff lines", matched, len(findings))
 
     return comments

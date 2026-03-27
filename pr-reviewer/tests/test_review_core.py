@@ -185,6 +185,33 @@ class TestParseInlineComments:
         comments = core.parse_inline_comments(body, SAMPLE_DIFF)
         assert len(comments) == 1
 
+    def test_path_normalization_dot_slash(self):
+        """./src/app.py should match src/app.py in diff."""
+        body = "### [HIGH] [./src/app.py:12] Issue\n\nDetails."
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 1
+        assert comments[0]["path"] == "src/app.py"
+
+    def test_wider_tolerance(self):
+        """Finding at ±5 lines from diff should still match."""
+        # Line 15 is 5 away from line 10 (first diff line) — within ±5 tolerance
+        body = "### [HIGH] [src/app.py:15] Issue\n\nDetails."
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 1
+
+    def test_outside_tolerance_no_match(self):
+        """Finding at ±6+ lines from diff should not match."""
+        body = "### [HIGH] [src/app.py:20] Issue\n\nDetails."
+        comments = core.parse_inline_comments(body, SAMPLE_DIFF)
+        assert len(comments) == 0
+
+    def test_diff_with_dot_slash_prefix(self):
+        """Diff with ./prefix on file paths should still match findings."""
+        diff_with_prefix = SAMPLE_DIFF.replace("+++ b/src/app.py", "+++ b/./src/app.py")
+        body = "### [HIGH] [src/app.py:12] Issue\n\nDetails."
+        comments = core.parse_inline_comments(body, diff_with_prefix)
+        assert len(comments) == 1
+
 
 # ---------------------------------------------------------------------------
 # analyze_diff_relevance
