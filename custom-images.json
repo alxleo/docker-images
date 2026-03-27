@@ -35,11 +35,11 @@
     "remove_when": "never — homelab tooling layer is always needed on top of upstream"
   },
   {
-    "name": "restic-scheduler",
-    "context": "restic-scheduler",
-    "tag": "0.18.1",
-    "why": "restic + rclone + supercronic in one container — replaces resticker's three-container pattern",
-    "remove_when": "never — supercronic scheduler layer is always needed on top of restic"
+    "name": "dagu-ops",
+    "context": "dagu-ops",
+    "tag": "latest",
+    "why": "Dagu operations scheduler + restic + rclone + Docker CLI for homelab automation",
+    "remove_when": "never — ops tooling layer is always needed on top of Dagu"
   },
   {
     "name": "mcp-substack",
