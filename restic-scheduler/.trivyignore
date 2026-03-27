@@ -1,0 +1,4 @@
+# Upstream mazzolino/restic:1.8.2 — Go dependencies with known CVEs.
+# Revisit when upstream publishes a new release with updated Go deps.
+CVE-2026-33186
+CVE-2025-68121
