@@ -78,20 +78,55 @@ class GitHubAppAuth:
         log.info("GitHub App token refreshed, expires at %s", resp["expires_at"])
 
 
-def setup_auth() -> GitHubAppAuth:
-    """Configure authentication from secrets. Returns GitHub App auth manager."""
+def setup_auth(config: dict) -> dict[str, GitHubAppAuth]:
+    """Configure authentication from secrets. Returns GitHub App auth managers keyed by org.
+
+    Supports two modes:
+    - Multi-app: config has 'apps' section mapping org → env var names
+    - Single-app: legacy mode, reads GH_APP_ID/GH_APP_INSTALLATION_ID/GH_APP_PRIVATE_KEY
+    """
     claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
                     or core.read_secret("claude_code_oauth_token"))
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 
-    # GitHub App auth — installation tokens rotate hourly
-    app_id = core.read_secret("gh_app_id")
-    installation_id = core.read_secret("gh_app_installation_id")
-    private_key = core.read_secret("gh_app_private_key")
-    app_auth = GitHubAppAuth(int(app_id), int(installation_id), private_key)
+    # Build app auth managers — one per org
+    app_auths: dict[str, GitHubAppAuth] = {}
+    apps_config = config.get("apps", {})
 
-    # Set initial token so gh CLI works immediately
-    os.environ["GH_TOKEN"] = app_auth.get_token()
+    if apps_config:
+        # Multi-app mode: config specifies env var names per org
+        for org, app_cfg in apps_config.items():
+            try:
+                app_id = os.environ.get(app_cfg.get("app_id_env", ""), "")
+                installation_id = os.environ.get(app_cfg.get("installation_id_env", ""), "")
+                private_key = os.environ.get(app_cfg.get("private_key_env", ""), "")
+                if not all([app_id, installation_id, private_key]):
+                    log.warning("Incomplete app credentials for org %s, skipping", org)
+                    continue
+                # Restore literal \n in PEM keys passed via env vars
+                if r"\n" in private_key:
+                    private_key = private_key.replace(r"\n", "\n")
+                app_auths[org] = GitHubAppAuth(int(app_id), int(installation_id), private_key)
+            except Exception:
+                log.exception("Failed to configure app auth for org %s", org)
+    else:
+        # Single-app legacy mode
+        app_id = core.read_secret("gh_app_id")
+        installation_id = core.read_secret("gh_app_installation_id")
+        private_key = core.read_secret("gh_app_private_key")
+        app_auth = GitHubAppAuth(int(app_id), int(installation_id), private_key)
+        # Infer org from first repo in config
+        repos = config.get("repos", [])
+        org = repos[0].split("/")[0] if repos else "default"
+        app_auths[org] = app_auth
+
+    if not app_auths:
+        log.error("No GitHub App credentials configured — exiting")
+        raise SystemExit(1)
+
+    # Set initial token from the first app so gh CLI works immediately
+    first_auth = next(iter(app_auths.values()))
+    os.environ["GH_TOKEN"] = first_auth.get_token()
 
     # Optional: Gemini and Codex for multi-model review
     gemini_key = core.read_secret("gemini_api_key", required=False)
@@ -106,9 +141,10 @@ def setup_auth() -> GitHubAppAuth:
         models.append("gemini")
     if openai_key:
         models.append("codex")
-    log.info("Auth configured: %s + GitHub App", " + ".join(models))
+    log.info("Auth configured: %s + %d GitHub App(s) (%s)",
+             " + ".join(models), len(app_auths), ", ".join(app_auths.keys()))
 
-    return app_auth
+    return app_auths
 
 
 # ---------------------------------------------------------------------------
@@ -455,15 +491,17 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
     core.save_state(repo, pr_number, state)
 
 
-def poll(config: dict):
+def poll(config: dict, app_auths: dict[str, GitHubAppAuth]):
     """Single poll cycle across all configured repos."""
-    owner = config.get("owner_filter", "")
-
     for repo in config.get("repos", []):
-        # Verify repo ownership
-        if owner and not repo.startswith(f"{owner}/"):
-            log.warning("Repo %s doesn't match owner filter %s, skipping", repo, owner)
+        org = repo.split("/")[0]
+        app_auth = app_auths.get(org)
+        if not app_auth:
+            log.warning("No app configured for org %s, skipping %s", org, repo)
             continue
+
+        # Set token for this org before any gh CLI calls
+        os.environ["GH_TOKEN"] = app_auth.get_token()
 
         try:
             prs = gh_json(
@@ -500,7 +538,7 @@ def main():
     log.info("PR Reviewer starting")
 
     config = core.load_config()
-    app_auth = setup_auth()
+    app_auths = setup_auth(config)
 
     log.info(
         "Watching %d repos, polling every %ds (on-demand only)",
@@ -512,9 +550,7 @@ def main():
 
     while True:
         try:
-            # Refresh GitHub App token (auto-rotates hourly, cached otherwise)
-            os.environ["GH_TOKEN"] = app_auth.get_token()
-            poll(config)
+            poll(config, app_auths)
         except Exception:
             log.exception("Poll cycle failed")
         time.sleep(interval)
