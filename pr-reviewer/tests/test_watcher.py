@@ -238,10 +238,9 @@ class TestStateRace:
     @patch.object(w, "post_status_comment")
     @patch.object(core, "run_review_orchestrated", return_value=[])
     @patch.object(core, "generate_repomap", return_value="")
-    @patch.object(core, "analyze_impact", return_value="")
     @patch.object(core, "plan_searches", return_value="")
     def test_check_comments_preserves_dispatch_state(
-        self, _plan, _impact, _rmap, _orch, _status, _sha, _diff, _checkout, _clone, _react, config, tmp_path
+        self, _plan, _rmap, _orch, _status, _sha, _diff, _checkout, _clone, _react, config, tmp_path
     ):
         """check_comments must not overwrite last_head_sha set by dispatch_review."""
         _clone.return_value = tmp_path / "repos" / "fake"

@@ -85,9 +85,10 @@ def setup_auth(config: dict) -> dict[str, GitHubAppAuth]:
     - Multi-app: config has 'apps' section mapping org → env var names
     - Single-app: legacy mode, reads GH_APP_ID/GH_APP_INSTALLATION_ID/GH_APP_PRIVATE_KEY
     """
-    claude_token = (os.environ.get("REVIEWER_CLAUDE_TOKEN", "")
-                    or core.read_secret("claude_code_oauth_token"))
-    os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
+    claude_token = (core.read_secret("reviewer_claude_token", required=False)
+                    or core.read_secret("claude_code_oauth_token", required=False))
+    if claude_token:
+        os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 
     # Build app auth managers — one per org
     app_auths: dict[str, GitHubAppAuth] = {}
