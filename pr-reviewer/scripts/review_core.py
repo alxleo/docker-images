@@ -10,7 +10,7 @@ Domain modules:
   routing.py      — diff relevance analysis, lens dispatch
   orchestrator.py — single-session orchestration with sub-agents
   diff.py         — diff preprocessing, shuffle
-  context.py      — repomap (tree-sitter), impact analysis (ripgrep)
+  context.py      — repomap (PageRank-ranked, tree-sitter), LLM-planned searches
   output.py       — inline comment parsing, severity capping
 """
 

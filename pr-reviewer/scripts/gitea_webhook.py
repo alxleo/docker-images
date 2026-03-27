@@ -6,7 +6,7 @@ Receives Gitea webhook POSTs and dispatches AI reviews:
 - pull_request (opened/synchronized) → auto-review with configured lenses
 - issue_comment on PRs → parse @pr-reviewer commands, dispatch on-demand
 
-Auth: Gitea API token (GITEA_TOKEN env var).
+Auth: Gitea API token (file at /run/secrets/gitea_token, or GITEA_TOKEN env var).
 """
 
 import hashlib
@@ -41,13 +41,13 @@ _executor = ThreadPoolExecutor(max_workers=2)
 
 GITEA_URL = os.environ.get("GITEA_URL", "http://local-ci-gitea:3000")
 GITEA_ORG = os.environ.get("GITEA_ORG", "ci")
-WEBHOOK_SECRET = core.read_secret("reviewer_webhook_secret", required=False) or os.environ.get("WEBHOOK_SECRET", "")
+WEBHOOK_SECRET = core.read_secret("reviewer_webhook_secret", required=False)
 LISTEN_PORT = int(os.environ.get("PORT", "8000"))
 
 
 def gitea_client() -> httpx.Client:
     """Create an httpx client with Gitea token auth."""
-    token = core.read_secret("gitea_token", required=False) or os.environ.get("GITEA_TOKEN", "")
+    token = core.read_secret("gitea_token", required=False)
     return httpx.Client(
         base_url=f"{GITEA_URL}/api/v1",
         headers={
@@ -77,7 +77,7 @@ def get_diff(client: httpx.Client, owner: str, repo: str, pr_number: int) -> str
 
 def _authenticated_url(owner: str, repo: str) -> str:
     """Build a git clone URL with token auth embedded."""
-    token = core.read_secret("gitea_token", required=False) or os.environ.get("GITEA_TOKEN", "")
+    token = core.read_secret("gitea_token", required=False)
     # Insert token into URL: http://token@host:port/owner/repo.git
     url = GITEA_URL.replace("://", f"://token:{token}@") if token else GITEA_URL
     return f"{url}/{owner}/{repo}.git"
