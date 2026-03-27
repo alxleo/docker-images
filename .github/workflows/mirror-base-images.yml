@@ -1,0 +1,33 @@
+# Mirror Docker Hub base images to GHCR weekly.
+#
+# Keeps GHCR mirrors fresh with upstream security patches.
+# If images haven't changed upstream, this is a fast no-op.
+# Manual trigger available for immediate updates after version bumps.
+
+name: Mirror base images
+
+on:
+  schedule:
+    - cron: '23 3 * * 1'  # Monday 3:23 AM UTC
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Mirror base images
+        run: bash scripts/mirror-base-images.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}

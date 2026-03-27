@@ -26,8 +26,12 @@ images=(
     "python:3.13-slim"
 )
 
-# Ensure GHCR login
-gh auth token | docker login ghcr.io -u alxleo --password-stdin
+# Ensure GHCR login — CI uses GITHUB_TOKEN, local uses gh CLI
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR:-alxleo}" --password-stdin
+else
+    gh auth token | docker login ghcr.io -u alxleo --password-stdin
+fi
 
 for name in "${images[@]}"; do
     echo "=== ${name} ==="
