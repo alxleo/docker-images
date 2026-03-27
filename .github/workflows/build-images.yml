@@ -405,6 +405,10 @@ jobs:
         with:
           platforms: arm64
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
@@ -482,6 +486,10 @@ jobs:
         with:
           platforms: arm64
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
@@ -532,6 +540,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
