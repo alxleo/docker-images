@@ -1,0 +1,45 @@
+# mcp-substack — read paid Substack subscription content as markdown
+#
+# Custom MCP server wrapping substack-api. Uses mcp-proxy for HTTP transport.
+#
+# Secrets (Docker secrets → /run/secrets/ → env vars):
+#   SUBSTACK_SID: session cookie from browser
+#   SUBSTACK_USERNAME: Substack username (for listing subscriptions)
+
+# Stage 1: Install uv
+FROM python:3.13-slim AS build
+RUN pip install --no-cache-dir uv==0.11.2
+
+# Stage 2: Runtime
+FROM python:3.13-slim
+
+# Healthcheck binary: 75KB static C/musl, localhost-only by design
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+
+# Install Node.js for mcp-proxy (HTTP bridge)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nodejs npm && \
+    npm install -g mcp-proxy@6.4.2 && \
+    apt-get purge -y npm && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy uv from build stage
+COPY --from=build /usr/local/bin/uv /usr/local/bin/uv
+
+# Install Python dependencies
+RUN uv pip install --system --break-system-packages \
+    "substack-api>=1.2.0" \
+    "markdownify>=0.14.1" \
+    "mcp[cli]>=1.9.0"
+
+# Copy server code
+COPY server.py /app/server.py
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 8080
+ENV MCP_PORT=8080
+
+ENTRYPOINT ["/entrypoint.sh"]
