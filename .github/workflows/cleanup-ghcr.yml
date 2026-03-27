@@ -1,0 +1,44 @@
+# Clean up old/untagged GHCR container images monthly.
+#
+# Deletes untagged manifests and tags older than 90 days (except :latest).
+# Keeps GHCR storage lean and avoids accumulating stale images.
+
+name: Cleanup GHCR images
+
+on:
+  schedule:
+    - cron: '47 4 1 * *'  # 1st of month, 4:47 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        package:
+          - pr-reviewer
+          - caddy-cloudflare
+          - cadvisor
+          - mcp-git
+          - mcp-auth-proxy
+          - semaphore
+          - dagu-ops
+          - base-images/alpine
+          - base-images/caddy
+          - base-images/debian
+          - base-images/golang
+          - base-images/node
+          - base-images/python
+          - buildkit
+    steps:
+      - uses: actions/delete-package-versions@e5bc658cc4c965c472afe991f2c3981c1a1861c4 # v5
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 5
+          delete-only-untagged-versions: true

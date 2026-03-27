@@ -1,22 +1,40 @@
-# Mirror Docker Hub base images to GHCR weekly.
+# Mirror Docker Hub base images to GHCR.
 #
-# Keeps GHCR mirrors fresh with upstream security patches.
-# If images haven't changed upstream, this is a fast no-op.
-# Manual trigger available for immediate updates after version bumps.
+# Schedule: weekly refresh — picks up upstream security patches.
+# PRs: check-only — fails if a Dockerfile references an image not yet mirrored.
+# Manual: full mirror — for immediate updates after version bumps.
 
 name: Mirror base images
 
 on:
   schedule:
     - cron: '23 3 * * 1'  # Monday 3:23 AM UTC
+  pull_request:
+    paths:
+      - '**/Dockerfile*'
   workflow_dispatch:
 
 permissions:
-  packages: write
+  contents: read
 
 jobs:
-  mirror:
+  check:
+    name: Check mirrors exist
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Verify all base image mirrors exist on GHCR
+        run: bash scripts/mirror-base-images.sh --check
+
+  mirror:
+    name: Mirror base images
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
