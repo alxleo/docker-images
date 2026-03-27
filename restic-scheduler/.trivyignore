@@ -1,5 +1,8 @@
-# Upstream mazzolino/restic:1.8.2 - dependencies with known CVEs.
-# Revisit when upstream publishes a new release with updated deps.
-CVE-2026-33186
-CVE-2025-68121
+# Upstream mazzolino/restic:1.8.2 - base image dependencies with known CVEs.
+# All are in upstream Alpine/Go deps, not our code. Can't fix without upstream release.
+# Revisit when mazzolino/restic publishes a newer version.
+CVE-2024-24790
 CVE-2025-15467
+CVE-2025-68121
+CVE-2026-32767
+CVE-2026-33186
