@@ -160,11 +160,11 @@ jobs:
       - name: Read image tag from manifest
         run: |
           TAG=$(jq -r '.[] | select(.name == "caddy-cloudflare") | .tag' custom-images.json)
-          VERSION=$(jq -r '.["caddy-cloudflare"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["caddy-cloudflare"] // empty' .release-please-manifest.json)
           {
             echo "IMAGE_TAG=${TAG}"
             echo "IMAGE_REF=${REGISTRY}/${OWNER}/caddy-cloudflare:${TAG}"
-            echo "VERSION=${VERSION}"
+            echo "VERSION=${VERSION:-}"
           } >> "$GITHUB_ENV"
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
@@ -213,9 +213,11 @@ jobs:
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:${VERSION}"
           docker push "${IMAGE_REF}"
-          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:${VERSION}"
+          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:${VERSION}"
+            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:${VERSION}"
+          fi
           docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:latest
 
   cadvisor:
@@ -238,7 +240,7 @@ jobs:
           TAG=$(jq -r '.[] | select(.name == "cadvisor") | .tag' custom-images.json)
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
           echo "IMAGE_REF=${REGISTRY}/${OWNER}/cadvisor:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["cadvisor"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["cadvisor"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
@@ -275,8 +277,10 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           docker push "${IMAGE_REF}"
-          docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:${VERSION}"
-          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:${VERSION}"
+          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:${VERSION}"
+            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:${VERSION}"
+          fi
           docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:latest
 
   git-mcp-server:
@@ -299,7 +303,7 @@ jobs:
           TAG=$(jq -r '.[] | select(.name == "mcp-git") | .tag' custom-images.json)
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
           echo "IMAGE_REF=${REGISTRY}/${OWNER}/mcp-git:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["git-mcp-server"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["git-mcp-server"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
@@ -335,8 +339,10 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           docker push "${IMAGE_REF}"
-          docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:${VERSION}"
-          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:${VERSION}"
+          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:${VERSION}"
+            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:${VERSION}"
+          fi
           docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:latest
 
   mcp-auth-proxy:
@@ -359,7 +365,7 @@ jobs:
           TAG=$(jq -r '.[] | select(.name == "mcp-auth-proxy") | .tag' custom-images.json)
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
           echo "IMAGE_REF=${REGISTRY}/${OWNER}/mcp-auth-proxy:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["mcp-auth-proxy"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["mcp-auth-proxy"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
@@ -396,8 +402,10 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           docker push "${IMAGE_REF}"
-          docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:${VERSION}"
-          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:${VERSION}"
+          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:${VERSION}"
+            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:${VERSION}"
+          fi
           docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:latest
 
   pr-reviewer:
@@ -417,7 +425,7 @@ jobs:
           persist-credentials: false
       - name: Read version from manifest
         run: |
-          VERSION=$(jq -r '.["pr-reviewer"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["pr-reviewer"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
         if: github.event_name != 'pull_request'
@@ -482,7 +490,7 @@ jobs:
           tags: |
             ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
             ghcr.io/alxleo/pr-reviewer:latest
-            ${{ env.VERSION && format('ghcr.io/alxleo/pr-reviewer:{0}', env.VERSION) || '' }}
+            ${{ startsWith(github.ref, 'refs/tags/') && env.VERSION && format('ghcr.io/alxleo/pr-reviewer:{0}', env.VERSION) || '' }}
 
   semaphore:
     name: Semaphore UI + homelab tools
@@ -504,7 +512,7 @@ jobs:
           TAG=$(jq -r '.[] | select(.name == "semaphore") | .tag' custom-images.json)
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
           echo "IMAGE_REF=${REGISTRY}/${OWNER}/semaphore:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["semaphore"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["semaphore"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
         with:
@@ -548,9 +556,11 @@ jobs:
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          docker tag "$IMAGE_REF" "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:${VERSION}"
           docker push "$IMAGE_REF"
-          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:${VERSION}"
+          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker tag "$IMAGE_REF" "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:${VERSION}"
+            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:${VERSION}"
+          fi
           docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest"
 
   dagu-ops:
@@ -570,7 +580,7 @@ jobs:
           persist-credentials: false
       - name: Read version from manifest
         run: |
-          VERSION=$(jq -r '.["dagu-ops"]' .release-please-manifest.json)
+          VERSION=$(jq -r '.["dagu-ops"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
         with:
@@ -617,10 +627,15 @@ jobs:
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
         run: |
+          version_tag=""
+          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version_tag="-t ${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:${VERSION}"
+          fi
+          # shellcheck disable=SC2086
           docker buildx build --platform linux/amd64,linux/arm64 \
             --push \
-            -t "${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:${VERSION}" \
             -t "${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:latest" \
+            $version_tag \
             dagu-ops/
 
   load-mcp-matrix:
