@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Discover custom Docker images by scanning for Dockerfiles.
+#
+# Convention: any directory with a Dockerfile is an image.
+# Metadata: optional .ci.json per directory for non-default config.
+#
+# Defaults (no .ci.json needed):
+#   platforms: linux/amd64
+#   tag: latest
+#   push_method: docker
+#   test_setup: ""
+#   test_commands: []
+#
+# Multi-platform images auto-select push_method=buildx.
+# Trivyignore auto-detected: {dir}/.trivyignore if it exists.
+#
+# Output: JSON array suitable for GitHub Actions matrix.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SKIP_DIRS="mcp|test|scripts|.github|.claude"
+
+images="[]"
+
+for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
+    dir=$(dirname "$dockerfile")
+    name=$(basename "$dir")
+
+    # Skip non-image directories
+    if echo "$name" | grep -qE "^($SKIP_DIRS)$"; then
+        continue
+    fi
+
+    # Read .ci.json if it exists, else empty object
+    ci_json="{}"
+    if [ -f "$dir/.ci.json" ]; then
+        ci_json=$(cat "$dir/.ci.json")
+    fi
+
+    # Apply conventions + overrides from .ci.json
+    tag=$(echo "$ci_json" | jq -r '.tag // "latest"')
+    platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64"')
+    test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
+    test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
+
+    # Derived fields
+    trivyignore=""
+    if [ -f "$dir/.trivyignore" ]; then
+        trivyignore="${name}/.trivyignore"
+    fi
+
+    push_method="docker"
+    if echo "$platforms" | grep -q ","; then
+        push_method="buildx"
+    fi
+
+    # Build matrix entry
+    entry=$(jq -n \
+        --arg name "$name" \
+        --arg context "$name" \
+        --arg tag "$tag" \
+        --arg platforms "$platforms" \
+        --arg trivyignore "$trivyignore" \
+        --arg push_method "$push_method" \
+        --arg test_setup "$test_setup" \
+        --argjson test_commands "$test_commands" \
+        '{name: $name, context: $context, tag: $tag, platforms: $platforms, trivyignore: $trivyignore, push_method: $push_method, test_setup: $test_setup, test_commands: $test_commands}')
+
+    images=$(echo "$images" | jq --argjson entry "$entry" '. + [$entry]')
+done
+
+echo "$images" | jq -c '.'

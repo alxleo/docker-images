@@ -1,0 +1,9 @@
+{
+  "platforms": "linux/amd64,linux/arm64",
+  "test_setup": "pip install -q uv && sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep",
+  "test_commands": [
+    "docker run --rm $IMAGE_REF sh -c \"claude --version && gh --version && gemini --version && codex --version\"",
+    "docker run --rm $IMAGE_REF python3 -c \"import yaml, json, subprocess, pathlib; print('imports OK')\"",
+    "uv run --with pytest --with pyyaml --with httpx --with grep-ast --with tree-sitter-language-pack -- pytest pr-reviewer/tests/ -v"
+  ]
+}

@@ -21,8 +21,9 @@
 #     Revisit when: Debian 13 (trixie) base images are available, or when
 #     node:XX-slim moves to a newer Debian release.
 #
-# Custom images are driven by custom-images.json (matrix strategy).
-# MCP images are driven by mcp-images.json (separate matrix).
+# Custom images auto-discovered: any directory with a Dockerfile is an image.
+# Per-image config in optional .ci.json files (convention over configuration).
+# MCP images driven by mcp-images.json (separate matrix).
 
 name: Build Custom Images
 
@@ -33,37 +34,7 @@ concurrency:
 on:
   push:
     branches: [main]
-    tags: ['pr-reviewer/v*']
-    paths:
-      - 'caddy-cloudflare/**'
-      - 'cadvisor/**'
-      - 'git-mcp-server/**'
-      - 'mcp-auth-proxy/**'
-      - 'pr-reviewer/**'
-      - 'semaphore/**'
-      - 'dagu-ops/**'
-      - 'mcp-substack/**'
-      - 'mcp/**'
-      - 'mcp-images.json'
-      - 'custom-images.json'
-      - 'test/**'
   pull_request:
-    paths:
-      - 'caddy-cloudflare/**'
-      - 'cadvisor/**'
-      - 'git-mcp-server/**'
-      - 'mcp-auth-proxy/**'
-      - 'pr-reviewer/**'
-      - 'semaphore/**'
-      - 'dagu-ops/**'
-      - 'mcp-substack/**'
-      - 'mcp/**'
-      - 'mcp-images.json'
-      - 'custom-images.json'
-      - 'images.json'
-      - 'test/**'
-      - '.github/workflows/build-images.yml'
-      - '.github/actions/build-image/**'
   workflow_dispatch:
 
 permissions:
@@ -75,60 +46,35 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Detect which image directories actually changed.
-  # workflow_dispatch skips detection and builds everything.
-  changes:
-    name: Detect changed images
-    if: github.event_name != 'workflow_dispatch'
+  # Detect which image directories changed + discover all images.
+  # workflow_dispatch builds everything. Otherwise, per-image git diff gates builds.
+  discover:
+    name: Discover images
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read  # dorny/paths-filter needs PR file list
     outputs:
-      caddy-cloudflare: ${{ steps.filter.outputs.caddy-cloudflare }}
-      cadvisor: ${{ steps.filter.outputs.cadvisor }}
-      git-mcp-server: ${{ steps.filter.outputs.git-mcp-server }}
-      mcp-auth-proxy: ${{ steps.filter.outputs.mcp-auth-proxy }}
-      pr-reviewer: ${{ steps.filter.outputs.pr-reviewer }}
-      semaphore: ${{ steps.filter.outputs.semaphore }}
-      dagu-ops: ${{ steps.filter.outputs.dagu-ops }}
-      mcp-substack: ${{ steps.filter.outputs.mcp-substack }}
-      mcp: ${{ steps.filter.outputs.mcp }}
+      matrix: ${{ steps.discover.outputs.matrix }}
+      changed: ${{ steps.changes.outputs.changed }}
+      mcp-changed: ${{ steps.changes.outputs.mcp_changed }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          fetch-depth: 2
           persist-credentials: false
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
-        id: filter
-        with:
-          filters: |
-            caddy-cloudflare:
-              - 'caddy-cloudflare/**'
-              - 'custom-images.json'
-              - 'test/**'
-            cadvisor:
-              - 'cadvisor/**'
-              - 'custom-images.json'
-            git-mcp-server:
-              - 'git-mcp-server/**'
-              - 'custom-images.json'
-            mcp-auth-proxy:
-              - 'mcp-auth-proxy/**'
-              - 'custom-images.json'
-            pr-reviewer:
-              - 'pr-reviewer/**'
-            semaphore:
-              - 'semaphore/**'
-              - 'custom-images.json'
-            dagu-ops:
-              - 'dagu-ops/**'
-              - 'custom-images.json'
-            mcp-substack:
-              - 'mcp-substack/**'
-              - 'custom-images.json'
-            mcp:
-              - 'mcp/**'
-              - 'mcp-images.json'
-              - 'test/**'
+      - name: Discover custom images
+        id: discover
+        run: echo "matrix=$(bash scripts/discover-images.sh)" >> "$GITHUB_OUTPUT"
+      - name: Detect changed directories
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "changed=all" >> "$GITHUB_OUTPUT"
+            echo "mcp_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            changed=$(git diff --name-only HEAD~1 | cut -d/ -f1 | sort -u | jq -R . | jq -sc '.')
+            echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+            mcp_changed=$(git diff --name-only HEAD~1 | grep -q "^mcp/" && echo "true" || echo "false")
+            echo "mcp_changed=${mcp_changed}" >> "$GITHUB_OUTPUT"
+          fi
 
   security-scan:
     name: Gitleaks secret scan
@@ -143,26 +89,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # --- Custom images (matrix) ---
-  # Reads custom-images.json and builds each image that has changes.
+  # --- Custom images (auto-discovered matrix) ---
+  # Scans for directories with Dockerfiles. Metadata from .ci.json (convention over config).
   # Flow: checkout → build+scan (composite action) → test → push
-
-  load-custom-matrix:
-    name: Load custom image matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - id: set-matrix
-        run: echo "matrix=$(jq -c '.' custom-images.json)" >> "$GITHUB_OUTPUT"
 
   custom-images:
     name: ${{ matrix.name }}
-    needs: [changes, load-custom-matrix]
-    if: always() && needs.load-custom-matrix.result == 'success'
+    needs: [discover]
+    if: always() && needs.discover.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -170,43 +104,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.load-custom-matrix.outputs.matrix) }}
+        include: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
-      # --- Gate: skip if no changes (unless workflow_dispatch or tag trigger) ---
-      # Change detection uses the context directory name as key (e.g., git-mcp-server
-      # for the mcp-git image). pr-reviewer also triggers on pr-reviewer/v* tags.
+      # --- Gate: skip if no changes (unless workflow_dispatch) ---
+      # Uses git diff from discover job — no hardcoded path filters.
       - name: Check if image should build
         id: should-build
         env:
-          # Pass the changes output for this image's context directory.
-          # needs.changes.outputs is empty on workflow_dispatch (changes job skipped).
-          CHANGES_OUTPUT: ${{ needs.changes.outputs[matrix.context] }}
+          CHANGED_DIRS: ${{ needs.discover.outputs.changed }}
           EVENT_NAME: ${{ github.event_name }}
           IS_BOT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.type == 'Bot' }}
+          IMAGE_CONTEXT: ${{ matrix.context }}
           IMAGE_NAME: ${{ matrix.name }}
-          GIT_REF: ${{ github.ref }}
         run: |
-          # Skip bot PRs entirely
           if [ "$IS_BOT_PR" = "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Skipping ${IMAGE_NAME} — bot PR"
             exit 0
           fi
 
-          # workflow_dispatch or tag trigger → always build
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          # workflow_dispatch → build everything
+          if [ "$CHANGED_DIRS" = "all" ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # pr-reviewer also builds on tag pushes
-          if [ "$IMAGE_NAME" = "pr-reviewer" ] && [[ "$GIT_REF" == refs/tags/pr-reviewer/v* ]]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Normal case: check change detection output
-          if [ "$CHANGES_OUTPUT" = "true" ]; then
+          # Check if this image's directory is in the changed list
+          if echo "$CHANGED_DIRS" | jq -e "index(\"${IMAGE_CONTEXT}\")" > /dev/null 2>&1; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -348,10 +272,10 @@ jobs:
 
   load-mcp-matrix:
     name: Load MCP build matrix
-    needs: changes
+    needs: discover
     if: >-
       always() &&
-      (needs.changes.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch') &&
+      (needs.discover.outputs.mcp-changed == 'true' || github.event_name == 'workflow_dispatch') &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     outputs:
@@ -420,7 +344,7 @@ jobs:
   # No API keys needed — initialize and tools/list work without auth.
   mcp-smoke-test:
     name: MCP smoke (${{ matrix.name }})
-    needs: [changes, load-mcp-matrix, mcp-images]
+    needs: [discover, load-mcp-matrix, mcp-images]
     if: >-
       always() &&
       needs.mcp-images.result == 'success'
@@ -495,10 +419,10 @@ jobs:
   # This is the contract test that downstream repos (homelab) depend on.
   mcp-e2e-test:
     name: MCP E2E stack test
-    needs: changes
+    needs: discover
     if: >-
       always() &&
-      (needs.changes.outputs.caddy-cloudflare == 'true' || needs.changes.outputs.mcp == 'true'
+      (needs.discover.outputs.changed != '[]' || needs.discover.outputs.mcp-changed == 'true'
        || github.event_name == 'workflow_dispatch') &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
