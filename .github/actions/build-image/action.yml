@@ -1,0 +1,157 @@
+# Reusable composite action: build Docker image, scan with Trivy, push to GHCR.
+#
+# Handles the common flow shared by all custom images:
+#   1. Setup QEMU (conditional — only for cross-platform arm64 builds)
+#   2. Setup buildx with mirrored BuildKit + docker.io mirror
+#   3. Login to GHCR (skipped on PRs)
+#   4. Build single-platform image for local testing (docker load)
+#   5. Trivy vulnerability scan (CRITICAL, ignore-unfixed)
+#   6. Push — either `docker push` or `docker buildx build --push` (skipped on PRs)
+#
+# Callers are responsible for: checkout, reading tags from manifests, and any
+# image-specific tests (smoke tests, functional tests, etc.) that run between
+# the build and push steps. Use this action's outputs to reference the built image.
+
+name: Build, Scan & Push Docker Image
+description: Build a Docker image, scan it with Trivy, and push to GHCR
+
+inputs:
+  name:
+    description: Image name (e.g. caddy-cloudflare)
+    required: true
+  context:
+    description: Build context directory
+    required: true
+  tag:
+    description: Upstream version tag (e.g. v2.9.1)
+    required: true
+  version:
+    description: Release-please semantic version (e.g. v1.2.3) — added as extra tag on push
+    required: true
+  platforms:
+    description: Target platforms (e.g. "linux/amd64,linux/arm64")
+    required: true
+  trivyignore:
+    description: Path to .trivyignore file (empty string = no ignore file)
+    required: false
+    default: ''
+  push_method:
+    description: '"docker" for docker push, "buildx" for docker buildx build --push'
+    required: false
+    default: docker
+  is_pr:
+    description: '"true" on pull requests — skips login and push'
+    required: false
+    default: 'false'
+
+outputs:
+  image-ref:
+    description: Full image reference (registry/owner/name:tag) for downstream steps
+    value: ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    # --- Setup QEMU for cross-platform builds ---
+    # Only needed when target platforms include arm64 and the runner isn't arm64.
+    # GitHub-hosted ubuntu-latest runners are amd64, so we check for arm64 in platforms.
+    - name: Setup QEMU (cross-platform)
+      if: ${{ contains(inputs.platforms, 'arm64') && runner.arch != 'ARM64' }}
+      uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+      with:
+        platforms: arm64
+
+    # --- Setup buildx ---
+    # BuildKit image mirrored to GHCR — avoids Docker Hub rate limits entirely.
+    # docker.io mirror via mirror.gcr.io for base image pulls.
+    - name: Setup buildx
+      uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+      with:
+        driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
+        buildkitd-config-inline: |
+          [registry."docker.io"]
+            mirrors = ["mirror.gcr.io"]
+
+    # --- GHCR login (skipped on PRs) ---
+    - name: Login to GHCR
+      if: ${{ inputs.is_pr != 'true' }}
+      uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    # --- Build single-platform for local testing ---
+    # load: true requires single platform. Extract the first platform from the list.
+    - name: Build for local testing
+      uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+      with:
+        # zizmor: ignore[template-injection] — context is from our manifest, not user input
+        context: ${{ inputs.context }}
+        platforms: ${{ contains(inputs.platforms, ',') && format('linux/{0}', runner.arch == 'ARM64' && 'arm64' || 'amd64') || inputs.platforms }}
+        push: false
+        load: true
+        tags: |
+          ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
+          ghcr.io/alxleo/${{ inputs.name }}:latest
+
+    # --- Trivy vulnerability scan ---
+    - name: Trivy vulnerability scan
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+      with:
+        image-ref: ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
+        exit-code: '1'
+        severity: CRITICAL
+        ignore-unfixed: true
+        scanners: vuln
+        trivyignores: ${{ inputs.trivyignore || '' }}
+
+    # --- Push via docker push (tag + version + latest) ---
+    - name: Push via docker (tag)
+      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'docker' }}
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
+      run: docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
+
+    - name: Push via docker (version)
+      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'docker' && inputs.version != '' && inputs.version != inputs.tag }}
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
+        IMAGE_VERSION: ${{ inputs.version }}
+      run: |
+        docker tag "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}" \
+          "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
+        docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
+
+    - name: Push via docker (latest)
+      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'docker' }}
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.name }}
+      run: docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
+
+    # --- Push via buildx (multi-platform, all tags at once) ---
+    - name: Push via buildx (multi-platform)
+      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'buildx' }}
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
+        IMAGE_VERSION: ${{ inputs.version }}
+        IMAGE_PLATFORMS: ${{ inputs.platforms }}
+        IMAGE_CONTEXT: ${{ inputs.context }}
+      run: |
+        TAGS="-t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
+        TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:latest"
+        if [ -n "${IMAGE_VERSION}" ] && [ "${IMAGE_VERSION}" != "${IMAGE_TAG}" ]; then
+          TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
+        fi
+        docker buildx build \
+          --platform "${IMAGE_PLATFORMS}" \
+          --push \
+          ${TAGS} \
+          "${IMAGE_CONTEXT}/"

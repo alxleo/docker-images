@@ -4,48 +4,121 @@
     "context": "caddy-cloudflare",
     "tag": "2.11",
     "why": "xcaddy build with Cloudflare DNS plugin for ACME DNS-01 wildcard certs",
-    "remove_when": "never — Cloudflare DNS plugin is not in upstream Caddy"
+    "remove_when": "never — Cloudflare DNS plugin is not in upstream Caddy",
+    "platforms": "linux/amd64",
+    "trivyignore": "caddy-cloudflare/.trivyignore",
+    "manifest_key": "caddy-cloudflare",
+    "push_method": "docker",
+    "test_setup": "pip install -q uv",
+    "test_commands": [
+      "docker run --rm -v \"${GITHUB_WORKSPACE}/test:/test\" $IMAGE_REF caddy validate --config /test/Caddyfile.test --adapter caddyfile",
+      "cd test && docker compose -f docker-compose.test.yml up -d --build --wait && bash test-caddy-routing.sh && docker compose -f docker-compose.test.yml down",
+      "uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m caddy_cloudflare -v"
+    ]
   },
   {
     "name": "cadvisor",
     "context": "cadvisor",
     "tag": "v0.56.2",
     "why": "v0.56.2 fixes Docker 29+ crash but isn't published as a container image",
-    "remove_when": "ghcr.io/google/cadvisor publishes v0.57+ (or any >= v0.56.2)"
+    "remove_when": "ghcr.io/google/cadvisor publishes v0.57+ (or any >= v0.56.2)",
+    "platforms": "linux/amd64",
+    "trivyignore": "",
+    "manifest_key": "cadvisor",
+    "push_method": "docker",
+    "test_setup": "pip install -q uv",
+    "test_commands": [
+      "uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m cadvisor -v"
+    ]
   },
   {
     "name": "mcp-git",
     "context": "git-mcp-server",
     "tag": "2.10.3",
     "why": "Custom Dockerfile with git+ssh deps and Docker secret injection entrypoint",
-    "remove_when": "upstream publishes an official Docker image with HTTP transport"
+    "remove_when": "upstream publishes an official Docker image with HTTP transport",
+    "platforms": "linux/amd64",
+    "trivyignore": "",
+    "manifest_key": "git-mcp-server",
+    "push_method": "docker",
+    "test_setup": "pip install -q uv",
+    "test_commands": [
+      "uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m git_mcp_server -v"
+    ]
   },
   {
     "name": "mcp-auth-proxy",
     "context": "mcp-auth-proxy",
     "tag": "v2.5.3",
     "why": "Patched build — VARCHAR(255) fix for session storage (sigbit/mcp-auth-proxy#111)",
-    "remove_when": "upstream merges the VARCHAR fix and publishes a new release"
+    "remove_when": "upstream merges the VARCHAR fix and publishes a new release",
+    "platforms": "linux/amd64",
+    "trivyignore": "",
+    "manifest_key": "mcp-auth-proxy",
+    "push_method": "docker",
+    "test_setup": "pip install -q uv",
+    "test_commands": [
+      "uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m mcp_auth_proxy -v"
+    ]
+  },
+  {
+    "name": "pr-reviewer",
+    "context": "pr-reviewer",
+    "tag": "latest",
+    "why": "AI PR reviewer with Claude/Gemini/Codex CLIs + GitHub CLI",
+    "remove_when": "never — custom multi-model review engine",
+    "platforms": "linux/amd64,linux/arm64",
+    "trivyignore": "pr-reviewer/.trivyignore",
+    "manifest_key": "pr-reviewer",
+    "push_method": "buildx",
+    "test_setup": "pip install -q uv && sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep",
+    "test_commands": [
+      "docker run --rm $IMAGE_REF sh -c \"claude --version && gh --version && gemini --version && codex --version\"",
+      "docker run --rm $IMAGE_REF python3 -c \"import yaml, json, subprocess, pathlib; print('imports OK')\"",
+      "uv run --with pytest --with pyyaml --with httpx --with grep-ast --with tree-sitter-language-pack -- python -m pytest pr-reviewer/tests/ -v"
+    ]
   },
   {
     "name": "semaphore",
     "context": "semaphore",
     "tag": "v2.17.16",
     "why": "Semaphore UI + homelab tools (sops, age, dig, curl, jq, rsync) for Ansible playbooks",
-    "remove_when": "never — homelab tooling layer is always needed on top of upstream"
+    "remove_when": "never — homelab tooling layer is always needed on top of upstream",
+    "platforms": "linux/arm64",
+    "trivyignore": "semaphore/.trivyignore",
+    "manifest_key": "semaphore",
+    "push_method": "docker",
+    "test_setup": "",
+    "test_commands": [
+      "docker run --rm --platform linux/arm64 $IMAGE_REF sh -c \"sops --version && age --version && dig -v 2>&1 && curl --version | head -1 && jq --version && rsync --version | head -1 && just --version && uv --version && tailscale version && docker --version\""
+    ]
   },
   {
     "name": "dagu-ops",
     "context": "dagu-ops",
     "tag": "latest",
     "why": "Dagu operations scheduler + restic + rclone + Docker CLI for homelab automation",
-    "remove_when": "never — ops tooling layer is always needed on top of Dagu"
+    "remove_when": "never — ops tooling layer is always needed on top of Dagu",
+    "platforms": "linux/amd64,linux/arm64",
+    "trivyignore": "dagu-ops/.trivyignore",
+    "manifest_key": "dagu-ops",
+    "push_method": "buildx",
+    "test_setup": "",
+    "test_commands": [
+      "docker run --rm $IMAGE_REF sh -c \"dagu version && restic version && rclone version | head -1 && docker --version && ssh -V 2>&1 && curl --version | head -1\""
+    ]
   },
   {
     "name": "mcp-substack",
     "context": "mcp-substack",
     "tag": "1.0.0",
     "why": "Custom MCP server — no existing Substack MCP supports authenticated subscriber content",
-    "remove_when": "never — custom server wrapping substack-api library"
+    "remove_when": "never — custom server wrapping substack-api library",
+    "platforms": "linux/amd64",
+    "trivyignore": "",
+    "manifest_key": "mcp-substack",
+    "push_method": "docker",
+    "test_setup": "",
+    "test_commands": []
   }
 ]
