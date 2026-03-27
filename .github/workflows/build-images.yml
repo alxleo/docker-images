@@ -143,7 +143,7 @@ jobs:
           persist-credentials: false
 
       # --- Resolve image tag ---
-      # Most images use the tag from custom-images.json.
+      # Most images use the tag from .ci.json (auto-discovered).
       # pr-reviewer uses github.sha (tag field is "latest" in manifest).
       - name: Resolve tag and version
         if: steps.should-build.outputs.skip != 'true'
@@ -188,16 +188,15 @@ jobs:
           is_pr: 'true'  # Always suppress push — we push after tests
 
       # --- Test setup (optional) ---
-      # test_setup handles all prerequisites (uv, ripgrep, etc.)
       - name: Test setup
         if: steps.should-build.outputs.skip != 'true' && matrix.test_setup != ''
         env:
-          IMAGE_REF: ${{ env.IMAGE_REF }}
-        run: ${{ matrix.test_setup }}
+          SETUP_CMD: ${{ matrix.test_setup }}
+        shell: bash
+        run: bash -c "${SETUP_CMD}"
 
       # --- Run test commands ---
-      # test_commands is a JSON array. Each entry runs as a separate shell command
-      # with $IMAGE_REF available. Empty arrays skip this step.
+      # test_commands is a JSON array. Each entry runs via bash -c (no eval).
       - name: Run tests
         if: steps.should-build.outputs.skip != 'true' && toJson(matrix.test_commands) != '[]'
         env:
@@ -210,7 +209,7 @@ jobs:
           mapfile -t cmds < <(echo "${TEST_COMMANDS}" | jq -r '.[]')
           for cmd in "${cmds[@]}"; do
             echo "::group::${cmd}"
-            eval "$cmd"
+            bash -c "${cmd}"
             echo "::endgroup::"
           done
 
