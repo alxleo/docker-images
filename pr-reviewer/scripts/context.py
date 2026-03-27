@@ -397,43 +397,6 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
     return "".join(lines)
 
 
-def analyze_impact(repo_dir: Path, diff: str, max_refs: int = 20) -> str:
-    """Find files that reference each changed file. Cheap grep-based pre-pass.
-
-    Returns a text summary like:
-        scripts/foo.py: referenced by tests/test_foo.py, scripts/bar.py
-    """
-    changed_files = []
-    for line in diff.splitlines():
-        if line.startswith("+++ b/"):
-            changed_files.append(line[6:])
-
-    if not changed_files:
-        return ""
-
-    impacts = []
-    for filepath in changed_files:
-        basename = Path(filepath).stem
-        if not basename or basename.startswith("."):
-            continue
-
-        try:
-            result = subprocess.run(
-                ["rg", "-l", "--max-count=1", basename,
-                 "--glob", f"!{filepath}",
-                 "--glob", "!*.lock", "--glob", "!*.min.*"],
-                capture_output=True, text=True, cwd=repo_dir, timeout=10,
-            )
-            refs = [r for r in result.stdout.strip().splitlines() if r][:max_refs]
-            if refs:
-                impacts.append(f"{filepath}: referenced by {', '.join(refs)}")
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
-
-    if not impacts:
-        return ""
-
-    return "Files affected by this change:\n" + "\n".join(impacts)
 
 
 def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
