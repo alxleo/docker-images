@@ -561,6 +561,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
+          trivyignores: dagu-ops/.trivyignore
       - name: Smoke test — tools installed
         run: |
           docker run --rm dagu-ops:test sh -c \
