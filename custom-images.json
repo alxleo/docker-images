@@ -33,5 +33,12 @@
     "tag": "v2.17.16",
     "why": "Semaphore UI + homelab tools (sops, age, dig, curl, jq, rsync) for Ansible playbooks",
     "remove_when": "never — homelab tooling layer is always needed on top of upstream"
+  },
+  {
+    "name": "restic-scheduler",
+    "context": "restic-scheduler",
+    "tag": "0.18.1",
+    "why": "restic + rclone + supercronic in one container — replaces resticker's three-container pattern",
+    "remove_when": "never — supercronic scheduler layer is always needed on top of restic"
   }
 ]
