@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "tag-separator": "/",
+  "packages": {
+    "pr-reviewer": {
+      "release-type": "simple",
+      "component": "pr-reviewer"
+    },
+    "caddy-cloudflare": {
+      "release-type": "simple",
+      "component": "caddy-cloudflare"
+    },
+    "cadvisor": {
+      "release-type": "simple",
+      "component": "cadvisor"
+    },
+    "git-mcp-server": {
+      "release-type": "simple",
+      "component": "git-mcp-server"
+    },
+    "mcp-auth-proxy": {
+      "release-type": "simple",
+      "component": "mcp-auth-proxy"
+    },
+    "semaphore": {
+      "release-type": "simple",
+      "component": "semaphore"
+    },
+    "dagu-ops": {
+      "release-type": "simple",
+      "component": "dagu-ops"
+    },
+    "mcp": {
+      "release-type": "simple",
+      "component": "mcp"
+    }
+  }
+}
