@@ -23,6 +23,8 @@
     "mcp-youtube",
     "mcp-zen",
     "mcp-exa",
+    "mcp-substack",
+    "restic-scheduler",
     "semaphore"
   ]
 }
