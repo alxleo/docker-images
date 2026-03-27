@@ -45,7 +45,6 @@ def config():
     """Minimal valid config."""
     return {
         "repos": ["owner/repo-a"],
-        "owner_filter": "owner",
         "default_depth": "standard",
         "polling_interval": 60,
         "skip_drafts": True,
@@ -56,6 +55,14 @@ def config():
             "drift": {"max_comments": 5, "enabled": False},
         },
     }
+
+
+@pytest.fixture()
+def app_auths():
+    """Mock app_auths dict for poll() — one org with a dummy token."""
+    mock_auth = MagicMock()
+    mock_auth.get_token.return_value = "ghs_test_token"
+    return {"owner": mock_auth}
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +264,7 @@ class TestStateRace:
     @patch.object(core, "run_review_orchestrated", return_value=[])
     @patch.object(w, "gh_json")
     def test_poll_reloads_state_after_check_comments(
-        self, mock_gh_json, _orch, _status, _sha, _diff, _checkout, _clone, config, tmp_path
+        self, mock_gh_json, _orch, _status, _sha, _diff, _checkout, _clone, config, app_auths, tmp_path
     ):
         """poll dispatches exactly once for a single @pr-reviewer command."""
         _clone.return_value = tmp_path / "repos" / "fake"
@@ -275,7 +282,7 @@ class TestStateRace:
         # poll should NOT dispatch again because state was updated.
         with patch.object(w, "dispatch_review") as mock_dispatch, \
              patch.object(w, "react_eyes"):
-            w.poll(config)
+            w.poll(config, app_auths)
 
         assert mock_dispatch.call_count == 1
 
@@ -432,26 +439,26 @@ class TestCheckComments:
 class TestPoll:
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_skips_draft_prs(self, mock_gh_json, mock_dispatch, config):
+    def test_skips_draft_prs(self, mock_gh_json, mock_dispatch, config, app_auths):
         mock_gh_json.return_value = [
             {"number": 1, "isDraft": True, "headRefOid": "abc", "comments": []},
         ]
-        w.poll(config)
+        w.poll(config, app_auths)
         mock_dispatch.assert_not_called()
 
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_owner_filter_rejects_mismatch(self, mock_gh_json, mock_dispatch, config):
+    def test_no_app_for_org_skips_repo(self, mock_gh_json, mock_dispatch, config, app_auths):
         config["repos"] = ["other-owner/repo"]
-        w.poll(config)
+        w.poll(config, app_auths)
         mock_gh_json.assert_not_called()
         mock_dispatch.assert_not_called()
 
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_writes_poll_timestamp(self, mock_gh_json, mock_dispatch, config):
+    def test_writes_poll_timestamp(self, mock_gh_json, mock_dispatch, config, app_auths):
         mock_gh_json.return_value = []
-        w.poll(config)
+        w.poll(config, app_auths)
         ts_file = core.STATE_DIR / "last_poll.json"
         assert ts_file.exists()
         data = json.loads(ts_file.read_text())
@@ -459,18 +466,18 @@ class TestPoll:
 
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_no_auto_review_without_command(self, mock_gh_json, mock_dispatch, config):
+    def test_no_auto_review_without_command(self, mock_gh_json, mock_dispatch, config, app_auths):
         """On-demand only: new PRs without @pr-reviewer are NOT auto-reviewed."""
         mock_gh_json.return_value = [
             {"number": 7, "isDraft": False, "headRefOid": "sha1", "comments": []},
         ]
-        w.poll(config)
+        w.poll(config, app_auths)
         mock_dispatch.assert_not_called()
 
     @patch.object(w, "react_eyes")
     @patch.object(w, "dispatch_review")
     @patch.object(w, "gh_json")
-    def test_reviews_when_command_present(self, mock_gh_json, mock_dispatch, mock_react, config):
+    def test_reviews_when_command_present(self, mock_gh_json, mock_dispatch, mock_react, config, app_auths):
         """On-demand: reviews only when @pr-reviewer comment exists."""
         mock_gh_json.return_value = [
             {
@@ -480,7 +487,7 @@ class TestPoll:
                 "comments": [{"id": "c1", "body": "@pr-reviewer"}],
             },
         ]
-        w.poll(config)
+        w.poll(config, app_auths)
         mock_dispatch.assert_called_once_with(config, "owner/repo-a", 7, "standard", None)
         mock_react.assert_called_once_with("owner/repo-a", "c1")
 

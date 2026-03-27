@@ -24,7 +24,7 @@
     "mcp-zen",
     "mcp-exa",
     "mcp-substack",
-    "restic-scheduler",
+    "dagu-ops",
     "semaphore"
   ]
 }

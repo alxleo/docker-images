@@ -47,6 +47,7 @@ on:
       - 'mcp-auth-proxy/**'
       - 'pr-reviewer/**'
       - 'semaphore/**'
+      - 'dagu-ops/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - 'custom-images.json'
@@ -59,6 +60,7 @@ on:
       - 'mcp-auth-proxy/**'
       - 'pr-reviewer/**'
       - 'semaphore/**'
+      - 'dagu-ops/**'
       - 'mcp/**'
       - 'mcp-images.json'
       - 'custom-images.json'
@@ -91,6 +93,7 @@ jobs:
       mcp-auth-proxy: ${{ steps.filter.outputs.mcp-auth-proxy }}
       pr-reviewer: ${{ steps.filter.outputs.pr-reviewer }}
       semaphore: ${{ steps.filter.outputs.semaphore }}
+      dagu-ops: ${{ steps.filter.outputs.dagu-ops }}
       mcp: ${{ steps.filter.outputs.mcp }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -117,6 +120,9 @@ jobs:
               - 'pr-reviewer/**'
             semaphore:
               - 'semaphore/**'
+              - 'custom-images.json'
+            dagu-ops:
+              - 'dagu-ops/**'
               - 'custom-images.json'
             mcp:
               - 'mcp/**'
@@ -509,6 +515,64 @@ jobs:
         run: |
           docker push "$IMAGE_REF"
           docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest"
+
+  dagu-ops:
+    name: Dagu ops control plane
+    needs: changes
+    if: >-
+      always() &&
+      (needs.changes.outputs.dagu-ops == 'true' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: dagu-ops
+          platforms: linux/amd64,linux/arm64
+          push: false
+          load: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:latest
+      - name: Build for local test (single platform)
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: dagu-ops
+          push: false
+          load: true
+          tags: dagu-ops:test
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: dagu-ops:test
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+          trivyignores: dagu-ops/.trivyignore
+      - name: Smoke test — tools installed
+        run: |
+          docker run --rm dagu-ops:test sh -c \
+            "dagu version && restic version && rclone version | head -1 && docker --version && ssh -V 2>&1 && curl --version | head -1"
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --push \
+            -t "${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:latest" \
+            dagu-ops/
 
   load-mcp-matrix:
     name: Load MCP build matrix
