@@ -1,0 +1,9 @@
+{
+  "tag": "2.11",
+  "test_setup": "pip install -q uv",
+  "test_commands": [
+    "docker run --rm -v \"${GITHUB_WORKSPACE}/test:/test\" $IMAGE_REF caddy validate --config /test/Caddyfile.test --adapter caddyfile",
+    "cd test && docker compose -f docker-compose.test.yml up -d --build --wait && bash test-caddy-routing.sh && docker compose -f docker-compose.test.yml down",
+    "uv run --with pytest --with requests -- pytest test/test_custom_images.py -m caddy_cloudflare -v"
+  ]
+}
