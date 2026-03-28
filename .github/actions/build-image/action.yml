@@ -69,6 +69,8 @@ runs:
     # --- Build single-platform for local testing ---
     # load: true requires single platform. Uses runner's native arch for multi-platform images.
     # GHA cache scoped per image prevents matrix builds from evicting each other's cache.
+    # cache-to only on non-PR builds — PR cache export adds 80-130s with no benefit
+    # (PR branch caches rarely hit again). mode=min caches final layers only.
     - name: Build for local testing
       uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
       with:
@@ -78,7 +80,7 @@ runs:
         push: false
         load: true
         cache-from: type=gha,scope=${{ inputs.scope || inputs.name }}
-        cache-to: type=gha,scope=${{ inputs.scope || inputs.name }},mode=max
+        cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,scope={0},mode=min', inputs.scope || inputs.name) || '' }}
         tags: |
           ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
           ghcr.io/alxleo/${{ inputs.name }}:latest
