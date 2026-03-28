@@ -1,6 +1,6 @@
 {
   "pr-reviewer": "1.0.0",
-  "caddy-cloudflare": "2.11.0",
+  "caddy-cloudflare": "2.12.0",
   "cadvisor": "0.56.2",
   "git-mcp-server": "2.10.3",
   "mcp-auth-proxy": "2.5.3",
