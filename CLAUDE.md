@@ -5,69 +5,114 @@ Everything committed here is visible to the entire internet.
 NEVER commit: secrets, API keys, tokens, passwords, internal IPs, private hostnames,
 SOPS-encrypted files, .env files, or anything from private repositories.
 
-This repo contains ONLY: Dockerfiles, entrypoint scripts, build configs, CI workflows, and E2E tests.
+## Architecture
 
-## Image Types
+### Auto-Discovery
 
-| Type | Pattern | Example |
-|------|---------|---------|
-| **MCP images** (matrix) | `mcp-images.json` → `Dockerfile.npm` or `Dockerfile.python` | mcp-reddit, mcp-arxiv |
+Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 
-`mcp-images.json` is the single source of truth for MCP images. CI reads it for builds. It also carries runtime metadata (`description`, `secrets`) that downstream deployment repos can consume for generating compose files, health checks, and service catalogs. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional). Omitted `secrets` means no API key needed.
+`scripts/discover-images.sh` scans `*/Dockerfile`, reads optional `.ci.json` per directory, outputs a GitHub Actions matrix. Convention over configuration:
 
-`mcp-defaults.json` is the source of truth for MCP runtime defaults (`health_path`, `health_port`, `mcp_endpoint`). Downstream repos should read these values instead of hardcoding them. Per-image overrides can be added as fields in `mcp-images.json` if an image deviates from the defaults.
-| **Patched upstream** | `git clone --tag` + `sed` fix + build | mcp-auth-proxy (VARCHAR fix), cadvisor (Docker 29 compat) |
-| **Custom build** | Standard Dockerfile | caddy-cloudflare (xcaddy + DNS plugin), git-mcp-server |
+| Field | Default | Override via `.ci.json` |
+|-------|---------|----------------------|
+| name | directory name | `"name": "mcp-git"` |
+| platforms | `linux/amd64` | `"platforms": "linux/amd64,linux/arm64"` |
+| tag | `latest` | `"tag": "v2.11"` |
+| push method | `docker` (auto: `buildx` if multi-platform) | derived |
+| trivyignore | `{dir}/.trivyignore` if exists | derived |
+| tests | none | `"test_commands": [...]` |
 
-## Patched Upstream Pattern
+### Composite Action
 
-When upstream has a bug, don't maintain a full fork. Clone at a pinned tag and apply a minimal fix:
+`.github/actions/build-image/action.yml` handles the common build+scan flow:
+QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build -> Trivy scan -> push.
+Callers handle tests between build and push.
+
+### Image Types
+
+| Type | How | Examples |
+|------|-----|---------|
+| **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, semaphore |
+| **MCP images** | `mcp-images.json` -> `Dockerfile.npm` or `.python` | mcp-reddit, mcp-arxiv |
+| **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (VARCHAR), cadvisor (Docker 29) |
+
+### Versioning (release-please)
+
+Conventional commits -> release-please -> version bump + CHANGELOG -> GitHub Release + git tag.
+
+- Commit format: `type(scope): message` where scope = directory name
+- `fix(pr-reviewer): ...` -> patch bump, `feat(caddy-cloudflare): ...` -> minor bump
+- release-please opens a grouped PR with all pending version bumps
+- Merging the release PR creates GitHub Releases + tags
+- Build workflow tags images with the version from `.release-please-manifest.json`
+- VERSION tags only pushed on release builds (`refs/tags/*`), not every push
+
+Config: `release-please-config.json` (components), `.release-please-manifest.json` (current versions).
+
+### GHCR Base Image Mirrors
+
+All Dockerfiles pull from `ghcr.io/alxleo/base-images/` instead of Docker Hub. Zero rate limit issues.
+
+- `scripts/mirror-base-images.sh` mirrors images (amd64+arm64) via `docker buildx imagetools create`
+- Weekly refresh via `.github/workflows/mirror-base-images.yml`
+- PRs that touch Dockerfiles trigger `--check` mode (fails if mirror is missing)
+- To update after version bump: run the script or trigger the workflow manually
+
+### OCI Labels
+
+All Dockerfiles include `LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images`.
+This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
+
+## CI Workflows
+
+| Workflow | File | Trigger | Purpose |
+|----------|------|---------|---------|
+| Build | `build-images.yml` | push main, PRs, dispatch | Auto-discover, matrix build, test, push |
+| Lint | `lint.yml` | push, PRs | ruff, pytest, shellcheck, hadolint, actionlint, yamllint, zizmor, lychee, log audit |
+| Release Please | `release-please.yml` | push main | Conventional commit -> version bump + CHANGELOG |
+| Mirror | `mirror-base-images.yml` | weekly, PRs (check), dispatch | GHCR base image mirrors |
+| Cleanup | `cleanup-ghcr.yml` | monthly | Delete untagged GHCR manifests |
+
+### Pre-commit hooks
+
+gitleaks, shellcheck, hadolint, actionlint, yamllint, zizmor, ruff, log audit (no sensitive data at INFO), no-unicode-in-config, secret file blocking, caddy fmt.
+
+## Development
+
+### Adding a new image
+
+1. Create `my-image/Dockerfile`
+2. Add `LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images`
+3. Optional: `my-image/.ci.json` for tests, multi-platform, or custom tag
+4. Push. CI auto-discovers and builds it.
+
+### Patched upstream pattern
 
 ```dockerfile
 RUN git clone --branch v2.5.3 --depth 1 https://github.com/upstream/repo.git .
 RUN sed -i 's/broken/fixed/g' path/to/file.go   # link to upstream issue
-RUN go build ...
 ```
 
-Each patched Dockerfile has a header comment with: upstream repo, issue link, what's fixed, and when to remove (upstream merges the fix → delete sed line → switch back to upstream image).
+Header comment: upstream repo, issue link, what's fixed, when to remove.
 
-## Tests
+### MCP images
 
-`test/` contains three test suites:
+Edit `mcp-images.json` to add/update. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional).
 
-**Caddy routing** (`test-caddy-routing.sh`): Validates Caddy config patterns (snippets, handle_path, handle mutual exclusivity). Compose: `docker-compose.test.yml` + `Caddyfile.test`. 5 curl-based checks.
+`mcp-defaults.json` has runtime defaults (`health_path`, `health_port`, `mcp_endpoint`). Downstream repos read these.
 
-**MCP E2E** (`test-mcp-e2e.sh`): Full-stack Caddy → mcp-proxy → MCP server validation. Compose: `docker-compose.mcp-e2e.yml` + `Caddyfile.mcp-e2e`. Tests: prefix stripping, MCP protocol handshake (initialize + tools/list), session header passthrough, TLS with internal certs, service discovery.
+### Testing locally
 
-**MCP smoke** (`test-mcp-smoke.sh`): Standalone MCP image validation (no Caddy). Tests: container health via `/ping`, MCP initialize handshake, tools/list. Takes container name and port as args. CI runs 2 canaries: mcp-hackernews (npm) + mcp-arxiv (Python).
+```bash
+# Build any image
+docker build -t test caddy-cloudflare/
 
-MCP protocol testing works without API keys — initialize and tools/list succeed without auth. Only tools/call needs keys.
+# Run discover script
+bash scripts/discover-images.sh | jq .
 
-Pre-commit runs `caddy fmt --diff`. GHA runs `caddy validate` + all three suites.
+# Mirror base images
+bash scripts/mirror-base-images.sh --check  # verify mirrors exist
+bash scripts/mirror-base-images.sh           # full mirror
+```
 
-## CI & Automation
-
-This repo is fully automated — there are no manual build or deploy steps.
-
-- **Pre-commit hooks** (`.pre-commit-config.yaml`): gitleaks, shellcheck, hadolint, actionlint, yamllint, zizmor, secret file blocking, caddy fmt. These run locally on every commit — catch issues before pushing.
-- **Lint workflow** (`.github/workflows/lint.yml`): same linters as pre-commit plus lychee link checker. Runs on all PRs and pushes to main as a safety net.
-- **Build workflow** (`.github/workflows/build-images.yml`): builds only changed images on PR (no push), builds + pushes to ghcr.io on merge to main. Change detection via `dorny/paths-filter` — unchanged images are skipped to avoid unnecessary pulls downstream. **Bot PRs (Dependabot, etc.) skip image builds** — only lint runs, saving CI minutes.
-- **Trivy CVE scanning**: every built image is scanned for CRITICAL vulnerabilities before push. Uses `ignore-unfixed: true` to skip base-image CVEs without patches (see workflow header comments for specific CVEs and revisit timeline).
-- **Dependabot** (`.github/dependabot.yml`): weekly PRs for GHA action versions and base image updates — manual review required, no auto-merge
-- **Branch ruleset**: main requires PRs, force push blocked
-
-Do NOT add `justfile`, `Makefile`, or wrapper scripts — there are no manual commands to automate. If you need to test a build locally, just `docker build` the relevant directory.
-
-## Development Workflow
-
-All changes go through PRs. The standard loop:
-
-1. Create a branch, make changes, commit (pre-commit hooks run locally)
-2. Push branch, open PR
-3. Watch CI: `gh pr checks <number> --watch`
-4. Check for reviewer comments (Codex auto-reviews): `gh pr view <number> --comments`
-5. Fix any failures or address feedback, push again
-6. Repeat 3-4 until all checks pass and feedback is addressed
-7. Merge
-
-This push → watch → fix loop is the defacto workflow. No manual builds, no local Docker required for CI — GitHub Actions handles everything.
+Do NOT add `justfile`, `Makefile`, or wrapper scripts -- there are no manual commands to automate beyond `docker build`.

@@ -1,15 +1,5 @@
-# Auto-versioning via release-please.
-#
-# On push to main: scans conventional commits, opens a release PR per
-# component with version bump + CHANGELOG. On merge of release PR:
-# creates GitHub Release + git tag.
-#
-# Components: pr-reviewer, caddy-cloudflare, cadvisor, git-mcp-server,
-# mcp-auth-proxy, semaphore, dagu-ops, mcp (shared for all MCP images).
-#
-# Conventional commit scopes map to components:
-#   feat(pr-reviewer): ... → bumps pr-reviewer minor
-#   fix(caddy-cloudflare): ... → bumps caddy-cloudflare patch
+# Auto-versioning: conventional commits → version bumps + CHANGELOGs + GitHub Releases.
+# Auto-merges immediately — release PRs only change changelogs, no CI needed.
 
 name: Release Please
 
@@ -18,17 +8,22 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4
         id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Auto-merge release PR
+        if: steps.release.outputs.pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.release.outputs.pr }}
+        run: gh pr merge "$PR_NUMBER" --squash --auto --delete-branch

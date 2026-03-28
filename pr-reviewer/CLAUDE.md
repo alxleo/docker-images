@@ -1,6 +1,6 @@
 # PR Reviewer
 
-AI-powered multi-model PR review with specialized lens agents. Runs as Docker containers — one for Gitea (webhook-driven), one for GitHub (polling). Both deployed from local-cicd.
+AI-powered multi-model PR review with specialized lens agents. Runs as Docker containers — one for Gitea (webhook-driven), one for GitHub (polling, multi-org). Both deployed from local-cicd.
 
 ## Architecture
 
@@ -9,11 +9,11 @@ AI-powered multi-model PR review with specialized lens agents. Runs as Docker co
 **Python routes, Claude reviews.** `analyze_diff_relevance()` pre-filters which lenses to run based on file types and content patterns (zero LLM cost). The orchestrator then spawns only relevant lens agents. Deep mode bypasses routing and runs all lenses.
 
 **Three AI models, all subscription auth:**
-- Claude: `CC_TOKEN` host env → `CLAUDE_CODE_OAUTH_TOKEN` in container (Claude Max)
+- Claude: `REVIEWER_CLAUDE_TOKEN` → file at `/run/secrets/reviewer_claude_token` → set as `CLAUDE_CODE_OAUTH_TOKEN` internally
 - Gemini: mounted `~/.gemini/oauth_creds.json` + `settings.json` (Google subscription)
 - Codex: mounted `~/.codex/auth.json` (ChatGPT subscription)
 
-No API keys needed. `CC_TOKEN` (not `CLAUDE_CODE_OAUTH_TOKEN`) in the host env to avoid interfering with the user's own Claude sessions.
+All secrets mounted as files at `/run/secrets/` (not env vars). `read_secret()` checks file → env var → uppercase env var.
 
 **Read-only tools enforced.** Review agents get `Bash(git log:*)`, `Bash(git blame:*)`, `Bash(git diff:*)`, `Bash(git show:*)` — never `Bash(git:*)`. Test regression guard asserts `Edit`, `Write`, and unrestricted `Bash(git:*)` are NOT in the allowed tools.
 
@@ -23,10 +23,10 @@ Two containers in local-cicd, same image, different entrypoints:
 
 | Container | Forge | Entrypoint | Config |
 |-----------|-------|-----------|--------|
-| `local-ci-reviewer` | Gitea webhooks | `gitea_webhook.py` | `reviewer-config.yml` |
-| `local-ci-reviewer-github` | GitHub polling | `gh_watcher.py` | `reviewer-config-github.yml` |
+| `local-ci-reviewer-gitea` | Gitea webhooks | `gitea_webhook.py` | `reviewer-config.yml` |
+| `local-ci-reviewer-github` | GitHub polling (multi-org) | `gh_watcher.py` | `reviewer-config-github.yml` |
 
-GitHub container receives GitHub App secrets via env vars (SOPS-encrypted in local-cicd). Both share the plugins volume.
+GitHub container supports multiple orgs via `apps` config section — one GitHub App per org, token switched per-repo in the poll loop. All secrets mounted as files at `/run/secrets/` (not env vars).
 
 **Default: on_demand.** Reviews only run when someone comments `@pr-reviewer` on a PR. Auto-PR creation and auto-review are opt-in via config (`auto_trigger`, `auto_create_pr`).
 
@@ -37,8 +37,7 @@ Webhook/poll picks up @pr-reviewer command
   → React 👀 on command comment (immediate acknowledgement)
   → Fetch diff, PR metadata, commit messages
   → Resolve head_sha (fetch from PR API if missing)
-  → Generate repomap (tree-sitter structural map)
-  → Run impact analysis (rg -l per changed file)
+  → Generate repomap (PageRank-ranked, diff-personalized, tree-sitter)
   → Run LLM-planned search (haiku generates ripgrep patterns, Python executes)
   → Preprocess diff (strip delete-only files, language annotations, token budget)
   → Shuffle diff file ordering (breaks LLM positional bias)
@@ -59,11 +58,11 @@ Decomposed into focused modules (each <200 lines):
 |--------|---------|
 | `config.py` | Paths, constants, secrets, state, lens selection, command parsing |
 | `prompts.py` | Prompt assembly from `.md` templates |
-| `models.py` | Claude/Gemini/Codex CLI invocation (deterministic) |
+| `models.py` | Claude/Gemini/Codex CLI invocation (deterministic). `ReviewResult` captures session metadata (turns, cost, tokens). |
 | `routing.py` | Diff relevance analysis, lens dispatch to models |
 | `orchestrator.py` | Single-session orchestration with sub-agents |
 | `diff.py` | Diff preprocessing, shuffle |
-| `context.py` | Repomap (tree-sitter), impact analysis (ripgrep), LLM-planned searches |
+| `context.py` | Repomap (PageRank-ranked, tree-sitter), LLM-planned searches |
 | `output.py` | Inline comment parsing, severity capping |
 | `review_core.py` | Thin re-export facade (backwards compat) |
 | `gitea_webhook.py` | Gitea webhook handler: events, PR creation, review dispatch |
@@ -149,5 +148,8 @@ lenses:
 
 ## Backlog
 
-- **Release process** — tagged versions (not just `:latest`), env-var-only config (no host file mounts), `.env.example`
-- **code-index-mcp sidecar** — tree-sitter AST indexing as MCP tools for deeper symbol analysis
+See [docker-images#76](https://github.com/alxleo/docker-images/issues/76) for future work:
+- Prompt adherence for inline `[file:line]` format
+- Dependency graph awareness, test coverage mapping
+- Model routing by lens, consensus mode, cost budgets
+- Cost dashboard, quality metrics, session replay

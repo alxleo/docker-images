@@ -3,18 +3,22 @@
 # GitHub mode (gh_watcher.py): mount as /app/config.yml
 # Gitea mode (gitea_webhook.py): mount as /app/config.yml
 
+# GitHub-only: multi-org app credentials (env var names per org)
+# apps:
+#   myorg:
+#     app_id_env: GH_APP_ID
+#     installation_id_env: GH_APP_INSTALLATION_ID
+#     private_key_env: gh_app_private_key    # read_secret checks /run/secrets/ first
+
 # GitHub-only: repos to poll (owner/repo format)
 repos:
   - alxleo/homelab
   - alxleo/docker-images
 
-# GitHub-only: filter by owner
-owner_filter: alxleo
-
 # GitHub-only: polling interval in seconds
 polling_interval: 60
 
-# GitHub-only: skip draft PRs
+# GitHub-only: skip draft PRs (false = review on @pr-reviewer command even in drafts)
 skip_drafts: true
 
 # Gitea auto-review: lenses to run on PR open/sync
