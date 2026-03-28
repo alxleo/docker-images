@@ -13,51 +13,9 @@ updates:
     cooldown:
       default-days: 7
 
-  # Base image updates — one entry per Dockerfile directory
-  - package-ecosystem: docker
-    directory: /caddy-cloudflare
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    cooldown:
-      default-days: 7
-
-  - package-ecosystem: docker
-    directory: /cadvisor
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    cooldown:
-      default-days: 7
-
-  - package-ecosystem: docker
-    directory: /git-mcp-server
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    cooldown:
-      default-days: 7
-
-  - package-ecosystem: docker
-    directory: /mcp-auth-proxy
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    cooldown:
-      default-days: 7
-
+  # Base image updates — only images using Docker Hub directly.
+  # Images using ghcr.io/alxleo/base-images/ mirrors are managed by
+  # scripts/mirror-base-images.sh + .github/workflows/mirror-base-images.yml
   - package-ecosystem: docker
     directory: /semaphore
     schedule:
@@ -70,7 +28,7 @@ updates:
       default-days: 7
 
   - package-ecosystem: docker
-    directory: /mcp
+    directory: /restic-scheduler
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

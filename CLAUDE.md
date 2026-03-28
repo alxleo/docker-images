@@ -25,8 +25,8 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 ### Composite Action
 
 `.github/actions/build-image/action.yml` handles the common build+scan flow:
-QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build -> Trivy scan -> push.
-Callers handle tests between build and push.
+QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build (with GHA cache) -> Trivy scan.
+Callers handle tests, GHCR login, and pushing the final image.
 
 ### Image Types
 

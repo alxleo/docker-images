@@ -54,6 +54,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.result }}
       changed: ${{ steps.changes.outputs.changed }}
+      ci_changed: ${{ steps.changes.outputs.ci_changed }}
       mcp_changed: ${{ steps.changes.outputs.mcp_changed }}
       e2e_changed: ${{ steps.changes.outputs.e2e_changed }}
     steps:
@@ -99,6 +100,12 @@ jobs:
           # Build JSON array of changed top-level directories
           changed_dirs=$(echo "$changed_files" | cut -d/ -f1 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
+          # CI infra changed if build action, discover script, or build workflow changed
+          ci_changed="false"
+          if echo "$changed_files" | grep -qE '^(\.github/actions/|scripts/discover-images\.sh|\.github/workflows/build-images\.yml)'; then
+            ci_changed="true"
+          fi
+
           # MCP changed if mcp/ dir, mcp-images.json, or test/ changed
           mcp_changed="false"
           if echo "$changed_files" | grep -qE '^(mcp/|mcp-images\.json|test/)'; then
@@ -113,6 +120,7 @@ jobs:
 
           {
             echo "changed=${changed_dirs}"
+            echo "ci_changed=${ci_changed}"
             echo "mcp_changed=${mcp_changed}"
             echo "e2e_changed=${e2e_changed}"
           } >> "$GITHUB_OUTPUT"
@@ -137,8 +145,8 @@ jobs:
   # Custom images — single matrix job replacing 7+ individual jobs
   #
   # Flow per image: discover -> should-build? -> build+scan -> test -> push
-  # The composite action runs with is_pr=true (build+scan only).
-  # Push is handled inline after tests pass — avoids double build.
+  # The composite action handles build + Trivy scan with GHA cache.
+  # Push is handled inline after tests pass.
   # ---------------------------------------------------------------------------
   custom-images:
     name: ${{ matrix.name }}
@@ -161,15 +169,16 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           CHANGED_DIRS: ${{ needs.discover.outputs.changed }}
+          CI_CHANGED: ${{ needs.discover.outputs.ci_changed }}
           IMAGE_CONTEXT: ${{ matrix.context }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Build if image dir, test/, or .github/ changed; empty changed=[] means build all
-          if [ "$CHANGED_DIRS" = "[]" ] || echo "$CHANGED_DIRS" | jq -e --arg dir "$IMAGE_CONTEXT" \
-            '. as $d | ($dir | IN($d[])) or ("test" | IN($d[])) or (".github" | IN($d[]))' > /dev/null 2>&1; then
+          # Build if image dir, test/, or CI infra changed; empty changed=[] means build all
+          if [ "$CHANGED_DIRS" = "[]" ] || [ "$CI_CHANGED" = "true" ] || echo "$CHANGED_DIRS" | jq -e --arg dir "$IMAGE_CONTEXT" \
+            '. as $d | ($dir | IN($d[])) or ("test" | IN($d[]))' > /dev/null 2>&1; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -229,8 +238,7 @@ jobs:
           tag: ${{ steps.tag.outputs.tag }}
           platforms: ${{ matrix.platforms }}
           trivyignore: ${{ matrix.trivyignore }}
-          push_method: ${{ matrix.push_method }}
-          is_pr: 'true'
+          scope: ${{ matrix.name }}
 
       # --- Test setup (install uv, ripgrep, etc.) ---
       - name: Test setup
@@ -306,6 +314,7 @@ jobs:
           docker buildx build \
             --platform "${IMAGE_PLATFORMS}" \
             --push \
+            --cache-from type=gha,scope="${IMAGE_NAME}" \
             ${TAGS} \
             "${IMAGE_CONTEXT}/"
 
