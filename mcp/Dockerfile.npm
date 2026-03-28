@@ -17,6 +17,7 @@
 #   docker run -p 8080:8080 -e BRAVE_API_KEY=xxx mcp-hackernews
 
 FROM ghcr.io/alxleo/base-images/node:24-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install system dependencies for entrypoint

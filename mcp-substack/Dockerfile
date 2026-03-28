@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir uv==0.11.2
 
 # Stage 2: Runtime
 FROM ghcr.io/alxleo/base-images/python:3.13-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 # Healthcheck binary: 75KB static C/musl, localhost-only by design
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck

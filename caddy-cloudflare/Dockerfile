@@ -12,5 +12,6 @@ RUN xcaddy build \
     --with github.com/tailscale/caddy-tailscale
 
 FROM ghcr.io/alxleo/base-images/caddy:2.11
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk --no-cache upgrade
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy

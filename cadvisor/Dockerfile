@@ -27,6 +27,7 @@ WORKDIR /src
 RUN GO_FLAGS="-tags=netgo" ./build/build.sh
 
 FROM ghcr.io/alxleo/base-images/alpine:3.23
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk --no-cache upgrade && \
     apk --no-cache add libc6-compat device-mapper findutils thin-provisioning-tools && \
     rm -rf /var/cache/apk/*
