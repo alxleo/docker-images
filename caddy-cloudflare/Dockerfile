@@ -5,6 +5,7 @@
 # Remove when: never (neither plugin is in upstream Caddy)
 
 FROM ghcr.io/alxleo/base-images/caddy:2.11-builder AS builder
+# cache-bust: 2026-03-28 (removed caddy-tailscale plugin)
 RUN xcaddy build \
     --with github.com/caddy-dns/cloudflare \
     --with github.com/lucaslorentz/caddy-docker-proxy/v2
