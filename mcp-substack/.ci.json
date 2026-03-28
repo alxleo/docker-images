@@ -1,4 +1,7 @@
 {
   "tag": "1.0.0",
-  "platforms": "linux/amd64,linux/arm64"
+  "platforms": "linux/amd64,linux/arm64",
+  "test_commands": [
+    "docker run --rm -d --name mcp-substack-test -e SUBSTACK_USERNAME=test -p 18080:8080 $IMAGE_REF && sleep 10 && curl -sf http://localhost:18080/ping && docker stop mcp-substack-test"
+  ]
 }

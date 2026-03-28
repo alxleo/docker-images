@@ -1,17 +1,21 @@
-"""Substack MCP Server — read paid subscription content as markdown.
+"""Substack MCP Server — read subscription content as markdown.
 
 Tools:
-  list_subscriptions - List user's Substack subscriptions
-  list_posts         - Recent posts from a publication
+  list_subscriptions - List user's Substack subscriptions (public API)
+  list_posts         - Recent posts from a publication (public API)
   get_post           - Full post content as markdown
-  search_posts       - Search within a publication
+  search_posts       - Search within a publication (public API)
 
-Auth: Email/password login via Substack API. Session auto-refreshes on 401.
-  SUBSTACK_EMAIL + SUBSTACK_PASSWORD env vars (injected from Docker secrets).
-  SUBSTACK_USERNAME for listing subscriptions (Substack profile handle).
+Auth:
+  Metadata tools (list_subscriptions, list_posts, search_posts) work without auth.
+  get_post for paid content delegates to crawl4ai (same Docker network) which
+  authenticates via browser login using SUBSTACK_EMAIL + SUBSTACK_PASSWORD.
 
-Paid content: The Substack API always truncates body_html for paid posts.
-  get_post delegates to crawl4ai (same Docker network) for JS-rendered full content.
+Env vars (injected from Docker secrets):
+  SUBSTACK_EMAIL    - account email (for crawl4ai browser login on paid posts)
+  SUBSTACK_PASSWORD - account password (for crawl4ai browser login on paid posts)
+  SUBSTACK_USERNAME - profile handle (for list_subscriptions)
+  CRAWL4AI_URL      - crawl4ai endpoint (default: http://crawl4ai:11235)
 """
 
 import json
@@ -22,7 +26,7 @@ import urllib.parse
 import markdownify
 import requests
 from mcp.server.fastmcp import FastMCP
-from substack_api import Newsletter, Post, SubstackAuth, User
+from substack_api import Newsletter, Post, User
 
 mcp = FastMCP("substack")
 log = logging.getLogger("substack-mcp")
@@ -32,99 +36,6 @@ CHROME_UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 CRAWL4AI_URL = os.environ.get("CRAWL4AI_URL", "http://crawl4ai:11235")
-
-# Global session — refreshed on login, reused across requests
-_session: requests.Session | None = None
-_sid_cookie: str | None = None
-
-
-def _login() -> requests.Session:
-    """Authenticate via email/password, return a session with valid cookies."""
-    global _session, _sid_cookie
-
-    email = os.environ.get("SUBSTACK_EMAIL", "")
-    password = os.environ.get("SUBSTACK_PASSWORD", "")
-    if not email or not password:
-        raise ValueError("SUBSTACK_EMAIL and SUBSTACK_PASSWORD must be set")
-
-    session = requests.Session()
-    session.headers["User-Agent"] = CHROME_UA
-
-    r = session.post(
-        "https://substack.com/api/v1/login",
-        json={"redirect": "/", "for_pub": "", "email": email, "password": password, "captcha_response": None},
-        timeout=30,
-    )
-
-    if r.status_code == 401:
-        raise ValueError("Substack login failed — check email/password")
-    if r.status_code == 403:
-        error_msg = r.text[:200]
-        if "captcha" in error_msg.lower():
-            raise ValueError("Substack login requires CAPTCHA — try again later or use cookie-based auth")
-        raise ValueError(f"Substack login forbidden: {error_msg}")
-    r.raise_for_status()
-
-    # Extract the session cookie
-    sid = session.cookies.get("substack.sid", domain=".substack.com")
-    if not sid:
-        sid = session.cookies.get("connect.sid", domain=".substack.com")
-    if not sid:
-        # Check all cookies
-        for cookie in session.cookies:
-            if cookie.name in ("substack.sid", "connect.sid"):
-                sid = cookie.value
-                break
-
-    if not sid:
-        raise ValueError("Login succeeded but no session cookie received")
-
-    log.info("Logged in to Substack as %s", email)
-    _session = session
-    _sid_cookie = sid
-    return session
-
-
-def _get_session() -> requests.Session:
-    """Get an authenticated session, logging in if needed."""
-    global _session
-    if _session is None:
-        _login()
-    return _session
-
-
-def _get_sid() -> str:
-    """Get the current session cookie value (for passing to crawl4ai)."""
-    global _sid_cookie
-    if _sid_cookie is None:
-        _login()
-    return _sid_cookie
-
-
-def _authed_get(url: str, **kwargs) -> requests.Response:
-    """GET with auto re-login on 401/403."""
-    session = _get_session()
-    r = session.get(url, timeout=kwargs.pop("timeout", 30), **kwargs)
-    if r.status_code in (401, 403):
-        log.info("Session expired, re-logging in")
-        _login()
-        session = _get_session()
-        r = session.get(url, timeout=30, **kwargs)
-    return r
-
-
-def _get_substack_auth() -> SubstackAuth:
-    """Build SubstackAuth for the substack-api library using our session cookie."""
-    import tempfile
-
-    sid = _get_sid()
-    cookies = [
-        {"name": "substack.sid", "value": sid, "domain": ".substack.com", "path": "/", "secure": True},
-    ]
-    cookies_file = os.path.join(tempfile.gettempdir(), "substack_cookies.json")
-    with open(cookies_file, "w") as f:
-        json.dump(cookies, f)
-    return SubstackAuth(cookies_file)
 
 
 def _post_to_dict(post_data: dict) -> dict:
@@ -254,6 +165,15 @@ def _fetch_via_crawl4ai(post_url: str) -> str | None:
     return None
 
 
+def _build_header(meta: dict) -> str:
+    """Build markdown header from post metadata."""
+    header = f"# {meta.get('title', '')}\n"
+    if meta.get("subtitle"):
+        header += f"*{meta['subtitle']}*\n"
+    header += f"\n**Date:** {meta.get('post_date', 'Unknown')} | **Words:** {meta.get('wordcount', 'N/A')}\n\n---\n\n"
+    return header
+
+
 @mcp.tool()
 def list_subscriptions() -> str:
     """List the user's Substack subscriptions.
@@ -280,7 +200,6 @@ def list_posts(publication_url: str, limit: int = 10, sort: str = "new") -> str:
         limit: Maximum number of posts to return (default 10)
         sort: Sort order — "new", "top", or "pinned"
     """
-    # Auth not needed for listing post metadata (titles, dates, etc.)
     newsletter = Newsletter(publication_url)
     posts = newsletter.get_posts(sorting=sort, limit=limit)
     results = []
@@ -305,32 +224,27 @@ def get_post(post_url: str) -> str:
     2. If paid post: delegate to crawl4ai for JS-rendered full content
     3. If free post: use API body_html directly
     """
-    # Get metadata + body from API
+    # Get metadata + body from API (unauthenticated — metadata always available)
     api_data = _fetch_via_api(post_url)
     meta = api_data or {}
-    is_paid = meta.get("audience") == "only_paid"
-    is_truncated = "truncated_body_text" in (api_data or {})
+    is_truncated = "truncated_body_text" in meta
 
-    html_content = ""
-
-    if is_paid or is_truncated:
+    if is_truncated:
         # Paid content: API always truncates. Use crawl4ai for JS rendering.
         crawl_md = _fetch_via_crawl4ai(post_url)
         if crawl_md:
-            header = f"# {meta.get('title', '')}\n"
-            if meta.get("subtitle"):
-                header += f"*{meta['subtitle']}*\n"
-            header += f"\n**Date:** {meta.get('post_date', 'Unknown')} | **Words:** {meta.get('wordcount', 'N/A')}\n\n---\n\n"
-            return header + crawl_md
+            return _build_header(meta) + crawl_md
 
-    # Free content or crawl4ai failed: use API body_html
+    # Free content or crawl4ai unavailable: use API body_html
+    html_content = ""
     if api_data and api_data.get("body_html"):
         html_content = api_data["body_html"]
     else:
-        # Last resort: substack-api library (unauthenticated — may be truncated)
+        # Fallback: substack-api library
         post = Post(post_url)
+        fallback_meta = post.get_metadata()
         if not meta:
-            meta = post.get_metadata()
+            meta = fallback_meta
         html_content = post.get_content() or ""
 
     if not html_content:
@@ -338,12 +252,10 @@ def get_post(post_url: str) -> str:
 
     md_content = markdownify.markdownify(html_content, heading_style="ATX", strip=["img"])
 
-    header = f"# {meta.get('title', '')}\n"
-    if meta.get("subtitle"):
-        header += f"*{meta['subtitle']}*\n"
-    header += f"\n**Date:** {meta.get('post_date', 'Unknown')} | **Words:** {meta.get('wordcount', 'N/A')}\n\n---\n\n"
+    if is_truncated:
+        return _build_header(meta) + "*Note: Content truncated — crawl4ai unavailable for full paid content.*\n\n" + md_content
 
-    return header + md_content
+    return _build_header(meta) + md_content
 
 
 @mcp.tool()
@@ -355,7 +267,6 @@ def search_posts(publication_url: str, query: str, limit: int = 10) -> str:
         query: Search query string
         limit: Maximum number of results (default 10)
     """
-    # Auth not needed for searching post metadata
     newsletter = Newsletter(publication_url)
     posts = newsletter.search_posts(query, limit=limit)
     results = []
