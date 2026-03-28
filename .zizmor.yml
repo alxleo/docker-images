@@ -3,8 +3,3 @@ rules:
   dependabot-cooldown:
     ignore:
       - dependabot.yml
-  # release-please needs a PAT to trigger CI on its PRs. Personal repo,
-  # no environment gates needed.
-  secrets-outside-env:
-    ignore:
-      - release-please.yml
