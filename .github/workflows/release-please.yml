@@ -34,3 +34,11 @@ jobs:
           manifest-file: .release-please-manifest.json
           # zizmor: ignore[secrets-outside-env] — personal repo, no environment gates needed
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      # Auto-merge the release PR — solo dev, all commits already reviewed via PRs
+      - name: Auto-merge release PR
+        if: steps.release.outputs.pr
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_NUMBER: ${{ steps.release.outputs.pr }}
+        run: gh pr merge "$PR_NUMBER" --squash --auto
