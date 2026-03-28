@@ -1,0 +1,6 @@
+{
+  "platforms": "linux/amd64,linux/arm64",
+  "test_commands": [
+    "docker run --rm $IMAGE_REF sh -c \"dagu version && restic version && rclone version | head -1 && docker --version && ssh -V 2>&1 && curl --version | head -1\""
+  ]
+}

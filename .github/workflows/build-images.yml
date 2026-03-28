@@ -3,7 +3,7 @@
 # Triggers:
 #   - Pull requests: build-only (no push) + security scan — gates merge
 #   - Push to main: build + scan + push to ghcr.io as :latest
-#   - Tags (pr-reviewer/v*): build + scan + push as :vX.Y.Z + :latest
+#   - Tags (*/v*): build + scan + push as :vX.Y.Z + :latest
 #   - Manual dispatch: build + scan + push (all images)
 #
 # Bot PRs (Dependabot, etc): Only lint + change detection run.
@@ -16,19 +16,10 @@
 #   - scanners: vuln — vulnerability scanning only (gitleaks handles secrets)
 #   - severity: CRITICAL — only block on critical CVEs
 #   - ignore-unfixed: true — skip base-image CVEs without patches
-#     Known unfixable (as of 2026-02): CVE-2025-7458 (libsqlite3, Debian 12),
-#     CVE-2023-45853 (zlib1g, Debian 12 will_not_fix).
-#     Revisit when: Debian 13 (trixie) base images are available, or when
-#     node:XX-slim moves to a newer Debian release.
 #
-# Images:
-#   - caddy-cloudflare: Caddy + Cloudflare DNS plugin for ACME DNS-01
-#   - cadvisor: v0.56.2 built from source (Docker 29+ compat fix)
-#   - git-mcp-server: Git repo management with native HTTP transport
-#   - mcp-auth-proxy: OAuth proxy with VARCHAR(255) fix (sigbit/mcp-auth-proxy#111)
-#   - pr-reviewer: AI PR reviewer with Claude/Gemini/Codex CLIs + GitHub CLI
-#   - semaphore: Semaphore UI + homelab tools (sops, age, dig, jq, rsync) — arm64 only
-#   - mcp-*: 15 MCP service images (npm + python based)
+# Auto-discovery: any directory with a Dockerfile + optional .ci.json is an image.
+# discover-images.sh generates the matrix; individual image jobs are replaced by
+# a single matrix job (custom-images). MCP images keep their own matrix pipeline.
 
 name: Build Custom Images
 
@@ -39,34 +30,8 @@ concurrency:
 on:
   push:
     branches: [main]
-    tags: ['pr-reviewer/v*']
-    paths:
-      - 'caddy-cloudflare/**'
-      - 'cadvisor/**'
-      - 'git-mcp-server/**'
-      - 'mcp-auth-proxy/**'
-      - 'pr-reviewer/**'
-      - 'semaphore/**'
-      - 'dagu-ops/**'
-      - 'mcp/**'
-      - 'mcp-images.json'
-      - 'custom-images.json'
-      - 'test/**'
+    tags: ['*/v*']
   pull_request:
-    paths:
-      - 'caddy-cloudflare/**'
-      - 'cadvisor/**'
-      - 'git-mcp-server/**'
-      - 'mcp-auth-proxy/**'
-      - 'pr-reviewer/**'
-      - 'semaphore/**'
-      - 'dagu-ops/**'
-      - 'mcp/**'
-      - 'mcp-images.json'
-      - 'custom-images.json'
-      - 'images.json'
-      - 'test/**'
-      - '.github/workflows/build-images.yml'
   workflow_dispatch:
 
 permissions:
@@ -78,57 +43,83 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Detect which image directories actually changed.
-  # workflow_dispatch skips detection and builds everything.
-  changes:
-    name: Detect changed images
-    if: github.event_name != 'workflow_dispatch'
+  # ---------------------------------------------------------------------------
+  # Discovery + change detection
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Discover images
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read  # dorny/paths-filter needs PR file list
+      pull-requests: read
     outputs:
-      caddy-cloudflare: ${{ steps.filter.outputs.caddy-cloudflare }}
-      cadvisor: ${{ steps.filter.outputs.cadvisor }}
-      git-mcp-server: ${{ steps.filter.outputs.git-mcp-server }}
-      mcp-auth-proxy: ${{ steps.filter.outputs.mcp-auth-proxy }}
-      pr-reviewer: ${{ steps.filter.outputs.pr-reviewer }}
-      semaphore: ${{ steps.filter.outputs.semaphore }}
-      dagu-ops: ${{ steps.filter.outputs.dagu-ops }}
-      mcp: ${{ steps.filter.outputs.mcp }}
+      matrix: ${{ steps.matrix.outputs.result }}
+      changed: ${{ steps.changes.outputs.changed }}
+      mcp_changed: ${{ steps.changes.outputs.mcp_changed }}
+      e2e_changed: ${{ steps.changes.outputs.e2e_changed }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
-        id: filter
-        with:
-          filters: |
-            caddy-cloudflare:
-              - 'caddy-cloudflare/**'
-              - 'custom-images.json'
-              - 'test/**'
-            cadvisor:
-              - 'cadvisor/**'
-              - 'custom-images.json'
-            git-mcp-server:
-              - 'git-mcp-server/**'
-              - 'custom-images.json'
-            mcp-auth-proxy:
-              - 'mcp-auth-proxy/**'
-              - 'custom-images.json'
-            pr-reviewer:
-              - 'pr-reviewer/**'
-            semaphore:
-              - 'semaphore/**'
-              - 'custom-images.json'
-            dagu-ops:
-              - 'dagu-ops/**'
-              - 'custom-images.json'
-            mcp:
-              - 'mcp/**'
-              - 'mcp-images.json'
-              - 'test/**'
 
+      - name: Discover images
+        id: matrix
+        run: |
+          result=$(bash scripts/discover-images.sh)
+          echo "result=${result}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect changed directories
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            {
+              echo "changed=[]"
+              echo "mcp_changed=true"
+              echo "e2e_changed=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get changed files between base and head
+          if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            changed_files=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null || echo "")
+          else
+            # First push or missing base — build everything
+            {
+              echo "changed=[]"
+              echo "mcp_changed=true"
+              echo "e2e_changed=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Build JSON array of changed top-level directories
+          changed_dirs=$(echo "$changed_files" | cut -d/ -f1 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+          # MCP changed if mcp/ dir, mcp-images.json, or test/ changed
+          mcp_changed="false"
+          if echo "$changed_files" | grep -qE '^(mcp/|mcp-images\.json|test/)'; then
+            mcp_changed="true"
+          fi
+
+          # E2E changed if mcp or caddy-cloudflare changed (E2E tests the full stack)
+          e2e_changed="false"
+          if echo "$changed_files" | grep -qE '^(mcp/|mcp-images\.json|caddy-cloudflare/|test/)'; then
+            e2e_changed="true"
+          fi
+
+          {
+            echo "changed=${changed_dirs}"
+            echo "mcp_changed=${mcp_changed}"
+            echo "e2e_changed=${e2e_changed}"
+          } >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Security scan (PRs only)
+  # ---------------------------------------------------------------------------
   security-scan:
     name: Gitleaks secret scan
     if: github.event_name == 'pull_request'
@@ -142,508 +133,179 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  caddy-cloudflare:
-    name: Caddy + Cloudflare DNS
-    needs: changes
+  # ---------------------------------------------------------------------------
+  # Custom images — single matrix job replacing 7+ individual jobs
+  #
+  # Flow per image: discover -> should-build? -> build+scan -> test -> push
+  # The composite action runs with is_pr=true (build+scan only).
+  # Push is handled inline after tests pass — avoids double build.
+  # ---------------------------------------------------------------------------
+  custom-images:
+    name: ${{ matrix.name }}
+    needs: [discover]
     if: >-
-      always() &&
-      (needs.changes.outputs.caddy-cloudflare == 'true' || github.event_name == 'workflow_dispatch') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - name: Read image tag from manifest
-        run: |
-          TAG=$(jq -r '.[] | select(.name == "caddy-cloudflare") | .tag' custom-images.json)
-          VERSION=$(jq -r '.["caddy-cloudflare"] // empty' .release-please-manifest.json)
-          {
-            echo "IMAGE_TAG=${TAG}"
-            echo "IMAGE_REF=${REGISTRY}/${OWNER}/caddy-cloudflare:${TAG}"
-            echo "VERSION=${VERSION:-}"
-          } >> "$GITHUB_ENV"
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: caddy-cloudflare
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: |
-            ${{ env.IMAGE_REF }}
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ${{ env.IMAGE_REF }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: caddy-cloudflare/.trivyignore
-      - name: Validate test Caddyfile
-        env:
-          WORKSPACE: ${{ github.workspace }}
-        run: |
-          docker run --rm -v "${WORKSPACE}/test:/test" \
-            "${IMAGE_REF}" \
-            caddy validate --config /test/Caddyfile.test --adapter caddyfile
-      - name: Run Caddy routing E2E tests
-        run: |
-          cd test
-          docker compose -f docker-compose.test.yml up -d --build --wait
-          bash test-caddy-routing.sh
-          docker compose -f docker-compose.test.yml down
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-        with:
-          enable-cache: false
-      - name: Functional tests
-        env:
-          TEST_CADDY_CLOUDFLARE_TAG: ${{ env.IMAGE_REF }}
-        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m caddy_cloudflare -v
-      - name: Push to GHCR
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push "${IMAGE_REF}"
-          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:${VERSION}"
-            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:${VERSION}"
-          fi
-          docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/caddy-cloudflare:latest
-
-  cadvisor:
-    name: cAdvisor (Docker 29+ build)
-    needs: changes
-    if: >-
-      always() &&
-      (needs.changes.outputs.cadvisor == 'true' || github.event_name == 'workflow_dispatch') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - name: Read image tag from manifest
-        run: |
-          TAG=$(jq -r '.[] | select(.name == "cadvisor") | .tag' custom-images.json)
-          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "IMAGE_REF=${REGISTRY}/${OWNER}/cadvisor:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["cadvisor"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: cadvisor
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: |
-            ${{ env.IMAGE_REF }}
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ${{ env.IMAGE_REF }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: cadvisor/.trivyignore
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-        with:
-          enable-cache: false
-      - name: Functional tests
-        env:
-          TEST_CADVISOR_TAG: ${{ env.IMAGE_REF }}
-        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m cadvisor -v
-      - name: Push to GHCR
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push "${IMAGE_REF}"
-          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:${VERSION}"
-            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:${VERSION}"
-          fi
-          docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/cadvisor:latest
-
-  git-mcp-server:
-    name: Git MCP Server
-    needs: changes
-    if: >-
-      always() &&
-      (needs.changes.outputs.git-mcp-server == 'true' || github.event_name == 'workflow_dispatch') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - name: Read image tag from manifest
-        run: |
-          TAG=$(jq -r '.[] | select(.name == "mcp-git") | .tag' custom-images.json)
-          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "IMAGE_REF=${REGISTRY}/${OWNER}/mcp-git:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["git-mcp-server"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: git-mcp-server
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: |
-            ${{ env.IMAGE_REF }}
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ${{ env.IMAGE_REF }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-        with:
-          enable-cache: false
-      - name: Functional tests
-        env:
-          TEST_GIT_MCP_TAG: ${{ env.IMAGE_REF }}
-        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m git_mcp_server -v
-      - name: Push to GHCR
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push "${IMAGE_REF}"
-          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:${VERSION}"
-            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:${VERSION}"
-          fi
-          docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-git:latest
-
-  mcp-auth-proxy:
-    name: MCP Auth Proxy (VARCHAR fix)
-    needs: changes
-    if: >-
-      always() &&
-      (needs.changes.outputs.mcp-auth-proxy == 'true' || github.event_name == 'workflow_dispatch') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - name: Read image tag from manifest
-        run: |
-          TAG=$(jq -r '.[] | select(.name == "mcp-auth-proxy") | .tag' custom-images.json)
-          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "IMAGE_REF=${REGISTRY}/${OWNER}/mcp-auth-proxy:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["mcp-auth-proxy"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: mcp-auth-proxy
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: |
-            ${{ env.IMAGE_REF }}
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ${{ env.IMAGE_REF }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: mcp-auth-proxy/.trivyignore
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-        with:
-          enable-cache: false
-      - name: Functional tests
-        env:
-          TEST_MCP_AUTH_PROXY_TAG: ${{ env.IMAGE_REF }}
-        run: uv run --with pytest --with requests -- python -m pytest test/test_custom_images.py -m mcp_auth_proxy -v
-      - name: Push to GHCR
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push "${IMAGE_REF}"
-          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker tag "${IMAGE_REF}" "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:${VERSION}"
-            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:${VERSION}"
-          fi
-          docker push ${{ env.REGISTRY }}/${{ env.OWNER }}/mcp-auth-proxy:latest
-
-  pr-reviewer:
-    name: PR Reviewer
-    needs: changes
-    if: >-
-      always() &&
-      (needs.changes.outputs.pr-reviewer == 'true' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/pr-reviewer/v')) &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - name: Read version from manifest
-        run: |
-          VERSION=$(jq -r '.["pr-reviewer"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
-        if: github.event_name != 'pull_request'
-        with:
-          platforms: arm64
-      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
-        with:
-          # BuildKit image mirrored to GHCR — avoids Docker Hub rate limits entirely.
-          # To update: docker pull moby/buildkit:vX.Y.Z && docker tag ... && docker push ghcr.io/alxleo/buildkit:vX.Y.Z
-          driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["mirror.gcr.io"]
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      # Single-platform build loaded into local Docker for smoke tests + Trivy
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: pr-reviewer
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: |
-            ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
-            ghcr.io/alxleo/pr-reviewer:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: pr-reviewer/.trivyignore
-      - name: Smoke test — CLIs installed
-        run: |
-          docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
-            sh -c "claude --version && gh --version && gemini --version && codex --version"
-      - name: Smoke test — watcher imports
-        run: |
-          docker run --rm ghcr.io/alxleo/pr-reviewer:${{ github.sha }} \
-            python3 -c "import yaml, json, subprocess, pathlib; print('imports OK')"
-      - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-        with:
-          enable-cache: false  # no cache in a job that pushes images (zizmor cache-poisoning)
-      - name: Install ripgrep (needed for repomap graph expansion)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
-      - name: Unit tests
-        run: uv run --with pytest --with pyyaml --with httpx --with grep-ast --with tree-sitter-language-pack -- python -m pytest pr-reviewer/tests/ -v
-      # Multi-arch build + push (amd64 + arm64) — after tests pass, only on main/tags
-      - name: Build and push multi-arch image
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        if: github.event_name != 'pull_request'
-        with:
-          context: pr-reviewer
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ghcr.io/alxleo/pr-reviewer:${{ github.sha }}
-            ghcr.io/alxleo/pr-reviewer:latest
-            ${{ startsWith(github.ref, 'refs/tags/') && env.VERSION && format('ghcr.io/alxleo/pr-reviewer:{0}', env.VERSION) || '' }}
-
-  semaphore:
-    name: Semaphore UI + homelab tools
-    needs: changes
-    if: >-
-      always() &&
-      (needs.changes.outputs.semaphore == 'true' || github.event_name == 'workflow_dispatch') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - name: Read image tag from manifest
-        run: |
-          TAG=$(jq -r '.[] | select(.name == "semaphore") | .tag' custom-images.json)
-          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "IMAGE_REF=${REGISTRY}/${OWNER}/semaphore:${TAG}" >> "$GITHUB_ENV"
-          VERSION=$(jq -r '.["semaphore"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
-        with:
-          platforms: arm64
-      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
-        with:
-          # BuildKit image mirrored to GHCR — avoids Docker Hub rate limits entirely.
-          # To update: docker pull moby/buildkit:vX.Y.Z && docker tag ... && docker push ghcr.io/alxleo/buildkit:vX.Y.Z
-          driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["mirror.gcr.io"]
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: semaphore
-          platforms: linux/arm64
-          push: false
-          load: true
-          tags: |
-            ${{ env.IMAGE_REF }}
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ${{ env.IMAGE_REF }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: semaphore/.trivyignore
-      - name: Smoke test — tools installed
-        run: |
-          docker run --rm --platform linux/arm64 "$IMAGE_REF" \
-            sh -c "sops --version && age --version && dig -v 2>&1 && curl --version | head -1 && jq --version && rsync --version | head -1 && just --version && uv --version && tailscale version && docker --version"
-      - name: Push to GHCR
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push "$IMAGE_REF"
-          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker tag "$IMAGE_REF" "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:${VERSION}"
-            docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:${VERSION}"
-          fi
-          docker push "${{ env.REGISTRY }}/${{ env.OWNER }}/semaphore:latest"
-
-  dagu-ops:
-    name: Dagu ops control plane
-    needs: changes
-    if: >-
-      always() &&
-      (needs.changes.outputs.dagu-ops == 'true' || github.event_name == 'workflow_dispatch') &&
+      needs.discover.result == 'success' &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
+      # --- Skip unchanged images (workflow_dispatch builds all) ---
+      - name: Check if image changed
+        id: should-build
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED_DIRS: ${{ needs.discover.outputs.changed }}
+          IMAGE_CONTEXT: ${{ matrix.context }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Build if image dir, test/, or .github/ changed; empty changed=[] means build all
+          if [ "$CHANGED_DIRS" = "[]" ] || echo "$CHANGED_DIRS" | jq -e --arg dir "$IMAGE_CONTEXT" \
+            '. as $d | ($dir | IN($d[])) or ("test" | IN($d[])) or (".github" | IN($d[]))' > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping ${{ matrix.name }} — no changes detected"
+          fi
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        if: steps.should-build.outputs.build == 'true'
         with:
           persist-credentials: false
+
+      # --- Read VERSION from release-please manifest ---
       - name: Read version from manifest
+        if: steps.should-build.outputs.build == 'true'
+        id: version
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
         run: |
-          VERSION=$(jq -r '.["dagu-ops"] // empty' .release-please-manifest.json 2>/dev/null) && VERSION=${VERSION:-}
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+          VERSION=$(jq -r --arg name "$IMAGE_NAME" '.[$name] // empty' .release-please-manifest.json)
+          echo "version=${VERSION:-}" >> "$GITHUB_OUTPUT"
+
+      # --- Resolve tag (pr-reviewer uses github.sha, others use .ci.json tag) ---
+      - name: Resolve image tag
+        if: steps.should-build.outputs.build == 'true'
+        id: tag
+        env:
+          CI_TAG: ${{ matrix.tag }}
+          IMAGE_NAME: ${{ matrix.name }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          if [ "$IMAGE_NAME" = "pr-reviewer" ]; then
+            echo "tag=${GIT_SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${CI_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Build + Trivy scan (no push — tests run first) ---
+      - name: Build & scan
+        if: steps.should-build.outputs.build == 'true'
+        id: build
+        uses: ./.github/actions/build-image
         with:
-          # BuildKit image mirrored to GHCR — avoids Docker Hub rate limits entirely.
-          # To update: docker pull moby/buildkit:vX.Y.Z && docker tag ... && docker push ghcr.io/alxleo/buildkit:vX.Y.Z
-          driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["mirror.gcr.io"]
-      - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        if: github.event_name != 'pull_request'
+          name: ${{ matrix.name }}
+          context: ${{ matrix.context }}
+          tag: ${{ steps.tag.outputs.tag }}
+          platforms: ${{ matrix.platforms }}
+          trivyignore: ${{ matrix.trivyignore }}
+          push_method: ${{ matrix.push_method }}
+          is_pr: 'true'
+
+      # --- Test setup (install uv, ripgrep, etc.) ---
+      - name: Test setup
+        if: steps.should-build.outputs.build == 'true' && matrix.test_setup != ''
+        env:
+          TEST_SETUP: ${{ matrix.test_setup }}
+        run: bash -c "$TEST_SETUP"
+
+      # --- Run test commands ---
+      - name: Run tests
+        if: steps.should-build.outputs.build == 'true' && toJson(matrix.test_commands) != '[]'
+        env:
+          IMAGE_REF: ${{ steps.build.outputs.image-ref }}
+          TEST_COMMANDS: ${{ toJson(matrix.test_commands) }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t cmds < <(echo "$TEST_COMMANDS" | jq -r '.[]')
+          for cmd in "${cmds[@]}"; do
+            echo "::group::${cmd}"
+            bash -c "$cmd"
+            echo "::endgroup::"
+          done
+
+      # --- GHCR login (non-PR only, before push) ---
+      - name: Login to GHCR
+        if: steps.should-build.outputs.build == 'true' && github.event_name != 'pull_request'
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: dagu-ops
-          platforms: linux/amd64,linux/arm64
-          push: false
-          load: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:latest
-      - name: Build for local test (single platform)
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: dagu-ops
-          push: false
-          load: true
-          tags: dagu-ops:test
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: dagu-ops:test
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: dagu-ops/.trivyignore
-      - name: Smoke test — tools installed
+
+      # --- Push via docker (single-platform images already loaded) ---
+      - name: Push via docker
+        if: >-
+          steps.should-build.outputs.build == 'true' &&
+          github.event_name != 'pull_request' &&
+          matrix.push_method == 'docker'
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          docker run --rm dagu-ops:test sh -c \
-            "dagu version && restic version && rclone version | head -1 && docker --version && ssh -V 2>&1 && curl --version | head -1"
-      - name: Push to GHCR
-        if: github.event_name != 'pull_request'
+          docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
+          docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
+          if [ -n "${IMAGE_VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker tag "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}" \
+              "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
+            docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
+          fi
+
+      # --- Push via buildx (multi-platform rebuild + push) ---
+      - name: Push via buildx
+        if: >-
+          steps.should-build.outputs.build == 'true' &&
+          github.event_name != 'pull_request' &&
+          matrix.push_method == 'buildx'
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_VERSION: ${{ steps.version.outputs.version }}
+          IMAGE_PLATFORMS: ${{ matrix.platforms }}
+          IMAGE_CONTEXT: ${{ matrix.context }}
         run: |
-          version_tag=""
-          if [ -n "${VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            version_tag="-t ${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:${VERSION}"
+          TAGS="-t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
+          TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:latest"
+          if [ -n "${IMAGE_VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
           fi
           # shellcheck disable=SC2086
-          docker buildx build --platform linux/amd64,linux/arm64 \
+          docker buildx build \
+            --platform "${IMAGE_PLATFORMS}" \
             --push \
-            -t "${{ env.REGISTRY }}/${{ env.OWNER }}/dagu-ops:latest" \
-            $version_tag \
-            dagu-ops/
+            ${TAGS} \
+            "${IMAGE_CONTEXT}/"
 
+  # ---------------------------------------------------------------------------
+  # MCP images — separate pipeline (own matrix, smoke tests, E2E)
+  # ---------------------------------------------------------------------------
   load-mcp-matrix:
     name: Load MCP build matrix
-    needs: changes
+    needs: discover
     if: >-
       always() &&
-      (needs.changes.outputs.mcp == 'true' || github.event_name == 'workflow_dispatch') &&
+      (needs.discover.outputs.mcp_changed == 'true' || github.event_name == 'workflow_dispatch') &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     outputs:
@@ -663,8 +325,8 @@ jobs:
       needs.load-mcp-matrix.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: read   # checkout
-      packages: write  # push to GHCR
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -707,12 +369,12 @@ jobs:
           docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
           docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
 
-  # Smoke test: validates entrypoint.py → mcp-proxy → MCP server chain
+  # Smoke test: validates entrypoint.py -> mcp-proxy -> MCP server chain
   # Runs 2 canary images (1 npm, 1 Python) through the full MCP handshake.
   # No API keys needed — initialize and tools/list work without auth.
   mcp-smoke-test:
     name: MCP smoke (${{ matrix.name }})
-    needs: [changes, load-mcp-matrix, mcp-images]
+    needs: [discover, load-mcp-matrix, mcp-images]
     if: >-
       always() &&
       needs.mcp-images.result == 'success'
@@ -780,17 +442,17 @@ jobs:
             docker logs "$c" 2>&1 | tail -50
           done
 
-  # E2E stack test: full Caddy → mcp-proxy → MCP server contract validation
+  # E2E stack test: full Caddy -> mcp-proxy -> MCP server contract validation
   # Spins up Caddy + both canaries (npm: hackernews, Python: arxiv).
   # Tests: health endpoint contract (/ping), prefix stripping, MCP protocol
   # handshake, session headers, TLS with internal certs, service discovery.
   # This is the contract test that downstream repos (homelab) depend on.
   mcp-e2e-test:
     name: MCP E2E stack test
-    needs: changes
+    needs: discover
     if: >-
       always() &&
-      (needs.changes.outputs.caddy-cloudflare == 'true' || needs.changes.outputs.mcp == 'true'
+      (needs.discover.outputs.e2e_changed == 'true'
        || github.event_name == 'workflow_dispatch') &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest

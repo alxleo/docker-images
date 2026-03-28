@@ -57,6 +57,11 @@ repos:
         language: system
         files: ^pr-reviewer/scripts/.*\.py$
         types: [python]
+      - id: no-unicode-in-config
+        name: No unicode in config files
+        entry: bash -c 'for f in "$@"; do if LC_ALL=C grep -n "[^[:print:][:space:]]" "$f"; then echo "Non-ASCII in $f - use plain ASCII"; exit 1; fi; done' --
+        language: system
+        files: '\.(trivyignore|env|cfg|ini|conf)$|\.ci\.json$'
       - id: block-secret-files
         name: Block secret/env files
         entry: "Found a file that should never be committed to a public repo"
