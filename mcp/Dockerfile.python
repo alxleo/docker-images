@@ -33,6 +33,7 @@ RUN apt-get update && \
 
 # Stage 2: Runtime (no curl)
 FROM ghcr.io/alxleo/base-images/node:24-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 # Install Python 3.11+, git (for git+ packages), and entrypoint deps
 # No curl needed — uv copied from build stage, healthcheck uses microcheck

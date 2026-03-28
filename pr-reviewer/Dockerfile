@@ -24,6 +24,7 @@
 #   openai_api_key             — OpenAI/Codex API key (optional)
 
 FROM ghcr.io/alxleo/base-images/node:22-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
