@@ -1,5 +1,5 @@
 # Auto-versioning: conventional commits → version bumps + CHANGELOGs + GitHub Releases.
-# Auto-merges immediately — release PRs only change changelogs, no CI needed.
+# Enables auto-merge on release PRs — they merge once branch protection is satisfied.
 
 name: Release Please
 
@@ -26,4 +26,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.release.outputs.pr }}
-        run: gh pr merge "$PR_NUMBER" --squash --auto --delete-branch
+        run: gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --auto --delete-branch
