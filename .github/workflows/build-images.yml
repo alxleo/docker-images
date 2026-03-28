@@ -148,7 +148,7 @@ jobs:
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write   # push git tags for build versions
       packages: write
     strategy:
       fail-fast: false
@@ -179,17 +179,29 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         if: steps.should-build.outputs.build == 'true'
         with:
-          persist-credentials: false
+          fetch-depth: 0
+          persist-credentials: true
 
-      # --- Read VERSION from release-please manifest ---
-      - name: Read version from manifest
-        if: steps.should-build.outputs.build == 'true'
+      # --- Compute build version: {base}-build.{N} ---
+      # Base version from .ci.json tag. Build counter from git tags.
+      - name: Compute version
+        if: steps.should-build.outputs.build == 'true' && github.event_name != 'pull_request'
         id: version
         env:
           IMAGE_NAME: ${{ matrix.name }}
+          BASE_TAG: ${{ matrix.tag }}
         run: |
-          VERSION=$(jq -r --arg name "$IMAGE_NAME" '.[$name] // empty' .release-please-manifest.json)
-          echo "version=${VERSION:-}" >> "$GITHUB_OUTPUT"
+          PREFIX="${IMAGE_NAME}/${BASE_TAG}-build."
+          LATEST=$(git tag -l "${PREFIX}*" --sort=-v:refname | head -1)
+          if [ -n "$LATEST" ]; then
+            N="${LATEST#"$PREFIX"}"
+            NEXT=$((N + 1))
+          else
+            NEXT=1
+          fi
+          VERSION="${BASE_TAG}-build.${NEXT}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${IMAGE_NAME}/${VERSION}" >> "$GITHUB_OUTPUT"
 
       # --- Resolve tag (pr-reviewer uses github.sha, others use .ci.json tag) ---
       - name: Resolve image tag
@@ -266,7 +278,7 @@ jobs:
         run: |
           docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
           docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
-          if [ -n "${IMAGE_VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          if [ -n "${IMAGE_VERSION}" ]; then
             docker tag "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}" \
               "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
             docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
@@ -287,7 +299,7 @@ jobs:
         run: |
           TAGS="-t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
           TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:latest"
-          if [ -n "${IMAGE_VERSION}" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          if [ -n "${IMAGE_VERSION}" ]; then
             TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
           fi
           # shellcheck disable=SC2086
@@ -296,6 +308,18 @@ jobs:
             --push \
             ${TAGS} \
             "${IMAGE_CONTEXT}/"
+
+      # --- Create git tag for build version ---
+      - name: Tag build version
+        if: >-
+          steps.should-build.outputs.build == 'true' &&
+          github.event_name != 'pull_request' &&
+          steps.version.outputs.tag_name
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+        run: |
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
 
   # ---------------------------------------------------------------------------
   # MCP images — separate pipeline (own matrix, smoke tests, E2E)
