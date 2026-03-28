@@ -1,8 +1,11 @@
 # Auto-versioning via release-please.
 #
-# On push to main: scans conventional commits, opens a release PR per
-# component with version bump + CHANGELOG. On merge of release PR:
-# creates GitHub Release + git tag.
+# On push to main: scans conventional commits, opens/updates a grouped
+# release PR with version bumps + CHANGELOGs. On merge of the release PR:
+# creates GitHub Releases + git tags per component.
+#
+# Uses a PAT (RELEASE_PLEASE_TOKEN) instead of GITHUB_TOKEN so that
+# the release PR triggers CI workflows (GITHUB_TOKEN can't do this).
 #
 # Components: pr-reviewer, caddy-cloudflare, cadvisor, git-mcp-server,
 # mcp-auth-proxy, semaphore, dagu-ops, mcp (shared for all MCP images).
@@ -23,12 +26,11 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4
         id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          # zizmor: ignore[secrets-outside-env] — personal repo, no environment gates needed
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
