@@ -1,5 +1,5 @@
 # hadolint ignore=DL3029
-FROM --platform=linux/arm64 semaphoreui/semaphore@sha256:b321b08f9f39a1dbf2d38b577d53aafa0079e528f7c0f47fecc64af2a077fea0
+FROM --platform=linux/arm64 semaphoreui/semaphore@sha256:a2afaa57b25e9b3b5c6ca8bd92c8924dfd90d5de981da69c8885958692709473
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 USER root
