@@ -5,6 +5,6 @@
   "git-mcp-server": "2.10.3",
   "mcp-auth-proxy": "2.5.3",
   "semaphore": "2.17.16",
-  "dagu-ops": "1.0.0",
+  "dagu-ops": "1.0.1",
   "mcp": "1.0.0"
 }
