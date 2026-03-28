@@ -77,8 +77,8 @@ runs:
         platforms: ${{ contains(inputs.platforms, ',') && format('linux/{0}', runner.arch == 'ARM64' && 'arm64' || 'amd64') || inputs.platforms }}
         push: false
         load: true
-        cache-from: type=gha,scope=${{ inputs.scope }}
-        cache-to: type=gha,scope=${{ inputs.scope }},mode=max
+        cache-from: type=gha,scope=${{ inputs.scope || inputs.name }}
+        cache-to: type=gha,scope=${{ inputs.scope || inputs.name }},mode=max
         tags: |
           ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
           ghcr.io/alxleo/${{ inputs.name }}:latest
