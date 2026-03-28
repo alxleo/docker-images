@@ -17,6 +17,7 @@ RUN sed -i 's/size:255/size:512/g' pkg/repository/sql.go
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
 
 FROM ghcr.io/alxleo/base-images/debian:bookworm-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*

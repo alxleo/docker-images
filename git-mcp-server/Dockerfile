@@ -12,6 +12,7 @@
 # Docker secrets: /run/secrets/git_token → GIT_TOKEN (for private repo cloning)
 
 FROM ghcr.io/alxleo/base-images/node:24-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 # Git + SSH for clone/pull operations, openssh-client for SSH-based remotes
 RUN apt-get update && \

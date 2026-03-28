@@ -11,6 +11,7 @@
 
 ARG DAGU_VERSION=2.3.7
 FROM ghcr.io/dagu-org/dagu:${DAGU_VERSION}
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 # ARG names avoid RCLONE_ prefix — rclone interprets RCLONE_* env vars as CLI flags
 ARG RESTIC_VERSION=0.18.1

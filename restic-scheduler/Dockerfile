@@ -15,6 +15,7 @@ ARG RESTICKER_VERSION=1.8.2
 ARG SUPERCRONIC_VERSION=0.2.44
 
 FROM mazzolino/restic:${RESTICKER_VERSION}
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ARG SUPERCRONIC_VERSION
 ARG TARGETARCH
