@@ -157,16 +157,16 @@ def _extract_base_url(post_url: str) -> str:
 
 
 def _fetch_via_api(post_url: str) -> dict | None:
-    """Fetch post data from the Substack API with our authenticated session.
+    """Fetch post metadata from the Substack API (unauthenticated).
 
-    Returns full body_html for free posts, truncated for paid posts.
+    Returns metadata + body_html (full for free posts, truncated for paid).
     """
     slug = _extract_slug(post_url)
     base_url = _extract_base_url(post_url)
     api_url = f"{base_url}/api/v1/posts/{slug}"
 
     try:
-        r = _authed_get(api_url, headers={"Accept": "application/json"})
+        r = requests.get(api_url, headers={"Accept": "application/json", "User-Agent": CHROME_UA}, timeout=30)
         if r.status_code != 200:
             log.warning("API returned %d for %s", r.status_code, api_url)
             return None
@@ -280,8 +280,8 @@ def list_posts(publication_url: str, limit: int = 10, sort: str = "new") -> str:
         limit: Maximum number of posts to return (default 10)
         sort: Sort order — "new", "top", or "pinned"
     """
-    auth = _get_substack_auth()
-    newsletter = Newsletter(publication_url, auth=auth)
+    # Auth not needed for listing post metadata (titles, dates, etc.)
+    newsletter = Newsletter(publication_url)
     posts = newsletter.get_posts(sorting=sort, limit=limit)
     results = []
     for post in posts:
@@ -327,9 +327,8 @@ def get_post(post_url: str) -> str:
     if api_data and api_data.get("body_html"):
         html_content = api_data["body_html"]
     else:
-        # Last resort: substack-api library
-        auth = _get_substack_auth()
-        post = Post(post_url, auth=auth)
+        # Last resort: substack-api library (unauthenticated — may be truncated)
+        post = Post(post_url)
         if not meta:
             meta = post.get_metadata()
         html_content = post.get_content() or ""
@@ -356,8 +355,8 @@ def search_posts(publication_url: str, query: str, limit: int = 10) -> str:
         query: Search query string
         limit: Maximum number of results (default 10)
     """
-    auth = _get_substack_auth()
-    newsletter = Newsletter(publication_url, auth=auth)
+    # Auth not needed for searching post metadata
+    newsletter = Newsletter(publication_url)
     posts = newsletter.search_posts(query, limit=limit)
     results = []
     for post in posts:
