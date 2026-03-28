@@ -137,8 +137,8 @@ jobs:
   # Custom images — single matrix job replacing 7+ individual jobs
   #
   # Flow per image: discover -> should-build? -> build+scan -> test -> push
-  # The composite action runs with is_pr=true (build+scan only).
-  # Push is handled inline after tests pass — avoids double build.
+  # The composite action handles build + Trivy scan with GHA cache.
+  # Push is handled inline after tests pass.
   # ---------------------------------------------------------------------------
   custom-images:
     name: ${{ matrix.name }}
@@ -167,9 +167,9 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Build if image dir, test/, or .github/ changed; empty changed=[] means build all
+          # Build if image dir or test/ changed; empty changed=[] means build all
           if [ "$CHANGED_DIRS" = "[]" ] || echo "$CHANGED_DIRS" | jq -e --arg dir "$IMAGE_CONTEXT" \
-            '. as $d | ($dir | IN($d[])) or ("test" | IN($d[])) or (".github" | IN($d[]))' > /dev/null 2>&1; then
+            '. as $d | ($dir | IN($d[])) or ("test" | IN($d[]))' > /dev/null 2>&1; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -229,8 +229,7 @@ jobs:
           tag: ${{ steps.tag.outputs.tag }}
           platforms: ${{ matrix.platforms }}
           trivyignore: ${{ matrix.trivyignore }}
-          push_method: ${{ matrix.push_method }}
-          is_pr: 'true'
+          scope: ${{ matrix.name }}
 
       # --- Test setup (install uv, ripgrep, etc.) ---
       - name: Test setup
@@ -306,6 +305,7 @@ jobs:
           docker buildx build \
             --platform "${IMAGE_PLATFORMS}" \
             --push \
+            --cache-from type=gha,scope="${IMAGE_NAME}" \
             ${TAGS} \
             "${IMAGE_CONTEXT}/"
 

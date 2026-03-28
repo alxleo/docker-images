@@ -1,19 +1,16 @@
-# Reusable composite action: build Docker image, scan with Trivy, push to GHCR.
+# Reusable composite action: build Docker image and scan with Trivy.
 #
-# Handles the common flow shared by all custom images:
+# Handles the common build+scan flow shared by all custom images:
 #   1. Setup QEMU (conditional — only for cross-platform arm64 builds)
 #   2. Setup buildx with mirrored BuildKit + docker.io mirror
-#   3. Login to GHCR (skipped on PRs)
-#   4. Build single-platform image for local testing (docker load)
-#   5. Trivy vulnerability scan (CRITICAL, ignore-unfixed)
-#   6. Push — either `docker push` or `docker buildx build --push` (skipped on PRs)
+#   3. Build single-platform image for local testing (docker load) with GHA cache
+#   4. Trivy vulnerability scan (CRITICAL, ignore-unfixed)
 #
-# Callers are responsible for: checkout, reading tags from manifests, and any
-# image-specific tests (smoke tests, functional tests, etc.) that run between
-# the build and push steps. Use this action's outputs to reference the built image.
+# Callers are responsible for: checkout, GHCR login, reading tags from manifests,
+# image-specific tests, and pushing the final image.
 
-name: Build, Scan & Push Docker Image
-description: Build a Docker image, scan it with Trivy, and push to GHCR
+name: Build & Scan Docker Image
+description: Build a Docker image and scan it with Trivy
 
 inputs:
   name:
@@ -28,10 +25,6 @@ inputs:
     description: Upstream version tag (e.g. v2.9.1)
     required: false
     default: ''
-  version:
-    description: Release-please semantic version (e.g. v1.2.3) — added as extra tag on push
-    required: false
-    default: ''
   platforms:
     description: Target platforms (e.g. "linux/amd64,linux/arm64")
     required: false
@@ -40,14 +33,10 @@ inputs:
     description: Path to .trivyignore file (empty string = no ignore file)
     required: false
     default: ''
-  push_method:
-    description: '"docker" for docker push, "buildx" for docker buildx build --push'
+  scope:
+    description: GHA cache scope key (typically image name) to prevent cache collisions in matrix builds
     required: false
-    default: docker
-  is_pr:
-    description: '"true" on pull requests — skips login and push'
-    required: false
-    default: 'false'
+    default: ''
 
 outputs:
   image-ref:
@@ -77,17 +66,9 @@ runs:
           [registry."docker.io"]
             mirrors = ["mirror.gcr.io"]
 
-    # --- GHCR login (skipped on PRs) ---
-    - name: Login to GHCR
-      if: ${{ inputs.is_pr != 'true' }}
-      uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ github.token }}
-
     # --- Build single-platform for local testing ---
     # load: true requires single platform. Uses runner's native arch for multi-platform images.
+    # GHA cache scoped per image prevents matrix builds from evicting each other's cache.
     - name: Build for local testing
       uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
       with:
@@ -96,6 +77,8 @@ runs:
         platforms: ${{ contains(inputs.platforms, ',') && format('linux/{0}', runner.arch == 'ARM64' && 'arm64' || 'amd64') || inputs.platforms }}
         push: false
         load: true
+        cache-from: type=gha,scope=${{ inputs.scope }}
+        cache-to: type=gha,scope=${{ inputs.scope }},mode=max
         tags: |
           ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
           ghcr.io/alxleo/${{ inputs.name }}:latest
@@ -110,53 +93,3 @@ runs:
         ignore-unfixed: true
         scanners: vuln
         trivyignores: ${{ inputs.trivyignore || '' }}
-
-    # --- Push via docker push (tag + version + latest) ---
-    - name: Push via docker (tag)
-      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'docker' }}
-      shell: bash
-      env:
-        IMAGE_NAME: ${{ inputs.name }}
-        IMAGE_TAG: ${{ inputs.tag }}
-      run: docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
-
-    - name: Push via docker (version)
-      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'docker' && inputs.version != '' && inputs.version != inputs.tag }}
-      shell: bash
-      env:
-        IMAGE_NAME: ${{ inputs.name }}
-        IMAGE_TAG: ${{ inputs.tag }}
-        IMAGE_VERSION: ${{ inputs.version }}
-      run: |
-        docker tag "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}" \
-          "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
-        docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
-
-    - name: Push via docker (latest)
-      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'docker' }}
-      shell: bash
-      env:
-        IMAGE_NAME: ${{ inputs.name }}
-      run: docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
-
-    # --- Push via buildx (multi-platform, all tags at once) ---
-    - name: Push via buildx (multi-platform)
-      if: ${{ inputs.is_pr != 'true' && inputs.push_method == 'buildx' }}
-      shell: bash
-      env:
-        IMAGE_NAME: ${{ inputs.name }}
-        IMAGE_TAG: ${{ inputs.tag }}
-        IMAGE_VERSION: ${{ inputs.version }}
-        IMAGE_PLATFORMS: ${{ inputs.platforms }}
-        IMAGE_CONTEXT: ${{ inputs.context }}
-      run: |
-        TAGS="-t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
-        TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:latest"
-        if [ -n "${IMAGE_VERSION}" ] && [ "${IMAGE_VERSION}" != "${IMAGE_TAG}" ]; then
-          TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
-        fi
-        docker buildx build \
-          --platform "${IMAGE_PLATFORMS}" \
-          --push \
-          ${TAGS} \
-          "${IMAGE_CONTEXT}/"
