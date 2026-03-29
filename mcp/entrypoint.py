@@ -37,7 +37,9 @@ _secret_values: set[str] = set()
 
 def _redact(s: str) -> str:
     """Mask secret values in a string, preserving first 2 chars for debugging."""
-    for secret in _secret_values:
+    # Length-descending order: longer secrets redacted first to avoid
+    # partial leaks when one secret is a substring of another.
+    for secret in sorted(_secret_values, key=len, reverse=True):
         if secret and len(secret) > 4:
             s = s.replace(secret, f"{secret[:2]}***")
     return s
@@ -169,11 +171,19 @@ def build_mcp_command() -> list[str]:
     connection_timeout = str(timeout_ms)
     proxy_cmd = ["mcp-proxy", "--port", port, "--connectionTimeout", connection_timeout]
 
-    # Add API key if provided
+    # Add API key if provided (also track for redaction)
     if api_key := os.getenv("MCP_API_KEY"):
         proxy_cmd.extend(["--apiKey", api_key])
+        _secret_values.add(api_key)
 
-    proxy_cmd.extend(["--", *shlex.split(full_server_cmd)])
+    try:
+        server_args = shlex.split(full_server_cmd)
+    except ValueError as exc:
+        print(f"ERROR: Failed to parse MCP_SERVER_COMMAND: {exc}")
+        print(f"  Command: {_redact(full_server_cmd)}")
+        print("  Check for unmatched quotes in the command string.")
+        sys.exit(1)
+    proxy_cmd.extend(["--", *server_args])
 
     return proxy_cmd
 
