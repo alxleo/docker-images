@@ -32,6 +32,17 @@ import time
 from pathlib import Path
 
 
+_secret_values: set[str] = set()
+
+
+def _redact(s: str) -> str:
+    """Mask secret values in a string, preserving first 2 chars for debugging."""
+    for secret in _secret_values:
+        if secret and len(secret) > 4:
+            s = s.replace(secret, f"{secret[:2]}***")
+    return s
+
+
 def print_header(title: str):
     """Print a formatted section header"""
     print("=" * 60)
@@ -162,7 +173,7 @@ def build_mcp_command() -> list[str]:
     if api_key := os.getenv("MCP_API_KEY"):
         proxy_cmd.extend(["--apiKey", api_key])
 
-    proxy_cmd.extend(["--shell", full_server_cmd])
+    proxy_cmd.extend(["--", *shlex.split(full_server_cmd)])
 
     return proxy_cmd
 
@@ -176,7 +187,9 @@ def main():
     if secrets_dir.is_dir():
         for secret_file in secrets_dir.iterdir():
             if secret_file.is_file():
-                os.environ[secret_file.name.upper()] = secret_file.read_text().strip()
+                val = secret_file.read_text().strip()
+                os.environ[secret_file.name.upper()] = val
+                _secret_values.add(val)
 
     # Build command
     cmd = build_mcp_command()
@@ -190,7 +203,7 @@ def main():
         time.sleep(delay)
 
     print_header("Starting MCP Service")
-    print(f"Command: {' '.join(cmd)}")
+    print(f"Command: {_redact(' '.join(cmd))}")
     print("=" * 60)
     print()
 
