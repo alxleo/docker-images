@@ -20,7 +20,7 @@ import entrypoint  # noqa: E402
 # Helper to clear all MCP-related env vars between tests
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
-    """Remove all MCP env vars so tests start from a clean state."""
+    """Remove all MCP env vars and secret state so tests start clean."""
     for var in [
         "MCP_SERVER_COMMAND",
         "MCP_PACKAGE_NAME",
@@ -28,10 +28,12 @@ def _clean_env(monkeypatch):
         "MCP_PORT",
         "MCP_API_KEY",
         "MCP_STARTUP_JITTER",
+        "MCP_CONNECTION_TIMEOUT",
         "FILTER_INCLUDE",
         "FILTER_EXCLUDE",
     ]:
         monkeypatch.delenv(var, raising=False)
+    entrypoint._secret_values.clear()
 
 
 # =========================================================================
@@ -145,8 +147,11 @@ class TestBuildMCPCommand:
         assert "--port" in cmd
         assert cmd[cmd.index("--port") + 1] == "8080"
         assert "--connectionTimeout" in cmd
-        assert "--shell" in cmd
-        assert cmd[-1] == "mcp-hacker-news"
+        assert "--shell" not in cmd
+        assert "--" in cmd
+        # Server command follows the -- separator
+        sep_idx = cmd.index("--")
+        assert cmd[sep_idx + 1] == "mcp-hacker-news"
 
     def test_with_api_key(self, monkeypatch):
         monkeypatch.setenv("MCP_PACKAGE_NAME", "mcp-hacker-news@1.0.3")
@@ -165,12 +170,33 @@ class TestBuildMCPCommand:
             entrypoint, "BIN_NAME_FILE", Path("/nonexistent/file")
         )
         cmd = entrypoint.build_mcp_command()
-        shell_cmd = cmd[cmd.index("--shell") + 1]
-        assert "mcp-filter" in shell_cmd
-        assert "--exclude" in shell_cmd
-        assert "dangerous_tool" in shell_cmd
-        assert " -- " in shell_cmd
-        assert "mcp-hacker-news" in shell_cmd
+        assert "--shell" not in cmd
+        # After --, the filter chain is: mcp-filter --exclude dangerous_tool -- mcp-hacker-news
+        sep_idx = cmd.index("--")
+        after_sep = cmd[sep_idx + 1:]
+        assert after_sep[0] == "mcp-filter"
+        assert "--exclude" in after_sep
+        assert "dangerous_tool" in after_sep
+        # Nested -- separates filter args from server command
+        assert "--" in after_sep
+        nested_sep = after_sep.index("--")
+        assert "mcp-hacker-news" in after_sep[nested_sep + 1:]
+
+    def test_complex_server_command_with_quotes(self, monkeypatch):
+        """MCP_SERVER_COMMAND with quoted args (e.g., mcp-remote with headers) is split correctly."""
+        monkeypatch.setenv(
+            "MCP_SERVER_COMMAND",
+            'npx mcp-remote@0.1.38 https://mcp.jina.ai/sse --header "Authorization: Bearer ${JINA_API_KEY}"',
+        )
+        cmd = entrypoint.build_mcp_command()
+        sep_idx = cmd.index("--")
+        after_sep = cmd[sep_idx + 1:]
+        assert after_sep[0] == "npx"
+        assert after_sep[1] == "mcp-remote@0.1.38"
+        assert after_sep[2] == "https://mcp.jina.ai/sse"
+        assert after_sep[3] == "--header"
+        # shlex.split removes quotes but preserves the content as one token
+        assert after_sep[4] == "Authorization: Bearer ${JINA_API_KEY}"
 
     def test_custom_port(self, monkeypatch):
         monkeypatch.setenv("MCP_PACKAGE_NAME", "mcp-hacker-news@1.0.3")
@@ -212,9 +238,9 @@ class TestMain:
         assert os.environ.get("API_KEY") == "my-secret-value"
         assert os.environ.get("OTHER_TOKEN") == "token-123"
 
-        # Cleanup to avoid leaking env vars to other tests
-        del os.environ["API_KEY"]
-        del os.environ["OTHER_TOKEN"]
+        # Cleanup env vars set directly by main() (not tracked by monkeypatch)
+        os.environ.pop("API_KEY", None)
+        os.environ.pop("OTHER_TOKEN", None)
 
     def test_secrets_missing_dir(self, monkeypatch):
         """No /run/secrets dir should not crash."""
@@ -246,3 +272,58 @@ class TestMain:
             mock_sleep.assert_called_once()
             delay = mock_sleep.call_args[0][0]
             assert 0 <= delay <= 5
+
+    def test_secrets_redacted_in_output(self, monkeypatch, tmp_path, capsys):
+        """Secret values loaded from /run/secrets/ are masked in command output."""
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "jina_api_key").write_text("sk-super-secret-token-12345\n")
+
+        monkeypatch.setenv(
+            "MCP_SERVER_COMMAND",
+            'npx mcp-remote https://mcp.jina.ai/sse --header "Authorization: Bearer sk-super-secret-token-12345"',
+        )
+        monkeypatch.setenv("MCP_STARTUP_JITTER", "0")
+
+        original_path = entrypoint.Path
+        monkeypatch.setattr(
+            entrypoint, "Path",
+            lambda p: secrets_dir if p == "/run/secrets" else original_path(p),
+        )
+
+        with patch("os.execvp", side_effect=SystemExit(0)):
+            with pytest.raises(SystemExit):
+                entrypoint.main()
+
+        captured = capsys.readouterr()
+        # The full secret must NOT appear in output
+        assert "sk-super-secret-token-12345" not in captured.out
+        # But the redacted form (first 2 chars + ***) should
+        assert "sk***" in captured.out
+
+        os.environ.pop("JINA_API_KEY", None)
+
+    def test_short_secrets_not_redacted(self, monkeypatch, tmp_path, capsys):
+        """Secrets <= 4 chars are not redacted (too short, would cause false positives)."""
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "pin").write_text("1234")
+
+        monkeypatch.setenv("MCP_SERVER_COMMAND", "echo 1234")
+        monkeypatch.setenv("MCP_STARTUP_JITTER", "0")
+
+        original_path = entrypoint.Path
+        monkeypatch.setattr(
+            entrypoint, "Path",
+            lambda p: secrets_dir if p == "/run/secrets" else original_path(p),
+        )
+
+        with patch("os.execvp", side_effect=SystemExit(0)):
+            with pytest.raises(SystemExit):
+                entrypoint.main()
+
+        captured = capsys.readouterr()
+        # Short secret should NOT be redacted (len <= 4)
+        assert "1234" in captured.out
+
+        os.environ.pop("PIN", None)

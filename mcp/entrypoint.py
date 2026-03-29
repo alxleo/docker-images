@@ -32,6 +32,19 @@ import time
 from pathlib import Path
 
 
+_secret_values: set[str] = set()
+
+
+def _redact(s: str) -> str:
+    """Mask secret values in a string, preserving first 2 chars for debugging."""
+    # Length-descending order: longer secrets redacted first to avoid
+    # partial leaks when one secret is a substring of another.
+    for secret in sorted(_secret_values, key=len, reverse=True):
+        if secret and len(secret) > 4:
+            s = s.replace(secret, f"{secret[:2]}***")
+    return s
+
+
 def print_header(title: str):
     """Print a formatted section header"""
     print("=" * 60)
@@ -158,11 +171,19 @@ def build_mcp_command() -> list[str]:
     connection_timeout = str(timeout_ms)
     proxy_cmd = ["mcp-proxy", "--port", port, "--connectionTimeout", connection_timeout]
 
-    # Add API key if provided
+    # Add API key if provided (also track for redaction)
     if api_key := os.getenv("MCP_API_KEY"):
         proxy_cmd.extend(["--apiKey", api_key])
+        _secret_values.add(api_key)
 
-    proxy_cmd.extend(["--shell", full_server_cmd])
+    try:
+        server_args = shlex.split(full_server_cmd)
+    except ValueError as exc:
+        print(f"ERROR: Failed to parse MCP_SERVER_COMMAND: {exc}")
+        print(f"  Command: {_redact(full_server_cmd)}")
+        print("  Check for unmatched quotes in the command string.")
+        sys.exit(1)
+    proxy_cmd.extend(["--", *server_args])
 
     return proxy_cmd
 
@@ -176,7 +197,9 @@ def main():
     if secrets_dir.is_dir():
         for secret_file in secrets_dir.iterdir():
             if secret_file.is_file():
-                os.environ[secret_file.name.upper()] = secret_file.read_text().strip()
+                val = secret_file.read_text().strip()
+                os.environ[secret_file.name.upper()] = val
+                _secret_values.add(val)
 
     # Build command
     cmd = build_mcp_command()
@@ -190,7 +213,7 @@ def main():
         time.sleep(delay)
 
     print_header("Starting MCP Service")
-    print(f"Command: {' '.join(cmd)}")
+    print(f"Command: {_redact(' '.join(cmd))}")
     print("=" * 60)
     print()
 
