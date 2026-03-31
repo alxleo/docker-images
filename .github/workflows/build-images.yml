@@ -137,9 +137,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+      - name: Run gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo gitleaks/gitleaks --pattern 'gitleaks_*_linux_x64.tar.gz' --output - | tar xz -C /usr/local/bin gitleaks
+          gitleaks detect --source . --verbose --redact
 
   # ---------------------------------------------------------------------------
   # Custom images — single matrix job replacing 7+ individual jobs
