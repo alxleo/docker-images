@@ -47,5 +47,12 @@
     "tag": "1.0.0",
     "why": "Custom MCP server — no existing Substack MCP supports authenticated subscriber content",
     "remove_when": "never — custom server wrapping substack-api library"
+  },
+  {
+    "name": "pihole-exporter",
+    "context": "pihole-exporter",
+    "tag": "v1.2.0",
+    "why": "Thin wrapper around upstream exporter to support Docker secret injection instead of env_file",
+    "remove_when": "upstream supports *_FILE or Docker secret ingestion natively"
   }
 ]
