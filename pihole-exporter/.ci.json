@@ -3,6 +3,6 @@
   "platforms": "linux/amd64,linux/arm64",
   "test_commands": [
     "docker run --rm --entrypoint sh $IMAGE_REF -c \"/usr/local/bin/pihole-exporter -h 2>&1 | grep -q pihole_hostname\"",
-    "docker run --rm --entrypoint sh $IMAGE_REF -c \"printf test > /tmp/pihole_api_token && mkdir -p /run/secrets && cp /tmp/pihole_api_token /run/secrets/PIHOLE_API_TOKEN && /entrypoint.sh -h >/tmp/help.txt 2>&1 || true; grep -q pihole_hostname /tmp/help.txt\""
+    "docker run --rm --entrypoint sh $IMAGE_REF -c \"cat >/usr/local/bin/pihole-exporter <<'EOF'\n#!/bin/sh\nenv\nEOF\nchmod +x /usr/local/bin/pihole-exporter && mkdir -p /run/secrets && printf '  test-token  \n' > /run/secrets/pihole_api_token && /entrypoint.sh | grep -q 'PIHOLE_API_TOKEN=test-token'\""
   ]
 }

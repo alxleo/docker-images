@@ -1,12 +1,12 @@
 #!/bin/sh
 set -eu
 
-if [ -d /run/secrets ]; then
-    for f in /run/secrets/*; do
-        [ -f "$f" ] || continue
-        varname=$(basename "$f" | tr '[:lower:]' '[:upper:]')
-        export "$varname"="$(cat "$f")"
-    done
+if [ -f /run/secrets/pihole_api_token ]; then
+    PIHOLE_API_TOKEN="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' /run/secrets/pihole_api_token)"
+    export PIHOLE_API_TOKEN
+elif [ -f /run/secrets/PIHOLE_API_TOKEN ]; then
+    PIHOLE_API_TOKEN="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' /run/secrets/PIHOLE_API_TOKEN)"
+    export PIHOLE_API_TOKEN
 fi
 
 exec /usr/local/bin/pihole-exporter "$@"

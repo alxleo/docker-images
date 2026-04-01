@@ -17,7 +17,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `restic-scheduler` | restic + rclone + supercronic | Never (supercronic layer) |
 | `mcp-substack` | Custom MCP server for authenticated Substack content | Never (custom server) |
-| `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | Upstream supports file-based secret ingestion |
+| `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 
 ## MCP Service Images
 
