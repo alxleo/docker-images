@@ -16,7 +16,7 @@
   {
     "name": "mcp-git",
     "context": "git-mcp-server",
-    "tag": "2.10.3",
+    "tag": "2.10.5",
     "why": "Custom Dockerfile with git+ssh deps and Docker secret injection entrypoint",
     "remove_when": "upstream publishes an official Docker image with HTTP transport"
   },

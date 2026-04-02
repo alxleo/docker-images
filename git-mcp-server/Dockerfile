@@ -24,7 +24,7 @@ RUN apt-get update && \
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install the MCP server globally
-RUN npm install -g @cyanheads/git-mcp-server@2.10.3
+RUN npm install -g @cyanheads/git-mcp-server@2.10.5
 
 # Create data directory
 RUN mkdir -p /data
