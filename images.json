@@ -24,6 +24,7 @@
     "mcp-zen",
     "mcp-exa",
     "mcp-substack",
+    "pihole-exporter",
     "dagu-ops",
     "semaphore"
   ]
