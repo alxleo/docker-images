@@ -9,16 +9,16 @@
   {
     "name": "mcp-reddit",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=reddit-mcp-server@1.4.3",
-    "tag": "1.4.3",
+    "build_args": "MCP_PACKAGE=reddit-mcp-server@1.4.4",
+    "tag": "1.4.4",
     "description": "Reddit posts, comments, and subreddit browsing",
     "secrets": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
   },
   {
     "name": "mcp-brave",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.0.72",
-    "tag": "2.0.72",
+    "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.0.75",
+    "tag": "2.0.75",
     "description": "Web search via Brave Search API (official)",
     "secrets": ["BRAVE_API_KEY"]
   },
@@ -33,24 +33,24 @@
   {
     "name": "mcp-tavily",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=tavily-mcp@0.2.17",
-    "tag": "0.2.17",
+    "build_args": "MCP_PACKAGE=tavily-mcp@0.2.18",
+    "tag": "0.2.18",
     "description": "AI-optimized web search and content extraction",
     "secrets": ["TAVILY_API_KEY"]
   },
   {
     "name": "mcp-context7",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@2.1.4",
-    "tag": "2.1.4",
+    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@2.1.6",
+    "tag": "2.1.6",
     "description": "Library documentation lookup with version awareness",
     "secrets": ["CONTEXT7_API_KEY"]
   },
   {
     "name": "mcp-searxng",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=mcp-searxng@0.10.0",
-    "tag": "0.10.0",
+    "build_args": "MCP_PACKAGE=mcp-searxng@1.0.2",
+    "tag": "1.0.2",
     "description": "Self-hosted metasearch via SearXNG"
   },
   {
@@ -63,8 +63,8 @@
   {
     "name": "mcp-firecrawl",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.10.3",
-    "tag": "3.10.3",
+    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.11.0",
+    "tag": "3.11.0",
     "description": "Web scraping and crawling with JS rendering",
     "secrets": ["FIRECRAWL_API_KEY"]
   },
@@ -95,8 +95,8 @@
   {
     "name": "mcp-youtube",
     "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.11\nMCP_ENTRYPOINT=mcp-youtube-transcript",
-    "tag": "0.5.11",
+    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.14\nMCP_ENTRYPOINT=mcp-youtube-transcript",
+    "tag": "0.5.14",
     "description": "YouTube transcript and video metadata extraction"
   },
   {
@@ -117,8 +117,8 @@
   {
     "name": "mcp-exa",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=exa-mcp-server@3.1.9",
-    "tag": "3.1.9",
+    "build_args": "MCP_PACKAGE=exa-mcp-server@3.2.0",
+    "tag": "3.2.0",
     "description": "Semantic web search, code search, and company research",
     "secrets": ["EXA_API_KEY"]
   },
