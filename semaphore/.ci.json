@@ -1,7 +1,6 @@
 {
-  "tag": "v2.17.16",
-  "platforms": "linux/arm64",
+  "tag": "v2.17.33",
   "test_commands": [
-    "docker run --rm --platform linux/arm64 $IMAGE_REF sh -c \"sops --version && age --version && dig -v 2>&1 && curl --version | head -1 && jq --version && rsync --version | head -1 && just --version && uv --version && tailscale version && docker --version\""
+    "docker run --rm $IMAGE_REF sh -c \"sops --version && age --version && dig -v 2>&1 && curl --version | head -1 && jq --version && rsync --version | head -1 && just --version && uv --version && tailscale version && docker --version\""
   ]
 }

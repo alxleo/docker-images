@@ -371,12 +371,24 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Setup QEMU (cross-platform)
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+        with:
+          platforms: arm64
+      - name: Setup buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        with:
+          driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
       - uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Build amd64 only for local scan/test (load: true requires single platform)
       - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: mcp
@@ -385,6 +397,7 @@ jobs:
           platforms: linux/amd64
           push: false
           load: true
+          cache-from: type=gha,scope=mcp-${{ matrix.name }}
           tags: |
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest
@@ -396,14 +409,21 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
-      - name: Push to GHCR
+      # Multi-platform rebuild + push (buildx, not docker push)
+      - name: Push to GHCR (multi-platform)
         if: github.event_name != 'pull_request'
-        env:
-          IMAGE_NAME: ${{ matrix.name }}
-          IMAGE_TAG: ${{ matrix.tag }}
-        run: |
-          docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
-          docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: mcp
+          file: mcp/${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha,scope=mcp-${{ matrix.name }}
+          cache-to: type=gha,scope=mcp-${{ matrix.name }},mode=min
+          tags: |
+            ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
+            ghcr.io/alxleo/${{ matrix.name }}:latest
 
   # Smoke test: validates entrypoint.py -> mcp-proxy -> MCP server chain
   # Runs 2 canary images (1 npm, 1 Python) through the full MCP handshake.

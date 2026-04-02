@@ -16,7 +16,7 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 | Field | Default | Override via `.ci.json` |
 |-------|---------|----------------------|
 | name | directory name | `"name": "mcp-git"` |
-| platforms | `linux/amd64` | `"platforms": "linux/amd64,linux/arm64"` |
+| platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
 | push method | `docker` (auto: `buildx` if multi-platform) | derived |
 | trivyignore | `{dir}/.trivyignore` if exists | derived |

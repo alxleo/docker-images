@@ -5,7 +5,7 @@
 # Metadata: optional .ci.json per directory for non-default config.
 #
 # Defaults (no .ci.json needed):
-#   platforms: linux/amd64
+#   platforms: linux/amd64,linux/arm64
 #   tag: latest
 #   push_method: docker
 #   test_setup: ""
@@ -43,7 +43,7 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     # name override: allows image name to differ from directory (e.g. mcp-git in git-mcp-server/)
     image_name=$(echo "$ci_json" | jq -r --arg default "$name" '.name // $default')
     tag=$(echo "$ci_json" | jq -r '.tag // "latest"')
-    platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64"')
+    platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64,linux/arm64"')
     test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
     test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
 
