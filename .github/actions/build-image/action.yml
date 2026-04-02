@@ -1,11 +1,11 @@
-# Reusable composite action: build Docker image and scan with Trivy.
+# Reusable composite action: build Docker image.
 #
-# Handles the common build+scan flow shared by all custom images:
+# Handles the common build flow shared by all custom images:
 #   1. Setup QEMU (conditional — only for cross-platform arm64 builds)
 #   2. Setup buildx with mirrored BuildKit + docker.io mirror
 #   3. Build single-platform image for local testing (docker load) with GHA cache
-#   4. Trivy vulnerability scan (CRITICAL, ignore-unfixed)
 #
+# Vulnerability scanning runs on a weekly schedule (maintenance.yml), not inline.
 # Callers are responsible for: checkout, GHCR login, reading tags from manifests,
 # image-specific tests, and pushing the final image.
 
@@ -27,10 +27,6 @@ inputs:
     default: ''
   platforms:
     description: Target platforms (e.g. "linux/amd64,linux/arm64")
-    required: false
-    default: ''
-  trivyignore:
-    description: Path to .trivyignore file (empty string = no ignore file)
     required: false
     default: ''
   scope:
@@ -84,14 +80,3 @@ runs:
         tags: |
           ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
           ghcr.io/alxleo/${{ inputs.name }}:latest
-
-    # --- Trivy vulnerability scan ---
-    - name: Trivy vulnerability scan
-      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-      with:
-        image-ref: ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
-        exit-code: '1'
-        severity: CRITICAL
-        ignore-unfixed: true
-        scanners: vuln
-        trivyignores: ${{ inputs.trivyignore || '' }}

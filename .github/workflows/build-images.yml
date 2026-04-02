@@ -1,21 +1,19 @@
 # Build custom Docker images and push to ghcr.io
 #
 # Triggers:
-#   - Pull requests: build-only (no push) + security scan — gates merge
-#   - Push to main: build + scan + push to ghcr.io as :latest
-#   - Tags (*/v*): build + scan + push as :vX.Y.Z + :latest
-#   - Manual dispatch: build + scan + push (all images)
+#   - Pull requests: build-only (no push) -- gates merge
+#   - Push to main: build + push to ghcr.io as :latest
+#   - Tags (*/v*): build + push as :vX.Y.Z + :latest
+#   - Manual dispatch: build + push (all images)
 #
 # Bot PRs (Dependabot, etc): Only lint + change detection run.
-# Image builds are skipped — they're expensive and only matter on merge.
+# Image builds are skipped -- they're expensive and only matter on merge.
 #
 # Change detection: each image only builds when its own files change.
 # This avoids pushing identical images that cause unnecessary pulls downstream.
 #
-# Security: Trivy scans every image BEFORE push.
-#   - scanners: vuln — vulnerability scanning only (gitleaks handles secrets)
-#   - severity: CRITICAL — only block on critical CVEs
-#   - ignore-unfixed: true — skip base-image CVEs without patches
+# Security: Trivy vulnerability scanning runs on a weekly schedule
+# (maintenance.yml), not inline. Gitleaks handles secret detection here.
 #
 # Auto-discovery: any directory with a Dockerfile + optional .ci.json is an image.
 # discover-images.sh generates the matrix; individual image jobs are replaced by
@@ -147,8 +145,8 @@ jobs:
   # ---------------------------------------------------------------------------
   # Custom images — single matrix job replacing 7+ individual jobs
   #
-  # Flow per image: discover -> should-build? -> build+scan -> test -> push
-  # The composite action handles build + Trivy scan with GHA cache.
+  # Flow per image: discover -> should-build? -> build -> test -> push
+  # The composite action handles build with GHA cache.
   # Push is handled inline after tests pass.
   # ---------------------------------------------------------------------------
   custom-images:
@@ -230,8 +228,8 @@ jobs:
             echo "tag=${CI_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
-      # --- Build + Trivy scan (no push — tests run first) ---
-      - name: Build & scan
+      # --- Build (no push — tests run first) ---
+      - name: Build
         if: steps.should-build.outputs.build == 'true'
         id: build
         uses: ./.github/actions/build-image
@@ -240,7 +238,6 @@ jobs:
           context: ${{ matrix.context }}
           tag: ${{ steps.tag.outputs.tag }}
           platforms: ${{ matrix.platforms }}
-          trivyignore: ${{ matrix.trivyignore }}
           scope: ${{ matrix.name }}
 
       # --- Test setup (install uv, ripgrep, etc.) ---
@@ -388,39 +385,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Build amd64 only for local scan/test (load: true requires single platform)
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
-        with:
-          context: mcp
-          file: mcp/${{ matrix.dockerfile }}
-          build-args: ${{ matrix.build_args }}
-          platforms: linux/amd64
-          push: false
-          load: true
-          cache-from: type=gha,scope=mcp-${{ matrix.name }}
-          tags: |
-            ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
-            ghcr.io/alxleo/${{ matrix.name }}:latest
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-      # Multi-platform rebuild + push (buildx, not docker push)
-      - name: Push to GHCR (multi-platform)
-        if: github.event_name != 'pull_request'
+      # PRs: build amd64 only (verify Dockerfile compiles)
+      # Push: multi-platform build + push
+      - name: Build & push
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: mcp
           file: mcp/${{ matrix.dockerfile }}
           build-args: ${{ matrix.build_args }}
-          platforms: linux/amd64,linux/arm64
-          push: true
+          platforms: ${{ github.event_name != 'pull_request' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           cache-from: type=gha,scope=mcp-${{ matrix.name }}
-          cache-to: type=gha,scope=mcp-${{ matrix.name }},mode=min
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,scope=mcp-{0},mode=min', matrix.name) || '' }}
           tags: |
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest

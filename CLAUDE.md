@@ -69,6 +69,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, dispatch | Auto-discover, matrix build, test, push |
 | Lint | `lint.yml` | push, PRs | ruff, pytest, shellcheck, hadolint, actionlint, yamllint, zizmor, lychee, log audit |
+| Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vulnerability scan (all images), action updates |
 | Release Please | `release-please.yml` | push main | Conventional commit -> version bump + CHANGELOG |
 | Mirror | `mirror-base-images.yml` | weekly, PRs (check), dispatch | GHCR base image mirrors |
 | Cleanup | `cleanup-ghcr.yml` | monthly | Delete untagged GHCR manifests |

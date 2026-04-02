@@ -49,10 +49,6 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
 
     # Derived fields
     dir_name="$name"
-    trivyignore=""
-    if [ -f "$dir/.trivyignore" ]; then
-        trivyignore="${dir_name}/.trivyignore"
-    fi
 
     push_method="docker"
     if echo "$platforms" | grep -q ","; then
@@ -65,11 +61,10 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
         --arg context "$dir_name" \
         --arg tag "$tag" \
         --arg platforms "$platforms" \
-        --arg trivyignore "$trivyignore" \
         --arg push_method "$push_method" \
         --arg test_setup "$test_setup" \
         --argjson test_commands "$test_commands" \
-        '{name: $name, context: $context, tag: $tag, platforms: $platforms, trivyignore: $trivyignore, push_method: $push_method, test_setup: $test_setup, test_commands: $test_commands}')
+        '{name: $name, context: $context, tag: $tag, platforms: $platforms, push_method: $push_method, test_setup: $test_setup, test_commands: $test_commands}')
 
     images=$(echo "$images" | jq --argjson entry "$entry" '. + [$entry]')
 done
