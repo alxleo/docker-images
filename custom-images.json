@@ -30,7 +30,7 @@
   {
     "name": "semaphore",
     "context": "semaphore",
-    "tag": "v2.17.16",
+    "tag": "v2.17.33",
     "why": "Semaphore UI + homelab tools (sops, age, dig, curl, jq, rsync) for Ansible playbooks",
     "remove_when": "never — homelab tooling layer is always needed on top of upstream"
   },

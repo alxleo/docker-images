@@ -16,11 +16,13 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 ARG TARGETARCH
 RUN apk upgrade --no-cache && \
     apk add --no-cache bind-tools curl jq rsync age just uv tailscale docker-cli && \
+    case "$TARGETARCH" in \
+      amd64) sops_sha256="cf3136d20a6004405c986a48e179c3c7a731f777fbf105a37bd5dac5c9047100" ;; \
+      arm64) sops_sha256="c7904d07bf1fb3ffdc329b0103ce70ff6a884aa7af7931427402bea0c09cc522" ;; \
+      "") echo "ERROR: TARGETARCH not set. Build with buildx or pass --build-arg TARGETARCH=amd64|arm64." >&2; exit 1 ;; \
+      *) echo "ERROR: Unsupported TARGETARCH '$TARGETARCH'." >&2; exit 1 ;; \
+    esac && \
     wget -q "https://github.com/getsops/sops/releases/download/v3.12.1/sops-v3.12.1.linux.${TARGETARCH}" -O /usr/local/bin/sops && \
-    if [ "$TARGETARCH" = "arm64" ]; then \
-      echo "c7904d07bf1fb3ffdc329b0103ce70ff6a884aa7af7931427402bea0c09cc522  /usr/local/bin/sops" | sha256sum -c; \
-    else \
-      echo "cf3136d20a6004405c986a48e179c3c7a731f777fbf105a37bd5dac5c9047100  /usr/local/bin/sops" | sha256sum -c; \
-    fi && \
+    echo "${sops_sha256}  /usr/local/bin/sops" | sha256sum -c && \
     chmod +x /usr/local/bin/sops
 USER semaphore
