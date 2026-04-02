@@ -1,6 +1,6 @@
 {
   "name": "mcp-git",
-  "tag": "2.10.3",
+  "tag": "2.10.5",
   "test_setup": "pip install -q uv",
   "test_commands": [
     "uv run --with pytest --with requests -- pytest test/test_custom_images.py -m git_mcp_server -v"
