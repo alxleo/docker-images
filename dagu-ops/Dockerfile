@@ -10,6 +10,9 @@
 # Remove when: never — ops tooling layer is always needed on top of Dagu
 
 ARG DAGU_VERSION=2.3.7
+# Runs as root: needs Docker socket access and writes to backup mount points
+# trivy:ignore:DS-0002
+# trivy:ignore:DS-0026 -- batch scheduler, no HTTP service port
 FROM ghcr.io/dagu-org/dagu:${DAGU_VERSION}
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 

@@ -28,6 +28,8 @@ WORKDIR /src
 # Build using upstream build script (outputs to _output/cadvisor)
 RUN GO_FLAGS="-tags=netgo" ./build/build.sh
 
+# cadvisor requires root to read /sys/fs/cgroup and /proc — cannot run as non-root
+# trivy:ignore:DS-0002
 FROM ghcr.io/alxleo/base-images/alpine:3.23
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk --no-cache upgrade && \
@@ -36,4 +38,8 @@ RUN apk --no-cache upgrade && \
 COPY --from=build /src/_output/cadvisor /usr/bin/cadvisor
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/wget", "--spider", "-q", "http://localhost:8080/healthz"]
+
 ENTRYPOINT ["/usr/bin/cadvisor"]

@@ -109,6 +109,8 @@ COPY plugin/ plugin/
 # ~/.gemini and ~/.codex needed by their respective CLIs
 RUN mkdir -p state repos plugins /root/.gemini /root/.codex
 
+USER 1000
+
 HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
   CMD ["python3", "scripts/healthcheck.py"]
 

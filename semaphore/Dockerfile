@@ -1,3 +1,4 @@
+# trivy:ignore:DS-0026 -- upstream manages health internally
 FROM semaphoreui/semaphore@sha256:17678757e65621aaf27bffbfe8caa00fb85857d60124b49876a5326e3f3dfac9
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 

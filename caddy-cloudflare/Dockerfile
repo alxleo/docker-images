@@ -10,6 +10,8 @@ RUN echo "cache-bust: 2026-03-28" && xcaddy build \
     --with github.com/caddy-dns/cloudflare \
     --with github.com/lucaslorentz/caddy-docker-proxy/v2
 
+# trivy:ignore:DS-0002 -- caddy drops privileges at runtime (upstream pattern)
+# trivy:ignore:DS-0026 -- health managed by orchestrator (Docker Compose healthcheck)
 FROM ghcr.io/alxleo/base-images/caddy:${CADDY_VERSION}
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk --no-cache upgrade

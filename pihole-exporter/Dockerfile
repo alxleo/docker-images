@@ -19,5 +19,10 @@ RUN chmod +x /usr/local/bin/pihole-exporter /entrypoint.sh
 
 EXPOSE 9617
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/wget", "--spider", "-q", "http://localhost:9617/metrics"]
+
+USER 1000
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD []
