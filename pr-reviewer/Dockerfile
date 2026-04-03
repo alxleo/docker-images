@@ -118,7 +118,7 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
-  CMD ["python3", "scripts/healthcheck.py"]
+  CMD ["gosu", "1000", "python3", "scripts/healthcheck.py"]
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["python3", "scripts/gh_watcher.py"]

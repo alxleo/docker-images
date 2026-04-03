@@ -5,14 +5,11 @@ set -e
 # Named volumes retain root-owned files from before the UID 1000 migration.
 # This runs as root, then drops to UID 1000 via gosu (postgres/redis pattern).
 
-WRITABLE_DIRS="/app/state /app/repos /app/.claude /app/.codex"
+WRITABLE_DIRS="/app/state /app/repos /app/plugins /app/.claude /app/.codex /app/.gemini"
 
 for dir in $WRITABLE_DIRS; do
-    if [[ -d "$dir" ]]; then
-        owner=$(stat -c %u "$dir")
-        if [[ "$owner" != "1000" ]]; then
-            chown -R 1000:1000 "$dir"
-        fi
+    if [[ -d "$dir" ]] && find "$dir" \( ! -uid 1000 -o ! -gid 1000 \) -print -quit | grep -q .; then
+        chown -R 1000:1000 "$dir"
     fi
 done
 

@@ -5,6 +5,6 @@
     "docker run --rm $IMAGE_REF python3 -c \"import yaml, json, subprocess, pathlib; print('imports OK')\"",
     "uv run --with pytest --with pyyaml --with httpx --with grep-ast --with tree-sitter-language-pack -- pytest pr-reviewer/tests/ -v",
     "docker run --rm $IMAGE_REF id | grep -q 'uid=1000'",
-    "docker run --rm -v test-reviewer-state:/app/state $IMAGE_REF sh -c 'touch /app/state/test.json && rm /app/state/test.json' && docker volume rm test-reviewer-state"
+    "docker volume create test-reviewer-state && docker run --rm --user 0 -v test-reviewer-state:/app/state alpine sh -c 'mkdir -p /app/state && echo root > /app/state/root-owned.json && chown -R 0:0 /app/state' && docker run --rm -v test-reviewer-state:/app/state $IMAGE_REF sh -c 'stat -c %u /app/state/root-owned.json | grep -q 1000 && touch /app/state/new.json && rm /app/state/root-owned.json /app/state/new.json' && docker volume rm test-reviewer-state"
   ]
 }
