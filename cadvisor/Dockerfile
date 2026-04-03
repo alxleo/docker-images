@@ -11,11 +11,13 @@
 
 FROM ghcr.io/alxleo/base-images/golang:1.25-alpine AS build
 
+ARG CADVISOR_VERSION=v0.56.2
+
 RUN apk --no-cache add bash build-base device-mapper findutils git \
                        libc6-compat linux-headers pkgconfig thin-provisioning-tools zfs
 
 WORKDIR /src
-RUN git clone --branch v0.56.2 --depth 1 https://github.com/google/cadvisor.git .
+RUN git clone --branch ${CADVISOR_VERSION} --depth 1 https://github.com/google/cadvisor.git .
 
 # Cache Go module downloads
 RUN go mod download

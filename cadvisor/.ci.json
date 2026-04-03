@@ -1,5 +1,6 @@
 {
   "tag": "v0.56.2",
+  "build_args": "CADVISOR_VERSION=v0.56.2",
   "test_setup": "pip install -q uv",
   "test_commands": [
     "uv run --with pytest --with requests -- pytest test/test_custom_images.py -m cadvisor -v"

@@ -1,5 +1,6 @@
 {
   "tag": "2.11",
+  "build_args": "CADDY_VERSION=2.11",
   "test_setup": "pip install -q uv",
   "test_commands": [
     "docker run --rm -v \"${GITHUB_WORKSPACE}/test:/test\" $IMAGE_REF caddy validate --config /test/Caddyfile.test --adapter caddyfile",
