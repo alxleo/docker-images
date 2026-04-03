@@ -31,7 +31,7 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
 
     # Read .ci.json if it exists, else empty object
     ci_json="{}"
-    if [ -f "$dir/.ci.json" ]; then
+    if [[ -f "$dir/.ci.json" ]]; then
         ci_json=$(cat "$dir/.ci.json")
     fi
 

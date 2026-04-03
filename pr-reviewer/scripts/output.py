@@ -1,7 +1,10 @@
 """Output parsing: inline comment extraction, severity capping."""
 
+from __future__ import annotations
+
 import logging
 import re
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +42,17 @@ def cap_by_severity(body: str, max_comments: int) -> str:
     return result
 
 
-def parse_inline_comments(body: str, diff: str) -> list[dict]:
+def _find_nearest_diff_line(file_path: str, line_num: int,
+                            diff_lines: set[tuple[str, int]]) -> int | None:
+    """Search ±5 lines for the nearest line present in the diff."""
+    for offset in range(1, 6):
+        for candidate in (line_num + offset, line_num - offset):
+            if (file_path, candidate) in diff_lines:
+                return candidate
+    return None
+
+
+def parse_inline_comments(body: str, diff: str) -> list[dict[str, Any]]:
     """Extract inline comments from review output using ### [file:line] pattern.
 
     Returns list of dicts with 'path', 'line', 'body' for each finding.
@@ -56,7 +69,7 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
             if match:
                 current_line = int(match.group(1))
         elif current_file:
-            if diff_line.startswith("+") or diff_line.startswith(" "):
+            if diff_line.startswith(("+", " ")):
                 diff_lines.add((current_file, current_line))
                 current_line += 1
             elif diff_line.startswith("-"):
@@ -94,20 +107,15 @@ def parse_inline_comments(body: str, diff: str) -> list[dict]:
         if (file_path, line_num) in diff_lines:
             comments.append({"path": file_path, "line": line_num, "body": comment_body})
             matched += 1
+            continue
+
+        nearest = _find_nearest_diff_line(file_path, line_num, diff_lines)
+        if nearest is not None:
+            comments.append({"path": file_path, "line": nearest, "body": comment_body})
+            matched += 1
         else:
-            posted = False
-            for offset in range(1, 6):
-                for candidate in (line_num + offset, line_num - offset):
-                    if (file_path, candidate) in diff_lines:
-                        comments.append({"path": file_path, "line": candidate, "body": comment_body})
-                        posted = True
-                        matched += 1
-                        break
-                if posted:
-                    break
-            if not posted:
-                unmatched += 1
-                log.info("Inline: %s:%d not in diff (no match within ±5 lines)", file_path, line_num)
+            unmatched += 1
+            log.info("Inline: %s:%d not in diff (no match within ±5 lines)", file_path, line_num)
 
     if findings:
         log.info("Inline: %d/%d findings matched diff lines", matched, len(findings))

@@ -1,8 +1,11 @@
 """Lens routing: analyze diff relevance, dispatch to correct model."""
 
+from __future__ import annotations
+
 import logging
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from config import DEFAULT_MODEL, resolve_model
 from models import run_lens_claude, run_lens_gemini, run_lens_codex
@@ -39,19 +42,22 @@ def analyze_diff_relevance(diff: str) -> set[str]:
 
     if has_code:
         relevant.add("simplification")
-    if any(pattern in diff_lower for pattern in _SECURITY_PATTERNS) or has_infra:
+    has_security_patterns = any(pattern in diff_lower for pattern in _SECURITY_PATTERNS)
+    if any((has_security_patterns, has_infra)):
         relevant.add("security")
-    if has_config or has_infra:
+    if any((has_config, has_infra)):
         relevant.add("standards")
-    if has_new_files or has_config:
+    if any((has_new_files, has_config)):
         relevant.add("drift")
-    if has_new_files or has_infra:
+    if any((has_new_files, has_infra)):
         relevant.add("architecture")
 
-    return relevant or {"simplification", "security"}
+    if not relevant:
+        relevant = {"simplification", "security"}
+    return relevant
 
 
-def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
+def run_lens(lens: dict[str, Any], diff: str, repo_dir: Path, config: dict[str, Any],
              commit_messages: str = "", pr_description: str = "",
              model_override: str | None = None, repomap: str = "",
              depth: str = "standard", impact: str = "",
@@ -71,9 +77,11 @@ def run_lens(lens: dict, diff: str, repo_dir: Path, config: dict,
 
     max_turns = 15 if max_comments == 0 else 5
 
-    model_family = (model_override
-                    or config.get("lenses", {}).get(lens_name, {}).get("model")
-                    or config.get("default_model", DEFAULT_MODEL))
+    model_family = model_override
+    if not model_family:
+        model_family = config.get("lenses", {}).get(lens_name, {}).get("model", "")
+    if not model_family:
+        model_family = config.get("default_model", DEFAULT_MODEL)
     model_name = resolve_model(config, model_family, depth)
     log.info("Running lens: %s via %s (model=%s, max_comments=%s)",
              lens_name, model_family, model_name, max_comments)

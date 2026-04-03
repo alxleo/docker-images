@@ -39,7 +39,7 @@ services:
     <<: *common
     image: ghcr.io/alxleo/mcp-hackernews:1.0.3
     container_name: mcp-hackernews
-    ports: ["8080:8080"]
+    ports: ["127.0.0.1:8080:8080"]
 
   # Service with API key via Docker secret
   # entrypoint.py reads /run/secrets/* into environment automatically

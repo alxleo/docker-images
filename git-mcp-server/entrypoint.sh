@@ -4,7 +4,7 @@
 if [ -d /run/secrets ]; then
     for f in /run/secrets/*; do
         if [ -f "$f" ]; then
-            varname=$(basename "$f" | tr 'a-z' 'A-Z')
+            varname=$(basename "$f" | tr '[:lower:]' '[:upper:]')
             export "$varname=$(cat "$f")"
         fi
     done

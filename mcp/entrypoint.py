@@ -24,13 +24,15 @@ Secrets can be provided via:
 No runtime secret fetching - all secrets are pre-injected before container start.
 """
 
+import logging
 import os
 import random
-import sys
 import shlex
+import sys
 import time
 from pathlib import Path
 
+log = logging.getLogger(__name__)
 
 _secret_values: set[str] = set()
 
@@ -47,10 +49,10 @@ def _redact(s: str) -> str:
 
 def print_header(title: str):
     """Print a formatted section header"""
-    print("=" * 60)
-    print(f"🚀 {title}")
-    print("=" * 60)
-    print()
+    log.info("=" * 60)
+    log.info("🚀 %s", title)
+    log.info("=" * 60)
+    log.info("")
 
 
 def build_filter_args() -> list[str]:
@@ -64,7 +66,7 @@ def build_filter_args() -> list[str]:
     filter_include = os.getenv("FILTER_INCLUDE", "").split()
     filter_exclude = os.getenv("FILTER_EXCLUDE", "").split()
 
-    if not (filter_include or filter_exclude):
+    if not any((filter_include, filter_exclude)):
         return []
 
     cmd = ["mcp-filter"]
@@ -116,14 +118,14 @@ def get_server_command() -> str:
         return name
 
     # No configuration found
-    print()
-    print("❌ ERROR: No MCP server specified!")
-    print()
-    print("Set one of:")
-    print('  MCP_SERVER_COMMAND="npx mcp-hackernews" (explicit override)')
-    print('  MCP_PACKAGE_NAME="mcp-hackernews@1.0.3" (npm package)')
-    print('  MCP_PACKAGE_NAME + MCP_ENTRYPOINT_NAME (Python package)')
-    print()
+    log.error("")
+    log.error("❌ ERROR: No MCP server specified!")
+    log.error("")
+    log.error("Set one of:")
+    log.error('  MCP_SERVER_COMMAND="npx mcp-hackernews" (explicit override)')
+    log.error('  MCP_PACKAGE_NAME="mcp-hackernews@1.0.3" (npm package)')
+    log.error('  MCP_PACKAGE_NAME + MCP_ENTRYPOINT_NAME (Python package)')
+    log.error("")
     sys.exit(1)
 
 
@@ -162,10 +164,10 @@ def build_mcp_command() -> list[str]:
         except ValueError:
             timeout_ms = 0
         if timeout_ms <= 0:
-            print(
-                f"WARNING: Invalid MCP_CONNECTION_TIMEOUT={raw_timeout!r}, "
+            log.warning(
+                "Invalid MCP_CONNECTION_TIMEOUT=%r, "
                 "must be a positive integer (ms). Falling back to 120000.",
-                file=sys.stderr,
+                raw_timeout,
             )
             timeout_ms = 120000
     connection_timeout = str(timeout_ms)
@@ -179,9 +181,9 @@ def build_mcp_command() -> list[str]:
     try:
         server_args = shlex.split(full_server_cmd)
     except ValueError as exc:
-        print(f"ERROR: Failed to parse MCP_SERVER_COMMAND: {exc}")
-        print(f"  Command: {_redact(full_server_cmd)}")
-        print("  Check for unmatched quotes in the command string.")
+        log.error("Failed to parse MCP_SERVER_COMMAND: %s", exc)
+        log.error("  Command: %s", _redact(full_server_cmd))
+        log.error("  Check for unmatched quotes in the command string.")
         sys.exit(1)
     proxy_cmd.extend(["--", *server_args])
 
@@ -190,6 +192,10 @@ def build_mcp_command() -> list[str]:
 
 def main():
     """Main entrypoint - build and execute MCP service command"""
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
     print_header("MCP Service Startup")
 
     # Load Docker Compose secrets into environment
@@ -209,13 +215,13 @@ def main():
     max_jitter = int(os.getenv("MCP_STARTUP_JITTER", "10"))
     if max_jitter > 0:
         delay = random.uniform(0, max_jitter)
-        print(f"Startup jitter: {delay:.1f}s")
+        log.info("Startup jitter: %.1fs", delay)
         time.sleep(delay)
 
     print_header("Starting MCP Service")
-    print(f"Command: {_redact(' '.join(cmd))}")
-    print("=" * 60)
-    print()
+    log.info("Command: %s", _redact(' '.join(cmd)))
+    log.info("=" * 60)
+    log.info("")
 
     # Replace process with mcp-proxy (exec)
     os.execvp(cmd[0], cmd)

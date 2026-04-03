@@ -37,7 +37,7 @@ CONFIG_PATH = Path("/app/config.yml")
 
 def run(cmd: list[str], timeout: int = 120) -> tuple[int, str]:
     """Run a command, return (exit_code, combined output)."""
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
     output = (result.stdout + result.stderr).strip()
     return result.returncode, output
 
@@ -85,7 +85,7 @@ def setup_codex_auth():
     log.info("Authenticating Codex CLI via API key...")
     result = subprocess.run(
         ["codex", "login", "--with-api-key"],
-        input=api_key, capture_output=True, text=True, timeout=15,
+        input=api_key, capture_output=True, text=True, timeout=15, check=False,
     )
     if result.returncode == 0:
         log.info("Codex authenticated")
@@ -101,7 +101,8 @@ def sync():
         log.info("No config.yml — skipping plugin sync")
         return
 
-    config = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+    raw = yaml.safe_load(CONFIG_PATH.read_text())
+    config = raw if isinstance(raw, dict) else {}
     plugin_config = config.get("plugins", {})
     if not plugin_config:
         log.info("No plugins section in config — skipping sync")
@@ -174,6 +175,6 @@ def sync():
 if __name__ == "__main__":
     try:
         sync()
-    except Exception:
+    except (subprocess.SubprocessError, yaml.YAMLError, OSError, KeyError) as _:
         log.exception("Plugin sync failed (non-fatal, continuing)")
         # Non-fatal — container should still start even if plugin sync fails

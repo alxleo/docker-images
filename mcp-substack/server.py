@@ -18,10 +18,13 @@ Env vars (injected from Docker secrets):
   CRAWL4AI_URL      - crawl4ai endpoint (default: http://crawl4ai:11235)
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 import urllib.parse
+from typing import Any
 
 import markdownify
 import requests
@@ -38,7 +41,7 @@ CHROME_UA = (
 CRAWL4AI_URL = os.environ.get("CRAWL4AI_URL", "http://crawl4ai:11235")
 
 
-def _post_to_dict(post_data: dict) -> dict:
+def _post_to_dict(post_data: dict[str, Any]) -> dict[str, str | int]:
     """Extract useful fields from a raw post data dict."""
     return {
         "title": post_data.get("title", ""),
@@ -67,7 +70,7 @@ def _extract_base_url(post_url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-def _fetch_via_api(post_url: str) -> dict | None:
+def _fetch_via_api(post_url: str) -> dict[str, Any] | None:
     """Fetch post metadata from the Substack API (unauthenticated).
 
     Returns metadata + body_html (full for free posts, truncated for paid).
@@ -82,12 +85,12 @@ def _fetch_via_api(post_url: str) -> dict | None:
             log.warning("API returned %d for %s", r.status_code, api_url)
             return None
         return r.json()
-    except Exception as e:
+    except requests.RequestException as e:
         log.warning("API fetch failed: %s", e)
         return None
 
 
-def _crawl4ai_request(url: str, session_id: str = "", js_code: str = "") -> dict | None:
+def _crawl4ai_request(url: str, session_id: str = "", js_code: str = "") -> dict[str, Any] | None:
     """Make a crawl4ai request. Returns the first result dict or None."""
     payload = {
         "urls": [url],
@@ -116,7 +119,7 @@ def _crawl4ai_request(url: str, session_id: str = "", js_code: str = "") -> dict
         if isinstance(data.get("results"), list) and data["results"]:
             return data["results"][0]
         return data
-    except Exception as e:
+    except requests.RequestException as e:
         log.warning("crawl4ai request failed: %s", e)
         return None
 
@@ -130,7 +133,7 @@ def _fetch_via_crawl4ai(post_url: str) -> str | None:
     """
     email = os.environ.get("SUBSTACK_EMAIL", "")
     password = os.environ.get("SUBSTACK_PASSWORD", "")
-    if not email or not password:
+    if not all((email, password)):
         log.warning("SUBSTACK_EMAIL/PASSWORD not set — cannot authenticate for paid content")
         return None
 
@@ -144,7 +147,8 @@ def _fetch_via_crawl4ai(post_url: str) -> str | None:
         f'password: "{password}", captcha_response: null}})}});'
     )
     login_result = _crawl4ai_request("https://substack.com/sign-in", session_id=session_id, js_code=login_js)
-    if not login_result or not login_result.get("success"):
+    login_ok = login_result is not None and login_result.get("success")
+    if not login_ok:
         log.warning("crawl4ai login step failed")
         return None
 
@@ -165,7 +169,7 @@ def _fetch_via_crawl4ai(post_url: str) -> str | None:
     return None
 
 
-def _build_header(meta: dict) -> str:
+def _build_header(meta: dict[str, Any]) -> str:
     """Build markdown header from post metadata."""
     header = f"# {meta.get('title', '')}\n"
     if meta.get("subtitle"):
@@ -226,7 +230,7 @@ def get_post(post_url: str) -> str:
     """
     # Get metadata + body from API (unauthenticated — metadata always available)
     api_data = _fetch_via_api(post_url)
-    meta = api_data or {}
+    meta = api_data if api_data is not None else {}
     is_truncated = "truncated_body_text" in meta
 
     if is_truncated:
@@ -245,7 +249,8 @@ def get_post(post_url: str) -> str:
         fallback_meta = post.get_metadata()
         if not meta:
             meta = fallback_meta
-        html_content = post.get_content() or ""
+        raw_content = post.get_content()
+        html_content = raw_content if raw_content else ""
 
     if not html_content:
         return f"# {meta.get('title', 'Unknown')}\n\n*Content unavailable — post may be paywalled and subscription not active.*"

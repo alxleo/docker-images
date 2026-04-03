@@ -1,0 +1,39 @@
+# Repo-specific MegaLinter overrides.
+# Extends the coding-standards baseline (ENABLE_LINTERS allowlist, configs, plugins).
+# Lists here REPLACE extended values (MegaLinter doesn't merge arrays),
+# so include base values when overriding list keys.
+EXTENDS:
+  - https://raw.githubusercontent.com/alxleo/coding-standards/main/.mega-linter-default.yml
+
+# Use repo's own ruff config
+PYTHON_RUFF_CONFIG_FILE: ruff.toml
+
+# Exclude git worktrees (agent sandboxes) and build artifacts
+ADDITIONAL_EXCLUDED_DIRECTORIES:
+  - .claude
+  - megalinter-reports
+  - __pycache__
+  - .ruff_cache
+  - .terraform
+  - .terragrunt-cache
+  - coverage
+  - .nyc_output
+  - .next
+  - .nuxt
+
+# Trivy Dockerfile misconfig scanning runs in maintenance.yml (weekly).
+# dclint is for docker-compose files -- not applicable here.
+DISABLE_LINTERS:
+  - REPOSITORY_TRIVY_CUSTOM
+  - DOCKERFILE_DCLINT
+
+# Semgrep arguments: base excludes + repo-specific excludes.
+# Must include ALL base excludes since EXTENDS replaces, not merges.
+REPOSITORY_SEMGREP_ARGUMENTS:
+  # --- from coding-standards baseline ---
+  - "--exclude-rule=trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces"
+  - "--exclude-rule=trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url"
+  - "--exclude-rule=trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url"
+  - "--exclude-rule=trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode"
+  # --- repo-specific: pr-reviewer uses print for entrypoint output ---
+  - "--exclude-rule=coding-standards.python-no-bare-print"

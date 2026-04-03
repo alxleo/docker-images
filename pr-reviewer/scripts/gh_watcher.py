@@ -8,14 +8,16 @@ Watches allowlisted private repos for:
 Auth: GitHub App (installation token, auto-rotates hourly).
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 import subprocess
 import time
-import urllib.request
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import review_core as core
 
@@ -59,34 +61,35 @@ class GitHubAppAuth:
         payload = {"iss": str(self.app_id), "iat": now - 60, "exp": now + 600}
         jwt_token = jwt.encode(payload, self.private_key, algorithm="RS256")
 
-        url = f"https://api.github.com/app/installations/{self.installation_id}/access_tokens"
-        req = urllib.request.Request(
-            url,
-            method="POST",
+        import httpx
+
+        install_id = int(self.installation_id)  # validate numeric
+        resp = httpx.post(
+            f"https://api.github.com/app/installations/{install_id}/access_tokens",
             headers={
                 "Authorization": f"Bearer {jwt_token}",
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
                 "User-Agent": "pr-reviewer-gh-watcher",
             },
-        )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            resp = json.loads(response.read())
+            timeout=10,
+        ).json()
         self._token = resp["token"]
         expires_str = resp["expires_at"].replace("Z", "+00:00")
         self._expires_at = datetime.fromisoformat(expires_str).timestamp()
         log.info("GitHub App token refreshed, expires at %s", resp["expires_at"])
 
 
-def setup_auth(config: dict) -> dict[str, GitHubAppAuth]:
+def setup_auth(config: dict[str, Any]) -> dict[str, GitHubAppAuth]:
     """Configure authentication from secrets. Returns GitHub App auth managers keyed by org.
 
     Supports two modes:
     - Multi-app: config has 'apps' section mapping org → env var names
     - Single-app: legacy mode, reads GH_APP_ID/GH_APP_INSTALLATION_ID/GH_APP_PRIVATE_KEY
     """
-    claude_token = (core.read_secret("reviewer_claude_token", required=False)
-                    or core.read_secret("claude_code_oauth_token", required=False))
+    claude_token = core.read_secret("reviewer_claude_token", required=False)
+    if not claude_token:
+        claude_token = core.read_secret("claude_code_oauth_token", required=False)
     if claude_token:
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 
@@ -105,7 +108,7 @@ def setup_auth(config: dict) -> dict[str, GitHubAppAuth]:
                     log.warning("Incomplete app credentials for org %s, skipping", org)
                     continue
                 app_auths[org] = GitHubAppAuth(int(app_id), int(installation_id), private_key)
-            except Exception:
+            except (ValueError, OSError, KeyError) as _:
                 log.exception("Failed to configure app auth for org %s", org)
     else:
         # Single-app legacy mode
@@ -156,14 +159,14 @@ def gh(args: list[str], repo: str | None = None) -> str:
     if repo:
         cmd.extend(["--repo", repo])
     cmd.extend(args)
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=False)
     if result.returncode != 0:
         log.error("gh %s failed: %s", " ".join(args), result.stderr.strip())
         return ""
     return result.stdout
 
 
-def gh_json(args: list[str], repo: str | None = None) -> list | dict:
+def gh_json(args: list[str], repo: str | None = None) -> list[Any] | dict[str, Any]:
     """Run a gh CLI command and parse JSON output."""
     output = gh(args, repo)
     if not output:
@@ -196,6 +199,7 @@ def clone_or_update(repo: str) -> Path:
             cwd=repo_dir,
             capture_output=True,
             timeout=120,
+            check=False,
         )
     else:
         core.REPOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -203,6 +207,7 @@ def clone_or_update(repo: str) -> Path:
             ["gh", "repo", "clone", repo, str(repo_dir), "--", "--depth=50"],
             capture_output=True,
             timeout=120,
+            check=False,
         )
     return repo_dir
 
@@ -214,6 +219,7 @@ def checkout_pr(repo_dir: Path, pr_number: int):
         cwd=repo_dir,
         capture_output=True,
         timeout=60,
+        check=False,
     )
 
 
@@ -230,7 +236,7 @@ def get_head_sha(repo: str, pr_number: int) -> str:
     return ""
 
 
-def post_inline_review(repo: str, pr_number: int, lens_name: str, comments: list[dict], head_sha: str) -> bool:
+def post_inline_review(repo: str, pr_number: int, lens_name: str, comments: list[dict[str, Any]], head_sha: str) -> bool:
     """Post inline review comments via GitHub API. Returns True on success."""
     icon = core.LENS_ICONS.get(lens_name, "\U0001f50d")
     review_body = f"{icon} **{lens_name.title()} Review** — {len(comments)} finding(s)"
@@ -250,7 +256,7 @@ def post_inline_review(repo: str, pr_number: int, lens_name: str, comments: list
         "--method", "POST",
         "--input", "-",
     ]
-    result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30, check=False)
     if result.returncode != 0:
         log.error("Failed to post inline review for PR #%d: %s", pr_number, result.stderr)
         return False
@@ -291,7 +297,7 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
             "gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews",
             "--method", "POST", "--input", "-",
         ]
-        result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, input=payload, capture_output=True, text=True, timeout=30, check=False)
         if result.returncode == 0:
             log.info("Posted %s review on %s#%d", lens_name, repo, pr_number)
             return
@@ -299,7 +305,7 @@ def post_review(repo: str, pr_number: int, lens_name: str, body: str, diff: str 
 
     # Last resort: issue comment (if we can't get head_sha or review API fails)
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
-    result = subprocess.run(cmd, input=full_body, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(cmd, input=full_body, capture_output=True, text=True, timeout=30, check=False)
     if result.returncode != 0:
         log.error("Failed to post review for PR #%d lens %s: %s", pr_number, lens_name, result.stderr)
     else:
@@ -311,7 +317,7 @@ def react_eyes(repo: str, comment_id: str):
     result = subprocess.run(
         ["gh", "api", f"repos/{repo}/issues/comments/{comment_id}/reactions",
          "--method", "POST", "-f", "content=eyes"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True, text=True, timeout=15, check=False,
     )
     if result.returncode == 0:
         log.info("Reacted 👀 on %s comment %s", repo, comment_id)
@@ -340,18 +346,18 @@ def post_status_comment(repo: str, pr_number: int, message: str):
             result = subprocess.run(
                 ["gh", "api", f"repos/{repo}/issues/comments/{existing_id}",
                  "--method", "PATCH", "--input", "-"],
-                input=payload, capture_output=True, text=True, timeout=15,
+                input=payload, capture_output=True, text=True, timeout=15, check=False,
             )
             if result.returncode == 0:
                 log.info("Updated status comment on %s#%d", repo, pr_number)
                 return
-    except Exception:
+    except (json.JSONDecodeError, subprocess.SubprocessError, OSError, KeyError) as _:
         log.debug("Failed to find existing status comment on %s#%d — creating new",
                   repo, pr_number, exc_info=True)
 
     # Create new comment
     cmd = ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body-file", "-"]
-    result = subprocess.run(cmd, input=body, capture_output=True, text=True, timeout=15)
+    result = subprocess.run(cmd, input=body, capture_output=True, text=True, timeout=15, check=False)
     if result.returncode == 0:
         log.info("Posted status comment on %s#%d", repo, pr_number)
 
@@ -361,7 +367,7 @@ def post_status_comment(repo: str, pr_number: int, message: str):
 # ---------------------------------------------------------------------------
 
 
-def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
+def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: str,
                     model_override: str | None = None):
     """Run all enabled lenses against a PR and post results."""
     log.info("Reviewing %s#%d at depth=%s", repo, pr_number, depth)
@@ -380,7 +386,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
     commit_messages = ""
     pr_data = gh_json(["pr", "view", str(pr_number), "--json", "body,commits"], repo=repo)
     if isinstance(pr_data, dict):
-        pr_description = pr_data.get("body", "") or ""
+        pr_description = pr_data.get("body") if pr_data.get("body") else ""
         commits = pr_data.get("commits", [])
         if commits:
             commit_messages = "\n".join(
@@ -409,7 +415,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
         lenses = all_lenses
 
     # Post status comment — "Reviewing with X lens(es)..."
-    model_name = model_override or config.get("default_model", "claude")
+    model_name = model_override if model_override else config.get("default_model", "claude")
     lens_list = ", ".join(lens["name"] for lens in lenses)
     status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
     post_status_comment(repo, pr_number, status_msg)
@@ -444,7 +450,7 @@ def dispatch_review(config: dict, repo: str, pr_number: int, depth: str,
     core.save_state(repo, pr_number, state)
 
 
-def check_comments(config: dict, repo: str, pr_number: int, comments: list):
+def check_comments(config: dict[str, Any], repo: str, pr_number: int, comments: list[Any]):
     """Check PR comments for @review commands."""
     state = core.load_state(repo, pr_number)
     processed_ids = set(state.get("processed_comment_ids", []))
@@ -465,7 +471,7 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
         # Immediate feedback: react with 👀 (best-effort, never blocks dispatch)
         try:
             react_eyes(repo, comment_id)
-        except Exception:
+        except (subprocess.SubprocessError, OSError) as _:
             log.debug("Failed to add 👀 reaction for comment %s — non-critical", comment_id)
 
         if depth == "stop":
@@ -473,13 +479,13 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
         else:
             try:
                 dispatch_review(config, repo, pr_number, depth, model_override)
-            except Exception:
-                log.exception("Review failed for %s#%d (comment %s) — marking processed to avoid retry loop",
+            except (subprocess.SubprocessError, json.JSONDecodeError, OSError, RuntimeError) as _:
+                log.exception("Review failed for %s#%d (comment %s) -- marking processed to avoid retry loop",
                               repo, pr_number, comment_id)
                 try:
                     post_status_comment(repo, pr_number,
                                         "\u274c **Review failed** — check container logs for details")
-                except Exception:
+                except (subprocess.SubprocessError, OSError) as _:
                     log.debug("Failed to post failure status for %s#%d — non-critical", repo, pr_number)
 
     # Reload state after dispatch_review may have updated it on disk,
@@ -489,7 +495,7 @@ def check_comments(config: dict, repo: str, pr_number: int, comments: list):
     core.save_state(repo, pr_number, state)
 
 
-def poll(config: dict, app_auths: dict[str, GitHubAppAuth]):
+def poll(config: dict[str, Any], app_auths: dict[str, GitHubAppAuth]):
     """Single poll cycle across all configured repos."""
     for repo in config.get("repos", []):
         org = repo.split("/")[0]
@@ -501,7 +507,7 @@ def poll(config: dict, app_auths: dict[str, GitHubAppAuth]):
         try:
             # Set token for this org before any gh CLI calls
             os.environ["GH_TOKEN"] = app_auth.get_token()
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             log.error("Token refresh failed for org %s, skipping %s: %s", org, repo, e)
             continue
 
@@ -511,7 +517,7 @@ def poll(config: dict, app_auths: dict[str, GitHubAppAuth]):
                  "--json", "number,updatedAt,isDraft,headRefOid,comments"],
                 repo=repo,
             )
-        except Exception as e:
+        except (json.JSONDecodeError, subprocess.SubprocessError, OSError) as e:
             log.error("Failed to list PRs for %s: %s", repo, e)
             continue
 
@@ -553,7 +559,7 @@ def main():
     while True:
         try:
             poll(config, app_auths)
-        except Exception:
+        except (subprocess.SubprocessError, json.JSONDecodeError, OSError, RuntimeError) as _:
             log.exception("Poll cycle failed")
         time.sleep(interval)
 

@@ -14,9 +14,7 @@ import subprocess
 
 import pytest
 import requests
-
 from conftest import extract_json_from_sse
-
 
 REGISTRY = "ghcr.io/alxleo"
 
