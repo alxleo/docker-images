@@ -22,9 +22,10 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 
 ### Composite Action
 
-`.github/actions/build-image/action.yml` handles the common build+scan flow:
-QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build (with GHA cache) -> Trivy scan.
+`.github/actions/build-image/action.yml` handles the common build flow:
+QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build (with GHA cache).
 Callers handle tests, GHCR login, and pushing the final image.
+Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 ### Image Types
 
@@ -32,7 +33,19 @@ Callers handle tests, GHCR login, and pushing the final image.
 |------|-----|---------|
 | **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, semaphore |
 | **MCP images** | `mcp-images.json` -> `Dockerfile.npm` or `.python` | mcp-reddit, mcp-arxiv |
-| **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (VARCHAR), cadvisor (Docker 29) |
+| **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (VARCHAR/distroless), cadvisor (Docker 29) |
+
+### Base Image Strategy
+
+| Base | Used by | Why |
+|------|---------|-----|
+| `node:24-alpine` | Dockerfile.npm (16 MCP images), git-mcp-server | Smallest viable Node base, no setuid binaries |
+| `node:24-slim` | Dockerfile.python (3 MCP images), pr-reviewer | Python C extensions (pymupdf) need glibc |
+| `python:3.13-alpine` | mcp-substack | Pure Python deps, Alpine viable |
+| `distroless/static:nonroot` | mcp-auth-proxy | Static Go binary, minimal attack surface |
+| `alpine:3.23` | pihole-exporter, cadvisor (runtime) | Already Alpine |
+
+All images build multi-arch (amd64 + arm64). All have `USER` (non-root) and `HEALTHCHECK` where applicable.
 
 ### Versioning (release-please)
 
@@ -66,11 +79,20 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, dispatch | Auto-discover, matrix build, test, push |
-| Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), pytest, log audit |
-| Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vulnerability scan (all images), action updates |
+| Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest, log audit |
+| Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan, action updates |
 | Release Please | `release-please.yml` | push main | Conventional commit -> version bump + CHANGELOG |
 | Mirror | `mirror-base-images.yml` | weekly, PRs (check), dispatch | GHCR base image mirrors |
 | Cleanup | `cleanup-ghcr.yml` | monthly | Delete untagged GHCR manifests |
+
+### Dockerfile Policies
+
+`policy/dockerfile.rego` enforces structural invariants via conftest:
+- `USER` must exist in the final stage (non-root)
+- `EXPOSE` implies `HEALTHCHECK` must exist
+- Exemptions via `# conftest:exempt=rule_name` comments in the Dockerfile
+
+`hadolint` requires `org.opencontainers.image.source` label (DL3049 via `label-schema`).
 
 ### Pre-commit hooks
 
