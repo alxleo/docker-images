@@ -192,9 +192,11 @@ def build_mcp_command() -> list[str]:
 
 def main():
     """Main entrypoint - build and execute MCP service command"""
+    log.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter("%(message)s"))
     log.addHandler(handler)
+    log.propagate = False
     log.setLevel(logging.INFO)
     print_header("MCP Service Startup")
 

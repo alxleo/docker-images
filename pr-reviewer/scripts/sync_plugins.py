@@ -104,6 +104,9 @@ def sync():
     raw = yaml.safe_load(CONFIG_PATH.read_text())
     config = raw if isinstance(raw, dict) else {}
     plugin_config = config.get("plugins", {})
+    if not isinstance(plugin_config, dict):
+        log.warning("Invalid plugins config (expected dict, got %s), skipping", type(plugin_config).__name__)
+        return
     if not plugin_config:
         log.info("No plugins section in config — skipping sync")
         return
@@ -175,6 +178,6 @@ def sync():
 if __name__ == "__main__":
     try:
         sync()
-    except (subprocess.SubprocessError, yaml.YAMLError, OSError, KeyError) as _:
+    except (subprocess.SubprocessError, yaml.YAMLError, OSError, KeyError, AttributeError, RuntimeError) as _:
         log.exception("Plugin sync failed (non-fatal, continuing)")
         # Non-fatal — container should still start even if plugin sync fails

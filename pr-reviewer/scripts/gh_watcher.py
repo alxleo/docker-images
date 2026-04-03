@@ -64,7 +64,7 @@ class GitHubAppAuth:
         import httpx
 
         install_id = int(self.installation_id)  # validate numeric
-        resp = httpx.post(
+        response = httpx.post(
             f"https://api.github.com/app/installations/{install_id}/access_tokens",
             headers={
                 "Authorization": f"Bearer {jwt_token}",
@@ -73,7 +73,9 @@ class GitHubAppAuth:
                 "User-Agent": "pr-reviewer-gh-watcher",
             },
             timeout=10,
-        ).json()
+        )
+        response.raise_for_status()
+        resp = response.json()
         self._token = resp["token"]
         expires_str = resp["expires_at"].replace("Z", "+00:00")
         self._expires_at = datetime.fromisoformat(expires_str).timestamp()

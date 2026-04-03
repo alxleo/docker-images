@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/bin/mcp-auth-proxy /usr/local/bin/mcp-auth-proxy
 ENV DATA_PATH=/data
+RUN mkdir -p /data && chown 1000:1000 /data
 
 USER 1000
 

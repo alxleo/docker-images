@@ -288,7 +288,7 @@ def dispatch_review(config: dict[str, Any], owner: str, repo: str, pr_number: in
     """Run enabled lenses against a PR and post results."""
     try:
         _dispatch_review_inner(config, owner, repo, pr_number, head_sha, depth, model_override)
-    except (httpx.HTTPError, subprocess.SubprocessError, OSError, json.JSONDecodeError) as _:
+    except (httpx.HTTPError, subprocess.SubprocessError, OSError, json.JSONDecodeError, RuntimeError, KeyError, ValueError) as _:
         log.exception("Review failed for %s/%s#%d", owner, repo, pr_number)
         try:
             with gitea_client() as client:

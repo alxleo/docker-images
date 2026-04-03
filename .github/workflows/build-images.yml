@@ -274,7 +274,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- Push multi-platform via buildx ---
+      # --- Push image(s) to GHCR via buildx ---
       - name: Push to GHCR
         if: >-
           steps.should-build.outputs.build == 'true' &&
