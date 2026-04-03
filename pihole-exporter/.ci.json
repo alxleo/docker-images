@@ -1,5 +1,6 @@
 {
   "tag": "v1.2.0",
+  "build_args": "PIHOLE_EXPORTER_VERSION=v1.2.0",
   "platforms": "linux/amd64,linux/arm64",
   "test_commands": [
     "docker run --rm --entrypoint sh $IMAGE_REF -c \"/usr/local/bin/pihole-exporter -h 2>&1 | grep -q pihole_hostname\"",

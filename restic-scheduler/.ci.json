@@ -1,0 +1,7 @@
+{
+  "tag": "latest",
+  "build_args": "RESTICKER_VERSION=1.8.2\nSUPERCRONIC_VERSION=0.2.44",
+  "test_commands": [
+    "docker run --rm --entrypoint sh $IMAGE_REF -c \"supercronic --version && restic version\""
+  ]
+}

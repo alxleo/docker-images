@@ -7,8 +7,11 @@
 # Remove when: upstream merges a fix for #111, then switch back to ghcr.io/sigbit/
 
 FROM ghcr.io/alxleo/base-images/golang:1.25-bookworm AS builder
+
+ARG MCP_AUTH_PROXY_VERSION=v2.5.3
+
 WORKDIR /src
-RUN git clone --branch v2.5.3 --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
+RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
 
 # Fix VARCHAR(255) — sigbit/mcp-auth-proxy#111
 # OAuth token signatures regularly exceed 255 chars (~420 observed)
