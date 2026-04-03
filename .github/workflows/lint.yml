@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: alxleo/coding-standards/docker-action@be4a7028599c433241c1292fa6350b829a0ad709 # v1
+      - uses: alxleo/coding-standards/docker-action@main
 
   pytest:
     name: pytest (pr-reviewer)
