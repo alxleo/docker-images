@@ -42,7 +42,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 | `node:24-alpine` | Dockerfile.npm (16 MCP images), git-mcp-server | Smallest viable Node base, no setuid binaries |
 | `node:24-slim` | Dockerfile.python (3 MCP images), pr-reviewer | Python C extensions (pymupdf) need glibc |
 | `python:3.13-alpine` | mcp-substack | Pure Python deps, Alpine viable |
-| `distroless/static:nonroot` | mcp-auth-proxy | Static Go binary, minimal attack surface |
+| `gcr.io/distroless/static-debian12:nonroot` | mcp-auth-proxy | Static Go binary, minimal attack surface |
 | `alpine:3.23` | pihole-exporter, cadvisor (runtime) | Already Alpine |
 
 All images build multi-arch (amd64 + arm64). All have `USER` (non-root) and `HEALTHCHECK` where applicable.
