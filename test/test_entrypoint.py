@@ -16,7 +16,8 @@ import importlib.util
 
 _entrypoint_path = Path(__file__).resolve().parent.parent / "mcp" / "entrypoint.py"
 _spec = importlib.util.spec_from_file_location("entrypoint", _entrypoint_path)
-assert _spec is not None and _spec.loader is not None, f"Failed to load {_entrypoint_path}"
+if _spec is None or _spec.loader is None:
+    raise ImportError(f"Could not load module spec for {_entrypoint_path}")
 entrypoint = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(entrypoint)
 

@@ -101,7 +101,7 @@ jobs:
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            goodwithtech/dockle:latest \
+            goodwithtech/dockle:v0.4.15 \
             --exit-code 1 \
             --exit-level warn \
             --ignore CIS-DI-0001 \
