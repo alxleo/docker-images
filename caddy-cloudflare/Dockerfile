@@ -10,6 +10,7 @@ RUN echo "cache-bust: 2026-03-28" && xcaddy build \
     --with github.com/caddy-dns/cloudflare \
     --with github.com/lucaslorentz/caddy-docker-proxy/v2
 
+# conftest:exempt=user_required -- caddy drops privileges at runtime
 FROM ghcr.io/alxleo/base-images/caddy:${CADDY_VERSION}
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk --no-cache upgrade

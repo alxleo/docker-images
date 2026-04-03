@@ -49,6 +49,21 @@ jobs:
         env:
           PYTHONPATH: pr-reviewer/scripts
 
+  conftest:
+    name: conftest (Dockerfile policies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Install conftest
+        run: |
+          CONFTEST_VERSION=0.60.0
+          curl -fsSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin conftest
+      - name: Test Dockerfile policies
+        run: conftest test --parser dockerfile -p policy/ -- */Dockerfile mcp/Dockerfile.*
+
   log-audit:
     name: log audit (no sensitive data at INFO)
     runs-on: ubuntu-latest
