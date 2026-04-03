@@ -310,7 +310,9 @@ def render_repomap(ranked_files: list[str], all_tags: dict[str, FileTags],
     total = 0
     for rel in ranked_files:
         tags = all_tags.get(rel)
-        if tags is None or not tags.signatures:
+        if tags is None:
+            continue
+        if not tags.signatures:
             continue
         tag_defs = tags.defs
         sorted_defs = sorted(tags.signatures.items(), key=lambda x: tag_defs.get(x[0], 0))
