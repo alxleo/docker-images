@@ -1,22 +1,100 @@
-# Weekly maintenance: update GitHub Actions to latest versions.
+# Weekly maintenance: vulnerability scanning and action updates.
+#
+# Trivy scans run here (not in CI) because they check deployed :latest images
+# for new CVEs -- external changes, not code changes. Keeps builds fast and
+# avoids blocking merges on upstream CVE churn.
 name: Maintenance
 
 on:
   schedule:
-    - cron: '23 3 * * 1'
+    - cron: '23 3 * * 1'  # Monday 03:23 UTC
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: alxleo
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  update-actions:
+  # ---------------------------------------------------------------------------
+  # Trivy vulnerability scan -- all pushed images
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Discover images
     runs-on: ubuntu-latest
+    outputs:
+      custom: ${{ steps.custom.outputs.images }}
+      mcp: ${{ steps.mcp.outputs.images }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Custom images
+        id: custom
+        run: |
+          images=$(bash scripts/discover-images.sh | jq -c '[.[] | {name, context}]')
+          echo "images=${images}" >> "$GITHUB_OUTPUT"
+      - name: MCP images
+        id: mcp
+        run: |
+          images=$(jq -c '[.[] | {name}]' mcp-images.json)
+          echo "images=${images}" >> "$GITHUB_OUTPUT"
+
+  trivy-custom:
+    name: Trivy ${{ matrix.name }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.custom) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ghcr.io/alxleo/${{ matrix.name }}:latest
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+          trivyignores: ${{ matrix.context }}/.trivyignore
+
+  trivy-mcp:
+    name: Trivy MCP ${{ matrix.name }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.mcp) }}
+    steps:
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ghcr.io/alxleo/${{ matrix.name }}:latest
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+
+  # ---------------------------------------------------------------------------
+  # Update GitHub Actions to latest versions
+  # ---------------------------------------------------------------------------
+  update-actions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: true  # needed for git push
 
       - name: Update actions
         run: npx --yes actions-up --yes
