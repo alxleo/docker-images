@@ -93,6 +93,10 @@ ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
 #   - Clear error messages and validation
 # Secrets are injected via environment variables or Docker secrets
 # See /entrypoint.py for implementation
+# Strip setuid/setgid bits and clean stale root caches
+RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true \
+    && rm -rf /root/.npm /root/.cache
+
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 

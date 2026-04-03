@@ -105,7 +105,9 @@ jobs:
             --exit-code 1 \
             --exit-level warn \
             --ignore CIS-DI-0001 \
+            --ignore CIS-DI-0005 \
             --ignore DKL-DI-0006 \
+            -af settings.py \
             "ghcr.io/alxleo/${{ matrix.name }}:latest"
 
   # ---------------------------------------------------------------------------

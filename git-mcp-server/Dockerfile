@@ -42,6 +42,10 @@ ENV MCP_TRANSPORT_TYPE=http \
     MCP_LOG_LEVEL=info \
     GIT_BASE_DIR=/data
 
+# Strip setuid/setgid bits and clean stale root caches
+RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true \
+    && rm -rf /root/.npm
+
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
