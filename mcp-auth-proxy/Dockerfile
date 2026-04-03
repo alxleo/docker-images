@@ -20,7 +20,8 @@ RUN sed -i 's/size:255/size:512/g' pkg/repository/sql.go
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
 
 # Create data dir in builder (distroless has no mkdir)
-RUN mkdir -p /data && chown 65534:65534 /data
+# distroless nonroot UID/GID is 65532
+RUN mkdir -p /data && chown 65532:65532 /data
 
 # conftest:exempt=healthcheck_required -- proxied behind caddy
 FROM gcr.io/distroless/static-debian12:nonroot

@@ -177,18 +177,23 @@ class TestMCPAuthProxy:
 
         Uses docker cp to extract the binary since distroless has no shell.
         """
-        container = "mcp-auth-proxy-test-extract"
+        import tempfile
+
+        # Use container ID (not name) to avoid conflicts with concurrent runs
+        create = subprocess.run(
+            ["docker", "create", self.IMAGE],
+            capture_output=True, text=True, check=True,
+        )
+        container_id = create.stdout.strip()
         try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix="-mcp-auth-proxy") as tmp:
+                tmp_path = tmp.name
             subprocess.run(
-                ["docker", "create", "--name", container, self.IMAGE],
-                capture_output=True, text=True, check=True,
-            )
-            subprocess.run(
-                ["docker", "cp", f"{container}:/usr/local/bin/mcp-auth-proxy", "/tmp/mcp-auth-proxy-test"],
+                ["docker", "cp", f"{container_id}:/usr/local/bin/mcp-auth-proxy", tmp_path],
                 capture_output=True, text=True, check=True,
             )
             result = subprocess.run(
-                ["grep", "-ac", "size:512", "/tmp/mcp-auth-proxy-test"],
+                ["grep", "-ac", "size:512", tmp_path],
                 capture_output=True, text=True,
             )
             assert result.returncode == 0, f"grep failed: {result.stderr}"
@@ -197,8 +202,11 @@ class TestMCPAuthProxy:
                 f"Expected 'size:512' in binary (VARCHAR fix), got {count} matches"
             )
         finally:
-            subprocess.run(["docker", "rm", "-f", container], capture_output=True)
-            subprocess.run(["rm", "-f", "/tmp/mcp-auth-proxy-test"], capture_output=True)
+            subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
+            try:
+                os.unlink(tmp_path)
+            except FileNotFoundError:
+                pass
 
 
 # =========================================================================
