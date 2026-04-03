@@ -43,7 +43,7 @@ ENV MCP_TRANSPORT_TYPE=http \
     GIT_BASE_DIR=/data
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD ["/bin/httpcheck", "-url", "http://localhost:8080/ping"]
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
 USER 1000
 

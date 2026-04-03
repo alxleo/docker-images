@@ -41,6 +41,6 @@ EXPOSE 8080
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD ["/bin/httpcheck", "-url", "http://localhost:8080/healthz"]
+  CMD ["/bin/httpcheck", "http://localhost:8080/healthz"]
 
 ENTRYPOINT ["/usr/bin/cadvisor"]

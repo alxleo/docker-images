@@ -22,7 +22,7 @@ COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 EXPOSE 9617
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD ["/bin/httpcheck", "-url", "http://localhost:9617/metrics"]
+  CMD ["/bin/httpcheck", "http://localhost:9617/metrics"]
 
 USER 1000
 

@@ -76,7 +76,7 @@ ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
 # Secrets are injected via environment variables or Docker secrets
 # See /entrypoint.py for implementation
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD ["/bin/httpcheck", "-url", "http://localhost:8080/ping"]
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
 USER 1000
 

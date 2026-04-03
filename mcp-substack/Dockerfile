@@ -48,7 +48,7 @@ EXPOSE 8080
 ENV MCP_PORT=8080
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD ["/bin/httpcheck", "-url", "http://localhost:8080/ping"]
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
 USER 1000
 
