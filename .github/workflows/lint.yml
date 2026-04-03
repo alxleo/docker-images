@@ -1,7 +1,8 @@
-# Lint Dockerfiles, shell scripts, YAML, GHA workflows, links, and GHA security
+# Lint via coding-standards (MegaLinter) + repo-specific checks
 #
-# Runs on all PRs and pushes to main — not path-filtered,
-# so linting always gates merge regardless of what changed.
+# coding-standards auto-detects and runs: hadolint, shellcheck, yamllint,
+# actionlint, zizmor, ruff, lychee, gitleaks, semgrep, and more.
+# Repo-specific jobs: pytest (pr-reviewer), log audit.
 
 name: Lint
 
@@ -21,79 +22,15 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  hadolint:
-    name: Hadolint (Dockerfiles)
+  coding-standards:
+    name: coding-standards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
-        with:
-          recursive: true
-          failure-threshold: warning
-
-  shellcheck:
-    name: ShellCheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
-        with:
-          scandir: .
-          severity: warning
-
-  yamllint:
-    name: yamllint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - run: pip install yamllint
-      - run: yamllint .
-
-  actionlint:
-    name: actionlint (GHA workflows)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - uses: reviewdog/action-actionlint@a40b7d35e62844ec9c0096ff3f5ff48579c90759 # v1
-
-  lychee:
-    name: lychee (link checker)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
-        with:
-          args: --offline --no-progress '**/*.md'
-
-  zizmor:
-    name: zizmor (GHA security)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - run: pipx install zizmor
-      - run: zizmor .github/workflows/
-
-  ruff:
-    name: ruff (Python lint)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v8
-      - run: uvx ruff check pr-reviewer/scripts pr-reviewer/tests
+      - uses: alxleo/coding-standards/docker-action@be4a7028599c433241c1292fa6350b829a0ad709 # v1
 
   pytest:
     name: pytest (pr-reviewer)
@@ -102,7 +39,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6 # v5
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
       - run: |
