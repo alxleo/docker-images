@@ -12,9 +12,14 @@ from unittest.mock import patch
 
 import pytest
 
-# Import entrypoint from mcp/ (not a package)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mcp"))
-import entrypoint
+# Import entrypoint from mcp/ (not a package -- use importlib to avoid E402)
+import importlib.util
+
+_spec = importlib.util.spec_from_file_location(
+    "entrypoint", Path(__file__).resolve().parent.parent / "mcp" / "entrypoint.py"
+)
+entrypoint = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(entrypoint)
 
 
 # Helper to clear all MCP-related env vars between tests
