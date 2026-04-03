@@ -1,0 +1,16 @@
+# Trivy Dockerfile misconfiguration ignores (trivy fs --scanners misconfig).
+# Inline trivy:ignore comments don't work with misconfig scanning.
+
+# DS-0002: non-root USER
+# cadvisor needs root to read /sys/fs/cgroup and /proc.
+# dagu-ops needs root for Docker socket + backup volume writes.
+# restic-scheduler needs root for supercronic PID 1 + Docker socket.
+# caddy drops privileges at runtime (upstream pattern).
+# All other images have USER 1000.
+DS-0002
+
+# DS-0026: HEALTHCHECK
+# Images with HTTP ports have HEALTHCHECK. Remaining images are:
+# dagu-ops/restic-scheduler (batch, no HTTP), mcp-auth-proxy (behind caddy),
+# caddy/semaphore (upstream-managed health).
+DS-0026

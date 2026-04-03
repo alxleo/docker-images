@@ -27,7 +27,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/bin/mcp-auth-proxy /usr/local/bin/mcp-auth-proxy
 ENV DATA_PATH=/data
 
-# trivy:ignore:DS-0026 -- proxied behind caddy, health checks are external
 USER 1000
 
 ENTRYPOINT ["/usr/local/bin/mcp-auth-proxy"]
