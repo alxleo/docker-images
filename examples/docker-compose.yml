@@ -16,9 +16,9 @@ x-common: &common
   cap_drop: [ALL]                        # Drop all Linux capabilities
   tmpfs:                                 # Writable ephemeral mounts (lost on restart)
     - /tmp:exec
-    - /root/.npm:exec                    # npm cache (npm-based images)
-    - /root/.cache:exec                  # General cache
-    - /root/.local/share:exec            # Node modules
+    - /tmp/.npm:exec                     # npm cache (npm-based images)
+    - /tmp/.cache:exec                   # General cache
+    - /tmp/.local/share:exec             # Node modules
   healthcheck:
     test: ["CMD", "httpcheck", "http://localhost:8080/ping"]
     interval: 30s
