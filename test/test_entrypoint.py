@@ -6,15 +6,20 @@ resolution, secret injection, and startup jitter.
 """
 
 import os
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-# Import entrypoint from mcp/ (not a package)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mcp"))
-import entrypoint
+# Import entrypoint from mcp/ (not a package -- use importlib to avoid E402)
+import importlib.util
+
+_entrypoint_path = Path(__file__).resolve().parent.parent / "mcp" / "entrypoint.py"
+_spec = importlib.util.spec_from_file_location("entrypoint", _entrypoint_path)
+if _spec is None or _spec.loader is None:
+    raise ImportError(f"Could not load module spec for {_entrypoint_path}")
+entrypoint = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(entrypoint)
 
 
 # Helper to clear all MCP-related env vars between tests

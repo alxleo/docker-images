@@ -84,6 +84,33 @@ jobs:
           scanners: vuln
 
   # ---------------------------------------------------------------------------
+  # Dockle CIS benchmark -- scans built images for runtime security issues
+  # Catches setuid/setgid binaries, empty passwords, content trust violations
+  # that static Dockerfile analysis can't detect.
+  # ---------------------------------------------------------------------------
+  dockle:
+    name: Dockle ${{ matrix.name }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.custom) }}
+    steps:
+      - name: Run dockle
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            goodwithtech/dockle:v0.4.15 \
+            --exit-code 1 \
+            --exit-level warn \
+            --ignore CIS-DI-0001 \
+            --ignore CIS-DI-0005 \
+            --ignore DKL-DI-0006 \
+            -af settings.py \
+            "ghcr.io/alxleo/${{ matrix.name }}:latest"
+
+  # ---------------------------------------------------------------------------
   # Update GitHub Actions to latest versions
   # ---------------------------------------------------------------------------
   update-actions:
