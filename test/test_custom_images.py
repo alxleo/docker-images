@@ -185,6 +185,7 @@ class TestMCPAuthProxy:
             capture_output=True, text=True, check=True,
         )
         container_id = create.stdout.strip()
+        tmp_path = ""
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix="-mcp-auth-proxy") as tmp:
                 tmp_path = tmp.name
@@ -203,10 +204,11 @@ class TestMCPAuthProxy:
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
-            try:
-                os.unlink(tmp_path)
-            except FileNotFoundError:
-                pass
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except FileNotFoundError:
+                    pass
 
 
 # =========================================================================
