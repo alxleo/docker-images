@@ -1,5 +1,6 @@
 {
   "tag": "1.0.0",
+  "build_args": "MCP_PROXY_VERSION=6.4.2",
   "test_commands": [
     "docker run --rm -d --name mcp-substack-test -e SUBSTACK_USERNAME=test -p 18080:8080 $IMAGE_REF && sleep 10 && curl -sf http://localhost:18080/ping && docker stop mcp-substack-test"
   ]

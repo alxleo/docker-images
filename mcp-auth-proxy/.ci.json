@@ -1,5 +1,6 @@
 {
   "tag": "v2.5.3",
+  "build_args": "MCP_AUTH_PROXY_VERSION=v2.5.3",
   "test_setup": "pip install -q uv",
   "test_commands": [
     "uv run --with pytest --with requests -- pytest test/test_custom_images.py -m mcp_auth_proxy -v"

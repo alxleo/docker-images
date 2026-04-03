@@ -21,9 +21,10 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install Node.js for mcp-proxy (HTTP bridge)
+ARG MCP_PROXY_VERSION=6.4.2
 RUN apt-get update && \
     apt-get install -y --no-install-recommends nodejs npm && \
-    npm install -g mcp-proxy@6.4.2 && \
+    npm install -g mcp-proxy@${MCP_PROXY_VERSION} && \
     apt-get purge -y npm && \
     apt-get autoremove -y && \
     apt-get clean && \
