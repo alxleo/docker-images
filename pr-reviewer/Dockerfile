@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gosu \
     jq \
+    tini \
     ripgrep \
     fd-find \
     python3 \

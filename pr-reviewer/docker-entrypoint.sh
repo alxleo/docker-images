@@ -16,4 +16,6 @@ for dir in $WRITABLE_DIRS; do
     fi
 done
 
-exec gosu 1000 "$@"
+# tini handles PID 1 duties (zombie reaping, signal forwarding).
+# Without it, python as PID 1 ignores SIGTERM → docker stop hangs 10s then SIGKILLs.
+exec tini -- gosu 1000 "$@"
