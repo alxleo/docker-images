@@ -16,15 +16,12 @@
 # Example run:
 #   docker run -p 8080:8080 -e BRAVE_API_KEY=xxx mcp-hackernews
 
-FROM ghcr.io/alxleo/base-images/node:24-slim
+FROM ghcr.io/alxleo/base-images/node:24-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 
 # Install system dependencies for entrypoint
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends unzip jq python3 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache unzip jq python3
 
 # Healthcheck binary: 75KB static C/musl, localhost-only by design
 # Replaces curl (9MB + full network attack surface) for container health probes
@@ -68,18 +65,8 @@ ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
     MCP_SERVER_COMMAND="" \
     MCP_PORT=8080
 
-# Startup via entrypoint.py (Python-based orchestration)
-# The entrypoint handles:
-#   - Tool filtering (FILTER_INCLUDE / FILTER_EXCLUDE)
-#   - MCP server command construction
-#   - Clear error messages and validation
-# Secrets are injected via environment variables or Docker secrets
-# See /entrypoint.py for implementation
-# Strip setuid/setgid bits -- these binaries (su, passwd, mount, etc.)
-# have no purpose in a container and expand the attack surface.
-# Clean up root npm cache (stale after USER switch).
-RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true \
-    && rm -rf /root/.npm
+# Clean stale npm cache from global installs
+RUN rm -rf /root/.npm
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]

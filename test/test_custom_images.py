@@ -171,25 +171,44 @@ class TestMCPAuthProxy:
     def test_varchar_patch_applied(self):
         """The size:512 patch is present in the compiled binary.
 
-        The sed command in the Dockerfile replaces 7 'size:255' → 'size:512'
+        The sed command in the Dockerfile replaces 7 'size:255' -> 'size:512'
         in pkg/repository/sql.go. Go embeds struct tags as string literals,
-        so grep -ac finds them in the binary. No `strings` (binutils) needed.
+        so grep -ac finds them in the binary.
+
+        Uses docker cp to extract the binary since distroless has no shell.
         """
-        result = subprocess.run(
-            [
-                "docker", "run", "--rm", "--entrypoint", "sh",
-                self.IMAGE, "-c",
-                "grep -ac 'size:512' /usr/local/bin/mcp-auth-proxy",
-            ],
-            capture_output=True,
-            text=True,
+        import tempfile
+
+        # Use container ID (not name) to avoid conflicts with concurrent runs
+        create = subprocess.run(
+            ["docker", "create", self.IMAGE],
+            capture_output=True, text=True, check=True,
         )
-        # grep -ac counts lines with matches in binary mode
-        assert result.returncode == 0, f"grep failed: {result.stderr}"
-        count = int(result.stdout.strip())
-        assert count >= 1, (
-            f"Expected 'size:512' in binary (VARCHAR fix), got {count} matches"
-        )
+        container_id = create.stdout.strip()
+        tmp_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix="-mcp-auth-proxy") as tmp:
+                tmp_path = tmp.name
+            subprocess.run(
+                ["docker", "cp", f"{container_id}:/usr/local/bin/mcp-auth-proxy", tmp_path],
+                capture_output=True, text=True, check=True,
+            )
+            result = subprocess.run(
+                ["grep", "-ac", "size:512", tmp_path],
+                capture_output=True, text=True,
+            )
+            assert result.returncode == 0, f"grep failed: {result.stderr}"
+            count = int(result.stdout.strip())
+            assert count >= 1, (
+                f"Expected 'size:512' in binary (VARCHAR fix), got {count} matches"
+            )
+        finally:
+            subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except FileNotFoundError:
+                    pass
 
 
 # =========================================================================
