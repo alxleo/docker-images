@@ -73,7 +73,7 @@ def setup_codex_auth():
 
     Skips if auth.json already exists (mounted or from previous login).
     """
-    auth_file = Path("/root/.codex/auth.json")
+    auth_file = Path.home() / ".codex" / "auth.json"
     if auth_file.exists():
         log.info("Codex auth.json present (mounted or cached)")
         return
