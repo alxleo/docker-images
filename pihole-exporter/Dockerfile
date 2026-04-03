@@ -17,10 +17,12 @@ COPY entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /usr/local/bin/pihole-exporter /entrypoint.sh
 
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+
 EXPOSE 9617
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD ["/bin/wget", "--spider", "-q", "http://localhost:9617/metrics"]
+  CMD ["/bin/httpcheck", "-url", "http://localhost:9617/metrics"]
 
 USER 1000
 

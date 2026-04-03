@@ -27,13 +27,9 @@ DISABLE_LINTERS:
   - REPOSITORY_TRIVY_CUSTOM
   - DOCKERFILE_DCLINT
 
-# Semgrep arguments: base excludes + repo-specific excludes.
-# Must include ALL base excludes since EXTENDS replaces, not merges.
+# Semgrep arguments: must replicate base excludes since EXTENDS replaces arrays.
 REPOSITORY_SEMGREP_ARGUMENTS:
-  # --- from coding-standards baseline ---
   - "--exclude-rule=trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces"
   - "--exclude-rule=trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url"
   - "--exclude-rule=trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url"
   - "--exclude-rule=trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode"
-  # --- repo-specific: pr-reviewer uses print for entrypoint output ---
-  - "--exclude-rule=coding-standards.python-no-bare-print"
