@@ -8,8 +8,11 @@ set -e
 WRITABLE_DIRS="/app/state /app/repos /app/.claude /app/.codex"
 
 for dir in $WRITABLE_DIRS; do
-    if [ -d "$dir" ] && [ "$(stat -c %u "$dir")" != "1000" ]; then
-        chown -R 1000:1000 "$dir"
+    if [[ -d "$dir" ]]; then
+        owner=$(stat -c %u "$dir")
+        if [[ "$owner" != "1000" ]]; then
+            chown -R 1000:1000 "$dir"
+        fi
     fi
 done
 
