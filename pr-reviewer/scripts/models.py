@@ -1,11 +1,14 @@
 """AI model invocation: Claude, Gemini, Codex. Fully deterministic CLI calls."""
 
+from __future__ import annotations
+
 import dataclasses
 import json
 import logging
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 from config import CLAUDE_REVIEW_TOOLS, PLUGIN_DIR, PLUGINS_DIR, STATE_DIR
 
@@ -37,7 +40,7 @@ class ReviewResult:
                 f"duration={self.duration_ms // 1000}s stop={self.stop_reason}")
 
 
-def _save_session_metadata(session_id: str, raw_json: dict):
+def _save_session_metadata(session_id: str, raw_json: dict[str, Any]):
     """Persist full Claude JSON response for post-mortem debugging."""
     if not session_id:
         return
@@ -78,7 +81,7 @@ def _log_lens_result(model: str, result: subprocess.CompletedProcess, duration_s
              f", stderr={stderr_preview}" if stderr_preview else "")
     if result.returncode != 0:
         log.warning("Lens %s failed (exit %d): %s", model, result.returncode,
-                    result.stderr.strip()[:500] or result.stdout.strip()[:500])
+                    result.stderr.strip()[:500] if result.stderr.strip() else result.stdout.strip()[:500])
 
 
 def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
@@ -101,7 +104,7 @@ def run_lens_claude(prompt: str, repo_dir: Path, max_turns: int,
     timeout = max(300, max_turns * 60)
     start = time.time()
     log.info("Claude invocation: --model %s --max-turns %d --timeout %ds", model, max_turns, timeout)
-    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=timeout)
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=timeout, check=False)
     _log_lens_result("claude", result, time.time() - start)
     if result.returncode != 0:
         return ReviewResult(text="", max_turns=max_turns)
@@ -121,7 +124,7 @@ def run_lens_gemini(prompt: str, repo_dir: Path, model: str = "gemini-2.5-pro") 
            "-m", model]
     start = time.time()
     log.info("Gemini invocation: -m %s", model)
-    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300, check=False)
     _log_lens_result("gemini", result, time.time() - start)
     if result.returncode != 0:
         return ""
@@ -133,7 +136,7 @@ def run_lens_codex(prompt: str, repo_dir: Path, model: str = "o3") -> str:
     cmd = ["codex", "exec", "-m", model]
     start = time.time()
     log.info("Codex invocation: -m %s", model)
-    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300)
+    result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=repo_dir, timeout=300, check=False)
     _log_lens_result("codex", result, time.time() - start)
     if result.returncode != 0:
         return ""

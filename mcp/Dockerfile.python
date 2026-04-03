@@ -26,7 +26,7 @@
 FROM ghcr.io/alxleo/base-images/node:24-slim AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
-    apt-get install -y curl && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -38,7 +38,7 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 # Install Python 3.11+, git (for git+ packages), and entrypoint deps
 # No curl needed — uv copied from build stage, healthcheck uses microcheck
 RUN apt-get update && \
-    apt-get install -y python3 git unzip jq && \
+    apt-get install -y --no-install-recommends python3 git unzip jq ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -93,5 +93,10 @@ ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
 #   - Clear error messages and validation
 # Secrets are injected via environment variables or Docker secrets
 # See /entrypoint.py for implementation
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
+
+USER 1000
+
 ENTRYPOINT ["/entrypoint.py"]
 CMD []

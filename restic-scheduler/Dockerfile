@@ -14,6 +14,7 @@
 ARG RESTICKER_VERSION=1.8.2
 ARG SUPERCRONIC_VERSION=0.2.44
 
+# conftest:exempt=user_required -- supercronic PID 1 + Docker socket + backup volumes
 FROM mazzolino/restic:${RESTICKER_VERSION}
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 

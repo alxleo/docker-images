@@ -27,8 +27,8 @@ COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 ARG GIT_MCP_VERSION=2.10.5
 RUN npm install -g @cyanheads/git-mcp-server@${GIT_MCP_VERSION}
 
-# Create data directory
-RUN mkdir -p /data
+# Create data directory (owned by non-root user for USER 1000)
+RUN mkdir -p /data && chown 1000:1000 /data
 
 # Entrypoint reads Docker secrets into env vars, then starts the server
 COPY entrypoint.sh /entrypoint.sh
@@ -41,5 +41,10 @@ ENV MCP_TRANSPORT_TYPE=http \
     MCP_HTTP_HOST=0.0.0.0 \
     MCP_LOG_LEVEL=info \
     GIT_BASE_DIR=/data
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
+
+USER 1000
 
 ENTRYPOINT ["/entrypoint.sh"]

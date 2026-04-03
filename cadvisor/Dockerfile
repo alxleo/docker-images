@@ -28,6 +28,7 @@ WORKDIR /src
 # Build using upstream build script (outputs to _output/cadvisor)
 RUN GO_FLAGS="-tags=netgo" ./build/build.sh
 
+# conftest:exempt=user_required -- reads /sys/fs/cgroup and /proc
 FROM ghcr.io/alxleo/base-images/alpine:3.23
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk --no-cache upgrade && \
@@ -36,4 +37,10 @@ RUN apk --no-cache upgrade && \
 COPY --from=build /src/_output/cadvisor /usr/bin/cadvisor
 
 EXPOSE 8080
+
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/httpcheck", "http://localhost:8080/healthz"]
+
 ENTRYPOINT ["/usr/bin/cadvisor"]

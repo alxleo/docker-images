@@ -1,10 +1,13 @@
 """Configuration, constants, secrets, and state management."""
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -75,9 +78,10 @@ CLAUDE_REVIEW_TOOLS = ",".join([
 # ---------------------------------------------------------------------------
 
 
-def load_config() -> dict:
+def load_config() -> dict[str, Any]:
     with open(CONFIG_PATH) as f:
-        return yaml.safe_load(f) or {}
+        result = yaml.safe_load(f)
+        return result if isinstance(result, dict) else {}
 
 
 def read_secret(path: str, required: bool = True) -> str:
@@ -86,12 +90,14 @@ def read_secret(path: str, required: bool = True) -> str:
     Checks: {path}_FILE env → /run/secrets/{path} file → {path} env → {PATH} env (uppercase).
     """
     secret_file = os.environ.get(f"{path}_FILE", f"/run/secrets/{path}")
-    if os.path.isfile(secret_file):
+    if Path(secret_file).is_file():
         val = Path(secret_file).read_text().strip()
         if val and not val.startswith("PLACEHOLDER"):
             return val
     # Try env var: exact case, then uppercase
-    val = os.environ.get(path, "") or os.environ.get(path.upper(), "")
+    val = os.environ.get(path, "")
+    if not val:
+        val = os.environ.get(path.upper(), "")
     if not val:
         if required:
             log.error("Secret %s not found at %s or in environment", path, secret_file)
@@ -104,7 +110,7 @@ def read_secret(path: str, required: bool = True) -> str:
     return val
 
 
-def resolve_model(config: dict, model_family: str, depth: str = "standard") -> str:
+def resolve_model(config: dict[str, Any], model_family: str, depth: str = "standard") -> str:
     """Resolve the actual model name from config.
 
     For Claude, uses claude_deep model when depth is 'deep'.
@@ -120,7 +126,7 @@ def resolve_model(config: dict, model_family: str, depth: str = "standard") -> s
 # ---------------------------------------------------------------------------
 
 
-def load_state(repo: str, pr_number: int) -> dict:
+def load_state(repo: str, pr_number: int) -> dict[str, Any]:
     """Load review state for a PR."""
     safe_repo = repo.replace("/", "_")
     state_file = STATE_DIR / f"{safe_repo}_pr{pr_number}.json"
@@ -129,7 +135,7 @@ def load_state(repo: str, pr_number: int) -> dict:
     return {}
 
 
-def save_state(repo: str, pr_number: int, state: dict):
+def save_state(repo: str, pr_number: int, state: dict[str, Any]):
     """Save review state for a PR."""
     safe_repo = repo.replace("/", "_")
     state_file = STATE_DIR / f"{safe_repo}_pr{pr_number}.json"
@@ -142,7 +148,7 @@ def save_state(repo: str, pr_number: int, state: dict):
 # ---------------------------------------------------------------------------
 
 
-def enabled_lenses(config: dict, depth: str) -> list[dict]:
+def enabled_lenses(config: dict[str, Any], depth: str) -> list[dict[str, Any]]:
     """Return list of lenses to run for the given depth."""
     if depth in ("security", "standards", "drift", "simplification", "architecture"):
         lens_name = depth

@@ -9,6 +9,8 @@ Receives Gitea webhook POSTs and dispatches AI reviews:
 Auth: Gitea API token (file at /run/secrets/gitea_token, or GITEA_TOKEN env var).
 """
 
+from __future__ import annotations
+
 import hashlib
 import hmac
 import json
@@ -20,6 +22,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -92,17 +95,17 @@ def clone_or_update(owner: str, repo: str) -> Path:
         # Update remote URL in case token changed
         subprocess.run(
             ["git", "remote", "set-url", "origin", clone_url],
-            cwd=repo_dir, capture_output=True, timeout=10,
+            cwd=repo_dir, capture_output=True, timeout=10, check=False,
         )
         subprocess.run(
             ["git", "fetch", "--all", "--prune"],
-            cwd=repo_dir, capture_output=True, timeout=120,
+            cwd=repo_dir, capture_output=True, timeout=120, check=False,
         )
     else:
         core.REPOS_DIR.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["git", "clone", "--depth=50", clone_url, str(repo_dir)],
-            capture_output=True, timeout=120,
+            capture_output=True, timeout=120, check=False,
         )
     return repo_dir
 
@@ -114,12 +117,14 @@ def checkout_branch(repo_dir: Path, branch: str):
         cwd=repo_dir,
         capture_output=True,
         timeout=60,
+        check=False,
     )
     subprocess.run(
         ["git", "pull", "--ff-only", "origin", branch],
         cwd=repo_dir,
         capture_output=True,
         timeout=60,
+        check=False,
     )
 
 
@@ -278,22 +283,22 @@ def post_status_comment(client: httpx.Client, owner: str, repo: str, pr_number: 
 # ---------------------------------------------------------------------------
 
 
-def dispatch_review(config: dict, owner: str, repo: str, pr_number: int,
+def dispatch_review(config: dict[str, Any], owner: str, repo: str, pr_number: int,
                     head_sha: str, depth: str, model_override: str | None = None):
     """Run enabled lenses against a PR and post results."""
     try:
         _dispatch_review_inner(config, owner, repo, pr_number, head_sha, depth, model_override)
-    except Exception:
+    except (httpx.HTTPError, subprocess.SubprocessError, OSError, json.JSONDecodeError, RuntimeError, KeyError, ValueError) as _:
         log.exception("Review failed for %s/%s#%d", owner, repo, pr_number)
         try:
             with gitea_client() as client:
                 post_status_comment(client, owner, repo, pr_number,
                                     "\u274c **Review failed** — check container logs for details")
-        except Exception:
+        except (httpx.HTTPError, OSError) as _:
             pass  # Best-effort — don't mask the original exception
 
 
-def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
+def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_number: int,
                            head_sha: str, depth: str, model_override: str | None = None):
     log.info("Reviewing %s/%s#%d at depth=%s", owner, repo, pr_number, depth)
     start_time = time.time()
@@ -305,7 +310,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
         if r.status_code == 200:
             pr_data = r.json()
-            pr_description = pr_data.get("body", "") or ""
+            pr_description = pr_data.get("body") if pr_data.get("body") else ""
             if not head_sha:
                 head_sha = pr_data.get("head", {}).get("sha", "")
                 log.info("Resolved head_sha from PR API: %s", head_sha[:8] if head_sha else "empty")
@@ -329,12 +334,12 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
         # Try fetching PR ref; fall back to just using the repo as-is
         fetch = subprocess.run(
             ["git", "fetch", "origin", f"pull/{pr_number}/head:pr/{pr_number}/head"],
-            cwd=repo_dir, capture_output=True, timeout=60,
+            cwd=repo_dir, capture_output=True, timeout=60, check=False,
         )
         if fetch.returncode == 0:
             subprocess.run(
                 ["git", "checkout", "-f", f"pr/{pr_number}/head"],
-                cwd=repo_dir, capture_output=True, timeout=60,
+                cwd=repo_dir, capture_output=True, timeout=60, check=False,
             )
 
         # Generate structural map + impact analysis for context
@@ -366,7 +371,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
                  f" (model override: {model_override})" if model_override else "")
 
         # Post status comment — "Reviewing with X lens(es)..."
-        model_name = model_override or config.get("default_model", "claude")
+        model_name = model_override if model_override else config.get("default_model", "claude")
         lens_list = ", ".join(lens["name"] for lens in lenses)
         status_msg = f"\u23f3 **Reviewing** with {lens_list} lens(es) via `{model_name}`..."
         post_status_comment(client, owner, repo, pr_number, status_msg)
@@ -435,7 +440,7 @@ def _dispatch_review_inner(config: dict, owner: str, repo: str, pr_number: int,
 # ---------------------------------------------------------------------------
 
 
-def handle_push(config: dict, payload: dict):
+def handle_push(config: dict[str, Any], payload: dict[str, Any]):
     """Auto-create PR for branch pushes (skip main). Controlled by auto_create_pr config."""
     if not config.get("auto_create_pr", False):
         return
@@ -462,7 +467,7 @@ def handle_push(config: dict, payload: dict):
         log.info("PR #%d exists for %s/%s branch %s", pr_number, owner, repo, branch)
 
 
-def handle_pull_request(config: dict, payload: dict):
+def handle_pull_request(config: dict[str, Any], payload: dict[str, Any]):
     """Auto-review on PR events, controlled by auto_trigger config.
 
     Trigger modes (config.auto_trigger):
@@ -502,7 +507,7 @@ def handle_pull_request(config: dict, payload: dict):
     _executor.submit(dispatch_review, config, owner, repo, pr_number, head_sha, depth)
 
 
-def handle_issue_comment(config: dict, payload: dict):
+def handle_issue_comment(config: dict[str, Any], payload: dict[str, Any]):
     """Handle @pr-reviewer commands in PR comments."""
     issue = payload.get("issue", {})
     # Only process comments on pull requests
@@ -538,7 +543,7 @@ def handle_issue_comment(config: dict, payload: dict):
     try:
         with gitea_client() as client:
             react_eyes(client, owner, repo, int(comment_id))
-    except Exception:
+    except (httpx.HTTPError, OSError, ValueError) as _:
         log.debug("Failed to add 👀 reaction to comment %s — non-critical", comment_id)
 
     if depth == "stop":
@@ -565,7 +570,7 @@ def verify_signature(body: bytes, signature: str) -> bool:
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
-    config: dict = {}
+    config: dict[str, Any] = {}
 
     def do_POST(self):
         content_length = int(self.headers.get("Content-Length", 0))
@@ -611,9 +616,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
 def main():
     log.info("Gitea PR Reviewer webhook handler starting")
 
-    # Setup Claude auth — check file secrets first, then env vars
-    claude_token = (core.read_secret("reviewer_claude_token", required=False)
-                    or core.read_secret("claude_code_oauth_token", required=False))
+    # Setup Claude auth -- check file secrets first, then env vars
+    claude_token = core.read_secret("reviewer_claude_token", required=False)
+    if not claude_token:
+        claude_token = core.read_secret("claude_code_oauth_token", required=False)
     if claude_token:
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = claude_token
 

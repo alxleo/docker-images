@@ -5,3 +5,7 @@ rules:
   dependabot-cooldown:
     ignore:
       - dependabot.yml
+  # coding-standards action is our own image -- always track @main for latest linters.
+  unpinned-uses:
+    ignore:
+      - lint.yml

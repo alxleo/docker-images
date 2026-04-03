@@ -1,5 +1,7 @@
 """Context gathering: repomap (tree-sitter + PageRank), impact analysis, LLM-planned searches."""
 
+from __future__ import annotations
+
 import dataclasses
 import json
 import logging
@@ -8,6 +10,7 @@ import re
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 from config import PROMPTS_DIR
 
@@ -54,7 +57,7 @@ class FileTags:
     signatures: dict[str, str]     # name → first line of definition (for display)
 
 
-def _walk_defs(node, code: bytes, defs: dict, sigs: dict):
+def _walk_defs(node, code: bytes, defs: dict[str, int], sigs: dict[str, str]):
     """Recursively extract definition names, line numbers, and signatures."""
     actual = node
     if node.type == "decorated_definition":
@@ -73,7 +76,7 @@ def _walk_defs(node, code: bytes, defs: dict, sigs: dict):
             sigs[name] = first_line.strip()
     # Recurse into children for nested defs (methods inside classes, etc.)
     for child in node.children:
-        if child.type in _DEFINITION_TYPES or child.type == "decorated_definition":
+        if child.type in (*_DEFINITION_TYPES, "decorated_definition"):
             _walk_defs(child, code, defs, sigs)
         elif child.type in ("block", "class_body", "declaration_list"):
             for gc in child.children:
@@ -93,7 +96,7 @@ def extract_file_tags(path: Path, lang, parser) -> FileTags | None:
     try:
         code = path.read_bytes()
         tree = parser.parse(code)
-    except Exception:
+    except (OSError, ValueError) as _:
         return None
 
     defs: dict[str, int] = {}
@@ -130,7 +133,7 @@ def _get_parser(lang_name: str) -> tuple | None:
         parser = Parser(lang)
         _PARSER_CACHE[lang_name] = (lang, parser)
         return (lang, parser)
-    except Exception:
+    except (ImportError, LookupError, OSError) as _:
         _PARSER_CACHE[lang_name] = None
         return None
 
@@ -143,7 +146,9 @@ def _parse_file(path: Path, repo_dir: Path) -> tuple[str, FileTags] | None:
         return None
     rel = str(path.relative_to(repo_dir))
     lang_name = filename_to_lang(rel)
-    if not lang_name or lang_name in _SKIP_LANGS:
+    if lang_name is None:
+        return None
+    if lang_name in _SKIP_LANGS:
         return None
     pair = _get_parser(lang_name)
     if not pair:
@@ -153,6 +158,45 @@ def _parse_file(path: Path, repo_dir: Path) -> tuple[str, FileTags] | None:
     if not tags:
         return None
     return (rel, tags)
+
+
+def _expand_related_files(
+    repo_dir: Path, search_names: set[str],
+    all_tags: dict[str, FileTags], max_expansion: int,
+) -> None:
+    """Find files referencing search_names via ripgrep and parse them."""
+    if not search_names:
+        return
+    meaningful_names = [d for d in search_names if len(d) > 2]
+    if not meaningful_names:
+        return
+    pattern = "|".join(re.escape(d) for d in meaningful_names[:80])
+    try:
+        rg = subprocess.run(
+            ["rg", "-l", "--word-regexp", "-e", pattern,
+             "--glob", "!*.lock", "--glob", "!*.min.*",
+             "--glob", "!node_modules/**", "--glob", "!.git/**"],
+            capture_output=True, text=True, cwd=repo_dir, timeout=15, check=False,
+        )
+        ref_files = [f for f in rg.stdout.strip().splitlines() if f]
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return
+
+    parsed = 0
+    for rel_path in ref_files:
+        if rel_path in all_tags:
+            continue
+        abs_path = repo_dir / rel_path
+        if not abs_path.is_file():
+            continue
+        result = _parse_file(abs_path, repo_dir)
+        if result is None:
+            continue
+        rel, tags = result
+        all_tags[rel] = tags
+        parsed += 1
+        if parsed >= max_expansion:
+            break
 
 
 def build_reference_graph(
@@ -180,40 +224,8 @@ def build_reference_graph(
             diff_defs.update(tags.defs.keys())
             diff_refs.update(tags.refs)
 
-    # Pass 2: find related files in both directions (bounded)
-    # Forward: files that reference definitions from the diff (who calls us?)
-    # Reverse: files that define names the diff references (who do we call?)
-    search_names = diff_defs | diff_refs
-    if search_names:
-        # Filter out very short names (1-2 chars) that produce noise
-        meaningful_names = [d for d in search_names if len(d) > 2]
-        if meaningful_names:
-            pattern = "|".join(re.escape(d) for d in meaningful_names[:80])
-            try:
-                rg = subprocess.run(
-                    ["rg", "-l", "--word-regexp", "-e", pattern,
-                     "--glob", "!*.lock", "--glob", "!*.min.*",
-                     "--glob", "!node_modules/**", "--glob", "!.git/**"],
-                    capture_output=True, text=True, cwd=repo_dir, timeout=15,
-                )
-                ref_files = [f for f in rg.stdout.strip().splitlines() if f]
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                ref_files = []
-
-            parsed = 0
-            for rel_path in ref_files:
-                if rel_path in all_tags:
-                    continue
-                abs_path = repo_dir / rel_path
-                if not abs_path.is_file():
-                    continue
-                result = _parse_file(abs_path, repo_dir)
-                if result:
-                    rel, tags = result
-                    all_tags[rel] = tags
-                    parsed += 1
-                    if parsed >= max_expansion:
-                        break
+    # Pass 2: find related files via ripgrep and parse (bounded expansion)
+    _expand_related_files(repo_dir, diff_defs | diff_refs, all_tags, max_expansion)
 
     log.info("Repomap graph: %d files parsed (%d from diff, %d expanded)",
              len(all_tags), len(changed_files), max(0, len(all_tags) - len(changed_files)))
@@ -298,9 +310,12 @@ def render_repomap(ranked_files: list[str], all_tags: dict[str, FileTags],
     total = 0
     for rel in ranked_files:
         tags = all_tags.get(rel)
-        if not tags or not tags.signatures:
+        if tags is None:
             continue
-        sorted_defs = sorted(tags.signatures.items(), key=lambda x: tags.defs.get(x[0], 0))
+        if not tags.signatures:
+            continue
+        tag_defs = tags.defs
+        sorted_defs = sorted(tags.signatures.items(), key=lambda x: tag_defs.get(x[0], 0))
         file_block = f"{rel}\n" + "\n".join(f"  {sig}" for _, sig in sorted_defs) + "\n"
         if total + len(file_block) > max_chars:
             if lines:
@@ -376,7 +391,10 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
         if not path.is_file():
             continue
         rel = str(path.relative_to(repo_dir))
-        if any(part.startswith(".") or part in _SKIP_DIRS for part in Path(rel).parts):
+        path_parts = Path(rel).parts
+        hidden = any(part.startswith(".") for part in path_parts)
+        skipped = bool(set(path_parts) & _SKIP_DIRS)
+        if any((hidden, skipped)):
             continue
         result = _parse_file(path, repo_dir)
         if not result:
@@ -384,7 +402,8 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
         rel, tags = result
         if not tags.signatures:
             continue
-        sorted_defs = sorted(tags.signatures.items(), key=lambda x: tags.defs.get(x[0], 0))
+        tag_defs = tags.defs
+        sorted_defs = sorted(tags.signatures.items(), key=lambda x: tag_defs.get(x[0], 0))
         file_block = f"{rel}\n" + "\n".join(f"  {sig}" for _, sig in sorted_defs) + "\n"
         if total + len(file_block) > max_chars:
             lines.append("...\n")
@@ -399,7 +418,7 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
 
 
 
-def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
+def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
     """Use a fast LLM to generate targeted search queries, execute them, return context.
 
     A haiku-class model reads the diff, generates ripgrep patterns across five
@@ -428,7 +447,7 @@ def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
     try:
         start = time.time()
         result = subprocess.run(cmd, input=planner_prompt, capture_output=True,
-                                text=True, cwd=repo_dir, timeout=90)
+                                text=True, cwd=repo_dir, timeout=90, check=False)
         log.info("Search planner completed in %.1fs", time.time() - start)
 
         if result.returncode != 0:
@@ -443,7 +462,7 @@ def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
             return ""
         queries = json.loads(json_match.group())
 
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, OSError) as e:
         log.warning("Search planner error: %s", e)
         return ""
 
@@ -462,7 +481,7 @@ def plan_searches(diff: str, repo_dir: Path, config: dict) -> str:
             rg = subprocess.run(
                 ["rg", "-e", pattern, "-n", "--max-count=3", "--max-columns=200",
                  "--glob", "!*.lock", "--glob", "!*.min.*"],
-                capture_output=True, text=True, cwd=repo_dir, timeout=5,
+                capture_output=True, text=True, cwd=repo_dir, timeout=5, check=False,
             )
             matches = rg.stdout.strip()
             if matches:

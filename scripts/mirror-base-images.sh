@@ -27,7 +27,7 @@ images=(
 )
 
 # Ensure GHCR login — CI uses GITHUB_TOKEN, local uses gh CLI
-if [ -n "${GITHUB_TOKEN:-}" ]; then
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR:-alxleo}" --password-stdin
 else
     gh auth token | docker login ghcr.io -u alxleo --password-stdin

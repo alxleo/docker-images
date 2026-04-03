@@ -18,8 +18,6 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 | name | directory name | `"name": "mcp-git"` |
 | platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
-| push method | `docker` (auto: `buildx` if multi-platform) | derived |
-| trivyignore | `{dir}/.trivyignore` if exists | derived |
 | tests | none | `"test_commands": [...]` |
 
 ### Composite Action
@@ -68,7 +66,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, dispatch | Auto-discover, matrix build, test, push |
-| Lint | `lint.yml` | push, PRs | ruff, pytest, shellcheck, hadolint, actionlint, yamllint, zizmor, lychee, log audit |
+| Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), pytest, log audit |
 | Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vulnerability scan (all images), action updates |
 | Release Please | `release-please.yml` | push main | Conventional commit -> version bump + CHANGELOG |
 | Mirror | `mirror-base-images.yml` | weekly, PRs (check), dispatch | GHCR base image mirrors |

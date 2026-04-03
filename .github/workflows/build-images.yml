@@ -274,31 +274,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- Push via docker (single-platform images already loaded) ---
-      - name: Push via docker
+      # --- Push image(s) to GHCR via buildx ---
+      - name: Push to GHCR
         if: >-
           steps.should-build.outputs.build == 'true' &&
-          github.event_name != 'pull_request' &&
-          matrix.push_method == 'docker'
-        env:
-          IMAGE_NAME: ${{ matrix.name }}
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
-          IMAGE_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
-          docker push "ghcr.io/alxleo/${IMAGE_NAME}:latest"
-          if [ -n "${IMAGE_VERSION}" ]; then
-            docker tag "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}" \
-              "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
-            docker push "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
-          fi
-
-      # --- Push via buildx (multi-platform rebuild + push) ---
-      - name: Push via buildx
-        if: >-
-          steps.should-build.outputs.build == 'true' &&
-          github.event_name != 'pull_request' &&
-          matrix.push_method == 'buildx'
+          github.event_name != 'pull_request'
         env:
           IMAGE_NAME: ${{ matrix.name }}
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}

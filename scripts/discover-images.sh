@@ -11,9 +11,6 @@
 #   test_setup: ""
 #   test_commands: []
 #
-# Multi-platform images auto-select push_method=buildx.
-# Trivyignore auto-detected: {dir}/.trivyignore if it exists.
-#
 # Output: JSON array suitable for GitHub Actions matrix.
 
 set -euo pipefail
@@ -35,7 +32,7 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
 
     # Read .ci.json if it exists, else empty object
     ci_json="{}"
-    if [ -f "$dir/.ci.json" ]; then
+    if [[ -f "$dir/.ci.json" ]]; then
         ci_json=$(cat "$dir/.ci.json")
     fi
 
@@ -48,25 +45,16 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
     test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
 
-    # Derived fields
-    dir_name="$name"
-
-    push_method="docker"
-    if echo "$platforms" | grep -q ","; then
-        push_method="buildx"
-    fi
-
     # Build matrix entry
     entry=$(jq -n \
         --arg name "$image_name" \
-        --arg context "$dir_name" \
+        --arg context "$(basename "$dir")" \
         --arg tag "$tag" \
         --arg platforms "$platforms" \
-        --arg push_method "$push_method" \
         --arg build_args "$build_args" \
         --arg test_setup "$test_setup" \
         --argjson test_commands "$test_commands" \
-        '{name: $name, context: $context, tag: $tag, platforms: $platforms, push_method: $push_method, build_args: $build_args, test_setup: $test_setup, test_commands: $test_commands}')
+        '{name: $name, context: $context, tag: $tag, platforms: $platforms, build_args: $build_args, test_setup: $test_setup, test_commands: $test_commands}')
 
     images=$(echo "$images" | jq --argjson entry "$entry" '. + [$entry]')
 done

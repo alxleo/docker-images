@@ -831,15 +831,15 @@ class TestPostReviewInlineFallback:
         import types
 
         mock_jwt = types.ModuleType("jwt")
-        mock_jwt.encode = MagicMock(return_value="fake-jwt")
+        setattr(mock_jwt, "encode", MagicMock(return_value="fake-jwt"))
         sys.modules["jwt"] = mock_jwt
         try:
             auth = w.GitHubAppAuth(123, 456, "fake-key")
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_resp = mock_urlopen.return_value.__enter__.return_value
-                mock_resp.read.return_value = json.dumps(
-                    {"token": "inst-tok", "expires_at": "2099-01-01T00:00:00Z"}
-                ).encode()
+            mock_response = MagicMock()
+            mock_response.json.return_value = {
+                "token": "inst-tok", "expires_at": "2099-01-01T00:00:00Z"
+            }
+            with patch("httpx.post", return_value=mock_response):
                 auth._refresh()
                 payload = mock_jwt.encode.call_args[0][0]
                 assert isinstance(payload["iss"], str)

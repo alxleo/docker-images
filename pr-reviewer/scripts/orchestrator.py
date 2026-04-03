@@ -1,7 +1,10 @@
 """Orchestrated review: single Claude session spawns lens sub-agents."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
+from typing import Any
 
 from config import DEFAULT_MODEL, PROMPTS_DIR, resolve_model
 from diff import preprocess_diff, shuffle_diff
@@ -11,7 +14,7 @@ from routing import run_lens
 log = logging.getLogger(__name__)
 
 
-def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, config: dict,
+def run_review_orchestrated(lenses: list[dict[str, Any]], diff: str, repo_dir: Path, config: dict[str, Any],
                             commit_messages: str = "", pr_description: str = "",
                             model_override: str | None = None, repomap: str = "",
                             depth: str = "standard", impact: str = "",
@@ -28,9 +31,11 @@ def run_review_orchestrated(lenses: list[dict], diff: str, repo_dir: Path, confi
     claude_lenses = []
     other_lenses = []
     for lens in lenses:
-        lens_model = (model_override
-                      or config.get("lenses", {}).get(lens["name"], {}).get("model")
-                      or config.get("default_model", DEFAULT_MODEL))
+        lens_model = model_override
+        if not lens_model:
+            lens_model = config.get("lenses", {}).get(lens["name"], {}).get("model", "")
+        if not lens_model:
+            lens_model = config.get("default_model", DEFAULT_MODEL)
         if lens_model in ("gemini", "codex"):
             other_lenses.append(lens)
         else:

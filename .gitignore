@@ -15,3 +15,10 @@ node_modules/
 __pycache__/
 
 .claude/
+
+# Megalinter
+megalinter-reports/
+.mega-linter-config/
+.editorconfig
+.v8rrc.yml
+.lycheecache

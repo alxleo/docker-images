@@ -13,9 +13,7 @@ import subprocess
 
 import pytest
 import requests
-
 from conftest import extract_json_from_sse
-
 
 MCP_IMAGE = os.environ.get("TEST_MCP_IMAGE", "test-mcp-hackernews:latest")
 BASE_PORT = 18090

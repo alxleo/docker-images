@@ -851,6 +851,8 @@ class TestRunReviewOrchestrated:
         ]
         config["default_model"] = "claude"
         core.run_review_orchestrated(lenses, "diff", tmp_path, config)
-        prompt = mock_claude.call_args.kwargs.get("prompt") or mock_claude.call_args[0][0]
+        prompt = mock_claude.call_args.kwargs.get("prompt")
+        if not prompt:
+            prompt = mock_claude.call_args[0][0]
         assert "pr-reviewer-lenses:simplification-lens" in prompt
         assert "pr-reviewer-lenses:standards-lens" in prompt

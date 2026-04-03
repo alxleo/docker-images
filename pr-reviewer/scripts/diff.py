@@ -89,7 +89,8 @@ def shuffle_diff(raw_diff: str) -> str:
     Handles both raw diffs (split on `diff --git`) and preprocessed diffs
     (split on `## filename` headers from preprocess_diff).
     """
-    if "\n## " in raw_diff or raw_diff.startswith("## "):
+    has_section_headers = any(("\n## " in raw_diff, raw_diff.startswith("## ")))
+    if has_section_headers:
         sections = re.split(r'(?=^## )', raw_diff, flags=re.MULTILINE)
         sections = [s for s in sections if s.strip()]
         if len(sections) <= 1:

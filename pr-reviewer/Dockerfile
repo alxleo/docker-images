@@ -107,7 +107,11 @@ COPY plugin/ plugin/
 
 # State, repos, and plugins dirs — mount as volumes for persistence
 # ~/.gemini and ~/.codex needed by their respective CLIs
-RUN mkdir -p state repos plugins /root/.gemini /root/.codex
+RUN mkdir -p state repos plugins .gemini .codex \
+    && chown -R 1000:1000 /app
+ENV HOME=/app
+
+USER 1000
 
 HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
   CMD ["python3", "scripts/healthcheck.py"]

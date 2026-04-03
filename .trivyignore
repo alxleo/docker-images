@@ -1,0 +1,5 @@
+# Trivy Dockerfile misconfiguration ignores.
+# Conftest policies (policy/dockerfile.rego) enforce these structurally
+# with per-file exemptions. This file keeps trivy quiet in megalinter.
+DS-0002
+DS-0026

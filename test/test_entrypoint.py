@@ -14,7 +14,7 @@ import pytest
 
 # Import entrypoint from mcp/ (not a package)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mcp"))
-import entrypoint  # noqa: E402
+import entrypoint
 
 
 # Helper to clear all MCP-related env vars between tests
@@ -231,9 +231,8 @@ class TestMain:
         )
 
         # Call actual main(), but prevent os.execvp from replacing the process
-        with patch("os.execvp", side_effect=SystemExit(0)):
-            with pytest.raises(SystemExit):
-                entrypoint.main()
+        with patch("os.execvp", side_effect=SystemExit(0)), pytest.raises(SystemExit):
+            entrypoint.main()
 
         assert os.environ.get("API_KEY") == "my-secret-value"
         assert os.environ.get("OTHER_TOKEN") == "token-123"
@@ -247,9 +246,8 @@ class TestMain:
         monkeypatch.setenv("MCP_SERVER_COMMAND", "echo")
         monkeypatch.setenv("MCP_STARTUP_JITTER", "0")
 
-        with patch("os.execvp", side_effect=SystemExit(0)):
-            with pytest.raises(SystemExit):
-                entrypoint.main()
+        with patch("os.execvp", side_effect=SystemExit(0)), pytest.raises(SystemExit):
+            entrypoint.main()
 
     def test_jitter_disabled(self, monkeypatch):
         monkeypatch.setenv("MCP_SERVER_COMMAND", "echo")
@@ -291,9 +289,8 @@ class TestMain:
             lambda p: secrets_dir if p == "/run/secrets" else original_path(p),
         )
 
-        with patch("os.execvp", side_effect=SystemExit(0)):
-            with pytest.raises(SystemExit):
-                entrypoint.main()
+        with patch("os.execvp", side_effect=SystemExit(0)), pytest.raises(SystemExit):
+            entrypoint.main()
 
         captured = capsys.readouterr()
         # The full secret must NOT appear in output
@@ -318,9 +315,8 @@ class TestMain:
             lambda p: secrets_dir if p == "/run/secrets" else original_path(p),
         )
 
-        with patch("os.execvp", side_effect=SystemExit(0)):
-            with pytest.raises(SystemExit):
-                entrypoint.main()
+        with patch("os.execvp", side_effect=SystemExit(0)), pytest.raises(SystemExit):
+            entrypoint.main()
 
         captured = capsys.readouterr()
         # Short secret should NOT be redacted (len <= 4)
