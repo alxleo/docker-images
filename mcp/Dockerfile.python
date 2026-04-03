@@ -38,7 +38,7 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 # Install Python 3.11+, git (for git+ packages), and entrypoint deps
 # No curl needed — uv copied from build stage, healthcheck uses microcheck
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 git unzip jq && \
+    apt-get install -y --no-install-recommends python3 git unzip jq ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
