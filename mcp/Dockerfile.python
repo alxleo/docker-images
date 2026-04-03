@@ -43,13 +43,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy uv from build stage (uvx no longer needed — packages are system-installed)
-COPY --from=build /root/.local/bin/uv /root/.local/bin/uv
+COPY --from=build /root/.local/bin/uv /usr/local/bin/uv
 
 # Healthcheck binary: 75KB static C/musl, localhost-only by design
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
-
-# Add uv to PATH
-ENV PATH="/root/.local/bin:$PATH"
 
 # Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
 # mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)

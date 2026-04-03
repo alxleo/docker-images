@@ -87,10 +87,16 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 
 ### Dockerfile Policies
 
-`policy/dockerfile.rego` enforces structural invariants via conftest:
+`policy/dockerfile.rego` enforces structural Dockerfile invariants via conftest:
 - `USER` must exist in the final stage (non-root)
 - `EXPOSE` implies `HEALTHCHECK` must exist
+- `COPY`/`ADD` destinations and `WORKDIR` must not target `/root/` in the final stage
 - Exemptions via `# conftest:exempt=rule_name` comments in the Dockerfile
+
+`policy/compose.rego` enforces compose-file invariants:
+- Volume mounts (bind, named, tmpfs) must not target `/root/` in containers
+- `working_dir` must not target `/root/`
+- Exemptions via `x-conftest-exempt: [rule_name]` extension field on the service
 
 `hadolint` requires `org.opencontainers.image.source` label (DL3049 via `label-schema`).
 
