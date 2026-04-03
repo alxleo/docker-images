@@ -76,7 +76,7 @@ runs:
       with:
         # zizmor: ignore[template-injection] — context is from our manifest, not user input
         context: ${{ inputs.context }}
-        build-args: ${{ inputs.build-args }}
+        build-args: ${{ inputs['build-args'] }}
         platforms: ${{ contains(inputs.platforms, ',') && format('linux/{0}', runner.arch == 'ARM64' && 'arm64' || 'amd64') || inputs.platforms }}
         push: false
         load: true

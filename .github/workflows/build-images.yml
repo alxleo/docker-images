@@ -307,25 +307,26 @@ jobs:
           IMAGE_CONTEXT: ${{ matrix.context }}
           IMAGE_BUILD_ARGS: ${{ matrix.build_args }}
         run: |
-          TAGS="-t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
-          TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:latest"
+          TAGS=(
+            -t "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
+            -t "ghcr.io/alxleo/${IMAGE_NAME}:latest"
+          )
           if [ -n "${IMAGE_VERSION}" ]; then
-            TAGS="${TAGS} -t ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}"
+            TAGS+=(-t "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}")
           fi
           # Convert newline-separated build args to --build-arg flags
-          BUILD_ARG_FLAGS=""
+          BUILD_ARG_FLAGS=()
           if [ -n "${IMAGE_BUILD_ARGS}" ]; then
             while IFS= read -r arg; do
-              [ -n "$arg" ] && BUILD_ARG_FLAGS="${BUILD_ARG_FLAGS} --build-arg ${arg}"
+              [ -n "$arg" ] && BUILD_ARG_FLAGS+=(--build-arg "$arg")
             done <<< "${IMAGE_BUILD_ARGS}"
           fi
-          # shellcheck disable=SC2086
           docker buildx build \
             --platform "${IMAGE_PLATFORMS}" \
             --push \
             --cache-from type=gha,scope="${IMAGE_NAME}" \
-            ${BUILD_ARG_FLAGS} \
-            ${TAGS} \
+            "${BUILD_ARG_FLAGS[@]}" \
+            "${TAGS[@]}" \
             "${IMAGE_CONTEXT}/"
 
       # --- Create git tag for build version ---
