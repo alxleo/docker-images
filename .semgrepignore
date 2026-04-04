@@ -1,0 +1,2 @@
+# CI test commands legitimately use --user 0 to simulate root-owned volumes
+*/.ci.json
