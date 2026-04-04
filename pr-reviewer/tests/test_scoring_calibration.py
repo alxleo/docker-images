@@ -7,12 +7,22 @@ Run manually: pytest -m calibration -v tests/test_scoring_calibration.py
 from __future__ import annotations
 
 import logging
+import shutil
 
 import pytest
 
 from verification import Finding, score_findings
 
 log = logging.getLogger(__name__)
+
+# Skip all tests in this module if claude CLI is not installed
+pytestmark = [
+    pytest.mark.calibration,
+    pytest.mark.skipif(
+        shutil.which("claude") is None,
+        reason="calibration tests require claude CLI",
+    ),
+]
 
 # Five canonical bad findings — all should score below threshold (6)
 BAD_FINDINGS = [
@@ -85,7 +95,6 @@ def _setup_minimal_repo(tmp_path):
     # Deliberately NO ARCHITECTURE.md — the hallucinated reference should fail
 
 
-@pytest.mark.calibration
 class TestScoringCalibration:
     """Validate scoring models can distinguish bad findings.
 
