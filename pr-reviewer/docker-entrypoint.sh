@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Fix ownership on writable volume-mounted directories.
 # Named volumes retain root-owned files from before the UID 1000 migration.
