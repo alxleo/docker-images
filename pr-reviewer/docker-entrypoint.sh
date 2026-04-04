@@ -5,13 +5,15 @@ set -euo pipefail
 # Named volumes retain root-owned files from before the UID 1000 migration.
 # This runs as root, then drops to UID 1000 via gosu (postgres/redis pattern).
 
+# Fix ownership on all app dirs. chown skips read-only bind mounts (auth files)
+# gracefully — individual file failures don't stop the loop.
 WRITABLE_DIRS="/app/state /app/repos /app/plugins /app/.claude /app/.codex /app/.gemini"
 
 for dir in $WRITABLE_DIRS; do
     if [[ -d "$dir" ]]; then
         bad=$(find "$dir" \( ! -uid 1000 -o ! -gid 1000 \) -print -quit)
         if [[ -n "$bad" ]]; then
-            chown -R 1000:1000 "$dir"
+            chown -R 1000:1000 "$dir" 2>/dev/null || true
         fi
     fi
 done
