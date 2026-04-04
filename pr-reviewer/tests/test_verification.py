@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from unittest.mock import patch
 
 from verification import (
@@ -383,7 +384,7 @@ class TestApplyTotalCap:
 
 # Realistic lens output: mix of valid, invalid, and edge-case findings
 E2E_LENS_OUTPUT = """\
-### [CRITICAL] [src/auth.py:12] Token logged at INFO
+### [CRITICAL] [src/auth.py:13] Token logged at INFO
 
 **What:** `generate_token()` return value is logged via `log.info("Token: %s", token)`.
 **Why:** Secrets in structured logs leak to aggregators, SIEM, and anyone with log access.
@@ -405,7 +406,7 @@ E2E_LENS_OUTPUT = """\
 **Why:** Credential leak if repo is public.
 **Fix:** Use environment variable.
 
-### [MEDIUM] [src/utils.py:5] Unused import os
+### [MEDIUM] [src/utils.py:1] Unused import os
 
 **What:** `os` is imported but never used.
 **Why:** Dead code.
@@ -440,7 +441,9 @@ diff --git a/src/utils.py b/src/utils.py
 class TestEndToEnd:
     """Full pipeline: parse -> verify -> score (mocked) -> cap -> render.
 
-    Tests the exact flow that gh_watcher.py / gitea_webhook.py execute.
+    Exercises the core verification pipeline used by gh_watcher.py /
+    gitea_webhook.py, but not every orchestration step those handlers apply
+    (for example severity capping before parsing and config-gated scoring).
     """
 
     def _setup_repo(self, tmp_path):
@@ -479,7 +482,7 @@ class TestEndToEnd:
         self._setup_repo(tmp_path)
         config = {
             "scoring_threshold": 5,
-            "max_total_comments": 3,
+            "max_total_comments": 2,
             "scoring_exempt_threshold": 9,
         }
 
@@ -491,8 +494,8 @@ class TestEndToEnd:
         findings = verify_findings(findings, E2E_DIFF, tmp_path)
 
         # Check verification results:
-        # - src/auth.py:12 — in diff, file exists, has suggestion -> verified + in_diff
-        auth_finding = next(f for f in findings if f.line_num == 12 and f.file_path == "src/auth.py")
+        # - src/auth.py:13 — in diff (post-diff line 13), file exists, has suggestion
+        auth_finding = next(f for f in findings if f.line_num == 13 and f.file_path == "src/auth.py")
         assert auth_finding.verified is True
         assert auth_finding.in_diff is True
         assert auth_finding.has_suggestion is True
@@ -505,10 +508,10 @@ class TestEndToEnd:
         nonexist = next(f for f in findings if f.file_path == "nonexistent.py")
         assert nonexist.verified is False
 
-        # - src/utils.py:5 — in diff? Line 5 is context line "    pass" -> should be in diff
-        #   (hunk starts at line 1, has 5 lines of new content)
+        # - src/utils.py:1 — in diff (added line), file exists
         utils_finding = next(f for f in findings if f.file_path == "src/utils.py")
         assert utils_finding.verified is True
+        assert utils_finding.in_diff is True
 
         # Step 3: Score (mocked haiku)
         scores = [
@@ -517,17 +520,16 @@ class TestEndToEnd:
             {"index": 2, "score": 8, "reason": "real issue but file missing"},
             {"index": 3, "score": 6, "reason": "valid but low value"},
         ]
-        mock_result = type("R", (), {
-            "returncode": 0,
-            "stdout": json.dumps(_mock_haiku_success(scores)),
-        })()
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(_mock_haiku_success(scores))
+        )
         with patch("verification.subprocess.run", return_value=mock_result):
             findings = score_findings(findings, tmp_path, config)
 
         # Score 4 (index 1, rate limiting) should be dropped (below threshold 5)
         assert not any("rate limiting" in f.title for f in findings)
 
-        # Remaining: 3 findings, cap is 3 — all fit
+        # Cap is 2, but CRITICAL (score 9) is exempt — so up to 3 can survive
         assert len(findings) <= 3
 
         # The CRITICAL finding (score 9) should survive (exempt from cap)
@@ -538,12 +540,12 @@ class TestEndToEnd:
         inline = [f for f in findings if f.in_diff and f.verified]
         body_only = [f for f in findings if not f.in_diff or not f.verified]
 
-        if inline:
-            rendered_inline = render_findings(inline)
-            assert "### [CRITICAL]" in rendered_inline or "### [MEDIUM]" in rendered_inline
-            # Roundtrip: re-parse should produce same count
-            reparsed = parse_findings(rendered_inline)
-            assert len(reparsed) == len(inline)
+        assert inline, "expected at least one verified inline finding after scoring"
+        rendered_inline = render_findings(inline)
+        assert "### [CRITICAL]" in rendered_inline or "### [MEDIUM]" in rendered_inline
+        # Roundtrip: re-parse should produce same count
+        reparsed = parse_findings(rendered_inline)
+        assert len(reparsed) == len(inline)
 
         if body_only:
             rendered_body = render_findings(body_only)
@@ -560,9 +562,9 @@ class TestEndToEnd:
         assert rendered == ""
 
     def test_pipeline_scoring_failure_preserves_findings(self, tmp_path):
-        """If haiku crashes, all verified findings pass through."""
+        """If haiku crashes, scoring is skipped (fail-open) but cap still applies."""
         self._setup_repo(tmp_path)
-        config = {"scoring_threshold": 6, "max_total_comments": 0}
+        config = {"scoring_threshold": 6, "max_total_comments": 0}  # 0 = unlimited cap
 
         findings = parse_findings(E2E_LENS_OUTPUT, lens_name="security")
         findings = verify_findings(findings, E2E_DIFF, tmp_path)
@@ -572,5 +574,5 @@ class TestEndToEnd:
         with patch("verification.subprocess.run", side_effect=sp.TimeoutExpired("cmd", 60)):
             result = score_findings(findings, tmp_path, config)
 
-        # All findings preserved on scoring failure
+        # All findings preserved — scoring skipped (fail-open), cap unlimited
         assert len(result) == pre_count
