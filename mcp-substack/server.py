@@ -124,84 +124,48 @@ def _crawl4ai_request(url: str, session_id: str = "", js_code: str = "") -> dict
         return None
 
 
-def _extract_crawl4ai_markdown(result: dict[str, Any]) -> str:
-    """Extract raw markdown from a crawl4ai result."""
-    md = result.get("markdown", "")
-    if isinstance(md, dict):
-        md = md.get("raw_markdown", md.get("markdown", ""))
-    return str(md) if md else ""
+def _fetch_via_crawl4ai(post_url: str) -> str | None:
+    """Fetch full paid content via crawl4ai two-step browser login.
 
-
-# Persistent session ID — reused across get_post calls so the browser
-# stays logged in. crawl4ai keeps sessions alive between requests.
-_CRAWL4AI_SESSION = "substack-auth"
-_crawl4ai_logged_in = False
-
-
-def _crawl4ai_login() -> bool:
-    """Login to Substack via crawl4ai browser. Returns True on success."""
-    global _crawl4ai_logged_in
-
+    Step 1: Navigate to substack.com/sign-in, execute login via JS fetch()
+    Step 2: Navigate to the post page with the authenticated session
+    Full content renders via client-side JS (server-side always truncates paid posts).
+    """
     email = os.environ.get("SUBSTACK_EMAIL", "")
     password = os.environ.get("SUBSTACK_PASSWORD", "")
     if not all((email, password)):
         log.warning("SUBSTACK_EMAIL/PASSWORD not set — cannot authenticate for paid content")
-        return False
+        return None
 
+    session_id = "substack-auth"
+
+    # Step 1: Login via browser JS
     login_js = (
         'const r = await fetch("/api/v1/login", '
         '{method: "POST", headers: {"Content-Type": "application/json"}, '
         f'body: JSON.stringify({{redirect: "/", for_pub: "", email: "{email}", '
         f'password: "{password}", captcha_response: null}})}});'
     )
-    result = _crawl4ai_request("https://substack.com/sign-in", session_id=_CRAWL4AI_SESSION, js_code=login_js)
-    if result and result.get("success"):
-        _crawl4ai_logged_in = True
-        log.info("crawl4ai: logged in to Substack")
-        return True
+    login_result = _crawl4ai_request("https://substack.com/sign-in", session_id=session_id, js_code=login_js)
+    login_ok = login_result is not None and login_result.get("success")
+    if not login_ok:
+        log.warning("crawl4ai login step failed")
+        return None
 
-    log.warning("crawl4ai: login failed")
-    return False
-
-
-def _fetch_via_crawl4ai(post_url: str) -> str | None:
-    """Fetch full paid content via crawl4ai browser.
-
-    Uses a persistent session — logs in once, reuses for subsequent requests.
-    If the session returns only a preview (<500 words), re-login and retry.
-    """
-    global _crawl4ai_logged_in
-
-    # Login if we haven't yet
-    if not _crawl4ai_logged_in:
-        if not _crawl4ai_login():
-            return None
-
-    # Fetch the post with the authenticated session
-    post_result = _crawl4ai_request(post_url, session_id=_CRAWL4AI_SESSION)
+    # Step 2: Fetch the post with the authenticated session
+    post_result = _crawl4ai_request(post_url, session_id=session_id)
     if not post_result:
         return None
 
-    md = _extract_crawl4ai_markdown(post_result)
-    word_count = len(md.split()) if md else 0
+    md = post_result.get("markdown", "")
+    if isinstance(md, dict):
+        md = md.get("raw_markdown", md.get("markdown", ""))
 
-    # If we got a preview (<500 words), the session may have expired — retry login once
-    if word_count < 500:
-        log.info("crawl4ai: only %d words — re-logging in and retrying", word_count)
-        _crawl4ai_logged_in = False
-        if not _crawl4ai_login():
-            return md if word_count > 100 else None
-        post_result = _crawl4ai_request(post_url, session_id=_CRAWL4AI_SESSION)
-        if not post_result:
-            return md if word_count > 100 else None
-        md = _extract_crawl4ai_markdown(post_result)
-        word_count = len(md.split()) if md else 0
-
-    if word_count > 100:
-        log.info("crawl4ai: got content (%d words)", word_count)
+    if md and len(md.split()) > 100:
+        log.info("crawl4ai: got content (%d words)", len(md.split()))
         return md
 
-    log.warning("crawl4ai: content too short (%d words)", word_count)
+    log.warning("crawl4ai: content too short (%d words)", len(str(md).split()))
     return None
 
 
