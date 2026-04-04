@@ -447,7 +447,7 @@ def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: st
         all_findings = core.score_findings(all_findings, repo_dir, config)
 
     # Post: group by lens, separate inline vs body-only
-    posted = 0
+    lenses_posted = 0
     for lens_name in dict.fromkeys(f.lens for f in all_findings):
         lens_findings = [f for f in all_findings if f.lens == lens_name]
         inline = [f for f in lens_findings if f.in_diff and f.verified]
@@ -456,15 +456,15 @@ def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: st
         if inline:
             post_review(repo, pr_number, lens_name,
                         core.render_findings(inline), diff=diff)
-            posted += 1
         if body_only:
             post_review(repo, pr_number, lens_name,
                         core.render_findings(body_only), diff="")
-            posted += 1
+        if inline or body_only:
+            lenses_posted += 1
 
     # Update status comment — done
     elapsed = int(time.time() - start_time)
-    done_msg = f"\u2705 **Review complete** — {posted} lens report(s) from {lens_list} via `{model_name}` ({elapsed}s)"
+    done_msg = f"\u2705 **Review complete** — {len(all_findings)} finding(s) from {lens_list} via `{model_name}` ({elapsed}s)"
     post_status_comment(repo, pr_number, done_msg)
 
     # Update state — reload from disk to avoid clobbering concurrent writes

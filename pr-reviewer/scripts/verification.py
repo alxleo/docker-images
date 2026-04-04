@@ -83,7 +83,7 @@ def parse_findings(body: str, lens_name: str = "") -> list[Finding]:
         finding_body = body[start:end].strip()
 
         findings.append(Finding(
-            severity=match.group("severity"),
+            severity=match.group("severity") or "MEDIUM",
             file_path=match.group("file").lstrip("./"),
             line_num=int(match.group("line")),
             title=match.group("title").strip(),
@@ -177,6 +177,7 @@ def verify_findings(findings: list[Finding], diff: str,
                 else:
                     checks.append("file: exists, line valid")
         except OSError as e:
+            f.verified = False
             checks.append(f"file: read error ({e})")
 
         # Check 3: Cross-file claim spot-check
@@ -295,6 +296,11 @@ def score_findings(findings: list[Finding], repo_dir: Path,
             return _apply_total_cap(findings, total_cap, exempt_threshold)
 
         output = json.loads(result.stdout)
+        if not isinstance(output, dict):
+            log.warning("score_findings: unexpected haiku JSON shape (%s), passing through",
+                        type(output).__name__)
+            return _apply_total_cap(findings, total_cap, exempt_threshold)
+
         raw_result = output.get("result", "")
 
         json_match = re.search(r'\[.*\]', raw_result, re.DOTALL)
@@ -303,6 +309,10 @@ def score_findings(findings: list[Finding], repo_dir: Path,
             return _apply_total_cap(findings, total_cap, exempt_threshold)
 
         scores = json.loads(json_match.group())
+        if not isinstance(scores, list):
+            log.warning("score_findings: scores is %s not list, passing through",
+                        type(scores).__name__)
+            return _apply_total_cap(findings, total_cap, exempt_threshold)
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, OSError) as e:
         log.warning("score_findings: error (%s), passing all findings through", e)
@@ -311,6 +321,8 @@ def score_findings(findings: list[Finding], repo_dir: Path,
     # Apply scores to findings
     score_map: dict[int, tuple[float, str]] = {}
     for entry in scores:
+        if not isinstance(entry, dict):
+            continue
         idx = entry.get("index", -1)
         score = entry.get("score", -1)
         reason = entry.get("reason", "")

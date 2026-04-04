@@ -401,7 +401,7 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
             all_findings = core.score_findings(all_findings, repo_dir, config)
 
         # Post: group by lens, separate inline vs body-only
-        posted = 0
+        lenses_posted = 0
         all_results: list[str] = []
         for lens_name in dict.fromkeys(f.lens for f in all_findings):
             lens_findings = [f for f in all_findings if f.lens == lens_name]
@@ -413,20 +413,20 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
                 all_results.append(rendered)
                 post_review(client, owner, repo, pr_number,
                             lens_name, rendered, head_sha, diff=diff)
-                posted += 1
             if body_only:
                 rendered = core.render_findings(body_only)
                 all_results.append(rendered)
                 post_review(client, owner, repo, pr_number,
                             lens_name, rendered, head_sha, diff="")
-                posted += 1
+            if inline or body_only:
+                lenses_posted += 1
 
-        log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses (%d findings total)",
-                 owner, repo, pr_number, posted, len(lenses), len(all_findings))
+        log.info("Review complete for %s/%s#%d: %d lens(es) with findings, %d total findings",
+                 owner, repo, pr_number, lenses_posted, len(all_findings))
 
         # Update status comment — done
         elapsed = int(time.time() - start_time)
-        done_msg = f"\u2705 **Review complete** — {posted} lens report(s) from {lens_list} via `{model_name}` ({elapsed}s)"
+        done_msg = f"\u2705 **Review complete** — {len(all_findings)} finding(s) from {lens_list} via `{model_name}` ({elapsed}s)"
         post_status_comment(client, owner, repo, pr_number, done_msg)
 
         # CI gating: post commit status based on findings
@@ -443,12 +443,12 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
                                    f"Review found {worst_name} issue(s)")
             else:
                 post_commit_status(client, owner, repo, head_sha, "success",
-                                   f"Review passed ({posted} findings, none above {fail_on})"
-                                   if posted else "Review passed (no findings)")
+                                   f"Review passed ({len(all_findings)} findings, none above {fail_on})"
+                                   if all_findings else "Review passed (no findings)")
         elif head_sha:
             # No gating configured — always post success
             post_commit_status(client, owner, repo, head_sha, "success",
-                               f"Review complete ({posted} findings)" if posted else "Review passed")
+                               f"Review complete ({len(all_findings)} findings)" if all_findings else "Review passed")
 
     # Update state — reload from disk to avoid clobbering concurrent comment tracking
     state_key = f"{owner}/{repo}"
