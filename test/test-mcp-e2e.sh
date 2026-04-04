@@ -140,10 +140,10 @@ done
 echo ""
 echo "=== HTTP Tests ==="
 
-check "Caddy health endpoint"          "${HTTP_BASE}/health"                    "200" "OK"
-check "MCP health through Caddy"       "${HTTP_BASE}/hackernews/ping"           "200" "pong"
-check "Service discovery"              "${HTTP_BASE}/.well-known/mcp.json"      "200" "hackernews"
-check "Fallback redirect"              "${HTTP_BASE}/unknown"                   "302"
+check "Caddy health endpoint" "${HTTP_BASE}/health" "200" "OK"
+check "MCP health through Caddy" "${HTTP_BASE}/hackernews/ping" "200" "pong"
+check "Service discovery" "${HTTP_BASE}/.well-known/mcp.json" "200" "hackernews"
+check "Fallback redirect" "${HTTP_BASE}/unknown" "302"
 
 echo ""
 echo "=== MCP Protocol over HTTP ==="
@@ -158,7 +158,7 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
-check "TLS health endpoint"            "${HTTPS_BASE}/health"                   "200" "OK"
+check "TLS health endpoint" "${HTTPS_BASE}/health" "200" "OK"
 
 echo ""
 echo "=== MCP Protocol over HTTPS ==="

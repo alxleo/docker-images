@@ -31,7 +31,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # System packages: git, code search (ripgrep, fd), JSON processing, Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    gosu \
     jq \
+    tini \
     ripgrep \
     fd-find \
     python3 \
@@ -107,13 +109,16 @@ COPY plugin/ plugin/
 
 # State, repos, and plugins dirs — mount as volumes for persistence
 # ~/.gemini and ~/.codex needed by their respective CLIs
-RUN mkdir -p state repos plugins .gemini .codex \
+RUN mkdir -p state repos plugins .gemini .codex .claude \
     && chown -R 1000:1000 /app
 ENV HOME=/app
 
-USER 1000
+# conftest:exempt=user_required -- gosu drops to UID 1000 in docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
-  CMD ["python3", "scripts/healthcheck.py"]
+  CMD ["gosu", "1000", "python3", "scripts/healthcheck.py"]
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["python3", "scripts/gh_watcher.py"]

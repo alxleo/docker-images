@@ -33,3 +33,6 @@ REPOSITORY_SEMGREP_ARGUMENTS:
   - "--exclude-rule=trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url"
   - "--exclude-rule=trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url"
   - "--exclude-rule=trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode"
+  # container-user-root false-positives on --user 0 in CI test commands and this config file
+  - "--exclude=*/.ci.json"
+  - "--exclude=.mega-linter.yml"
