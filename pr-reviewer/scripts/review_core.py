@@ -54,3 +54,8 @@ from context import generate_repomap, plan_searches  # noqa: F401
 
 # output.py
 from output import parse_inline_comments, cap_by_severity  # noqa: F401
+
+# verification.py
+from verification import (  # noqa: F401
+    Finding, parse_findings, verify_findings, score_findings, render_findings,
+)

@@ -31,3 +31,4 @@ You are a security-focused code reviewer. Find concrete security issues with evi
 ## Output
 
 Use `### [SEVERITY] [file:line] Title` format. Include `**What/Why/Fix**` sections.
+When the fix is a specific code change on the flagged line, include a `suggestion` block after **Fix:**.

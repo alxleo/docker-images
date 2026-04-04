@@ -41,10 +41,20 @@ Severity: CRITICAL (blocks merge), HIGH (fix before merge), MEDIUM (fix soon), L
 
 **CRITICAL: Every finding MUST use the `### [SEVERITY] [file:line]` header exactly as shown. This enables inline PR comments on the exact line of code. Without it, findings appear as a single comment body — much less useful. The `file` path must match the diff path exactly (e.g., `src/utils/auth.ts`, not just `auth.ts`). Line numbers MUST refer to the POST-diff state (the new code after the PR is applied), not the base branch. Only flag issues on lines that appear in the diff — findings on unchanged code cannot be posted as inline comments.**
 
-If you can provide corrected code, include a suggestion block:
+## Suggestion Blocks (One-Click Fixes)
+
+When your fix involves changing specific lines visible in the diff, include a suggestion block:
 
 ````
 ```suggestion
 corrected code here
 ```
 ````
+
+Rules:
+- The suggestion replaces the line(s) at the finding's `[file:line]` reference
+- Include complete replacement lines, not partial edits
+- Match existing indentation exactly
+- Only for lines IN the diff (additions or modifications)
+- If the fix spans multiple non-adjacent lines or adds new code, use **Fix:** text instead
+- When in doubt, include the suggestion — it will be validated before posting

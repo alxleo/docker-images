@@ -26,3 +26,4 @@ Read CLAUDE.md in the repo root. If none exists, pattern-match against existing 
 ## Output
 
 Use `### [SEVERITY] [file:line] Title` format. Include `**Standard/Violation/Fix**` sections.
+When the fix is a specific code change on the flagged line, include a `suggestion` block after **Fix:**.

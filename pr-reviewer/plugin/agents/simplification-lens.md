@@ -30,3 +30,4 @@ You are a complexity-focused code reviewer. Find code more complex than it needs
 ## Output
 
 Use `### [SEVERITY] [file:line] Title` format. Include `**What/Why/Fix**` sections.
+When the fix is a specific code change on the flagged line, include a `suggestion` block after **Fix:**.

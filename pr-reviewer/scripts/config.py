@@ -62,6 +62,11 @@ DEFAULT_MODELS = {
     "codex": "o3",
 }
 
+# Post-processing defaults — overridden by config.yml
+DEFAULT_SCORING_THRESHOLD = 6
+DEFAULT_MAX_TOTAL_COMMENTS = 7
+DEFAULT_SCORING_EXEMPT = 9
+
 # Tool whitelist for Claude during review — READ-ONLY
 # Bash restricted to read-only git commands and ast-grep. No Edit, Write, or git push/commit.
 CLAUDE_REVIEW_TOOLS = ",".join([
