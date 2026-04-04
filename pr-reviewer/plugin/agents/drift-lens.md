@@ -28,3 +28,4 @@ Use Glob to verify dependent files exist before flagging missing updates.
 ## Output
 
 Binary signal only: "File X changed but dependent file Y was not updated." Include `**Changed/Expected/Generator**` sections.
+When the fix is a specific code change on the flagged line, include a `suggestion` block after the finding.
