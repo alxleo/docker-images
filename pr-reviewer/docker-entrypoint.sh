@@ -8,8 +8,11 @@ set -e
 WRITABLE_DIRS="/app/state /app/repos /app/plugins /app/.claude /app/.codex /app/.gemini"
 
 for dir in $WRITABLE_DIRS; do
-    if [[ -d "$dir" ]] && find "$dir" \( ! -uid 1000 -o ! -gid 1000 \) -print -quit | grep -q .; then
-        chown -R 1000:1000 "$dir"
+    if [[ -d "$dir" ]]; then
+        bad=$(find "$dir" \( ! -uid 1000 -o ! -gid 1000 \) -print -quit)
+        if [[ -n "$bad" ]]; then
+            chown -R 1000:1000 "$dir"
+        fi
     fi
 done
 
