@@ -432,16 +432,38 @@ def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: st
         cross_file_context=cross_file_context,
     )
 
+    # Post-processing: per-lens cap -> parse -> verify -> cross-lens score -> post
+    all_findings: list[core.Finding] = []
     for lens_name, result in review_results:
         lens_cfg = next((lens for lens in lenses if lens["name"] == lens_name), None)
-        # Orchestrated "review" results aggregate multiple lenses — use deep_overrides cap (default: unlimited)
         max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
         result = core.cap_by_severity(result, max_comments)
-        post_review(repo, pr_number, lens_name, result, diff=diff)
+        findings = core.parse_findings(result, lens_name=lens_name)
+        findings = core.verify_findings(findings, diff, repo_dir)
+        all_findings.extend(findings)
+
+    # Cross-lens scoring + total cap (haiku)
+    if config.get("scoring_enabled", True) and all_findings:
+        all_findings = core.score_findings(all_findings, repo_dir, config)
+
+    # Post: group by lens, separate inline vs body-only
+    posted = 0
+    for lens_name in dict.fromkeys(f.lens for f in all_findings):
+        lens_findings = [f for f in all_findings if f.lens == lens_name]
+        inline = [f for f in lens_findings if f.in_diff and f.verified]
+        body_only = [f for f in lens_findings if not f.in_diff or not f.verified]
+
+        if inline:
+            post_review(repo, pr_number, lens_name,
+                        core.render_findings(inline), diff=diff)
+            posted += 1
+        if body_only:
+            post_review(repo, pr_number, lens_name,
+                        core.render_findings(body_only), diff="")
+            posted += 1
 
     # Update status comment — done
     elapsed = int(time.time() - start_time)
-    posted = len(review_results)
     done_msg = f"\u2705 **Review complete** — {posted} lens report(s) from {lens_list} via `{model_name}` ({elapsed}s)"
     post_status_comment(repo, pr_number, done_msg)
 

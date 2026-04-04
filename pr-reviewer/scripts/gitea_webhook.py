@@ -386,20 +386,43 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
             cross_file_context=cross_file_context,
         )
 
-        posted = 0
-        all_results: list[str] = []
+        # Post-processing: per-lens cap -> parse -> verify -> cross-lens score -> post
+        all_findings: list[core.Finding] = []
         for lens_name, result in review_results:
-            # Use per-lens max_comments for cap; default to deep_overrides for orchestrated
             lens_cfg = next((lens for lens in lenses if lens["name"] == lens_name), None)
             max_comments = lens_cfg["max_comments"] if lens_cfg else config.get("deep_overrides", {}).get("max_comments", 0)
             result = core.cap_by_severity(result, max_comments)
-            all_results.append(result)
-            post_review(client, owner, repo, pr_number,
-                        lens_name, result, head_sha, diff=diff)
-            posted += 1
+            findings = core.parse_findings(result, lens_name=lens_name)
+            findings = core.verify_findings(findings, diff, repo_dir)
+            all_findings.extend(findings)
 
-        log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses",
-                 owner, repo, pr_number, posted, len(lenses))
+        # Cross-lens scoring + total cap (haiku)
+        if config.get("scoring_enabled", True) and all_findings:
+            all_findings = core.score_findings(all_findings, repo_dir, config)
+
+        # Post: group by lens, separate inline vs body-only
+        posted = 0
+        all_results: list[str] = []
+        for lens_name in dict.fromkeys(f.lens for f in all_findings):
+            lens_findings = [f for f in all_findings if f.lens == lens_name]
+            inline = [f for f in lens_findings if f.in_diff and f.verified]
+            body_only = [f for f in lens_findings if not f.in_diff or not f.verified]
+
+            if inline:
+                rendered = core.render_findings(inline)
+                all_results.append(rendered)
+                post_review(client, owner, repo, pr_number,
+                            lens_name, rendered, head_sha, diff=diff)
+                posted += 1
+            if body_only:
+                rendered = core.render_findings(body_only)
+                all_results.append(rendered)
+                post_review(client, owner, repo, pr_number,
+                            lens_name, rendered, head_sha, diff="")
+                posted += 1
+
+        log.info("Review complete for %s/%s#%d: %d result(s) posted from %d lenses (%d findings total)",
+                 owner, repo, pr_number, posted, len(lenses), len(all_findings))
 
         # Update status comment — done
         elapsed = int(time.time() - start_time)

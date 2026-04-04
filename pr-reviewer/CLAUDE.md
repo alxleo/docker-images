@@ -44,7 +44,12 @@ Webhook/poll picks up @pr-reviewer command
   → Route to relevant lenses via analyze_diff_relevance()
   → Post status comment ("⏳ Reviewing with X lens(es) via model...")
   → Orchestrated claude -p session spawns lens sub-agents
-  → Cap findings by severity (keep highest when at max_comments)
+  → Per-lens severity cap (keep highest when at max_comments)
+  → Parse findings into structured Finding objects (verification.py)
+  → Verify each finding: diff presence, file/line existence, cross-file claims
+  → Score all findings via haiku (0-10 on evidence/actionability/usefulness)
+  → Apply total cross-lens comment cap (high-confidence findings exempt)
+  → Post inline comments (verified) + body-only comments (downgraded)
   → Post review (via Reviews API — inline comments or body-only fallback)
   → Update status comment ("✅ Review complete — N lens reports (Xs)")
   → Post commit status (success/failure based on fail_on_severity)
@@ -64,6 +69,7 @@ Decomposed into focused modules (each <200 lines):
 | `diff.py` | Diff preprocessing, shuffle |
 | `context.py` | Repomap (PageRank-ranked, tree-sitter), LLM-planned searches |
 | `output.py` | Inline comment parsing, severity capping |
+| `verification.py` | Post-processing: parse findings, verify against code, haiku scoring, total cap, render |
 | `review_core.py` | Thin re-export facade (backwards compat) |
 | `gitea_webhook.py` | Gitea webhook handler: events, PR creation, review dispatch |
 | `gh_watcher.py` | GitHub polling handler |
@@ -122,7 +128,15 @@ lenses:
   simplification: { enabled: true, max_comments: 5 }
   security: { enabled: true, max_comments: 5 }
   # Per-lens model override: security: { model: gemini }
+
+# Post-processing (all optional — defaults apply if absent)
+scoring_enabled: true           # haiku scores each finding 0-10 (~$0.001/review)
+scoring_threshold: 6            # drop findings below this score
+max_total_comments: 7           # cross-lens total cap (0 = unlimited)
+scoring_exempt_threshold: 9     # findings >= this bypass total cap
 ```
+
+**Post-processing pipeline:** After lenses produce findings, `verification.py` runs a three-stage pipeline: (1) verify each finding against the actual checkout (file exists, line in diff, cross-file claims spot-checked), (2) score all findings via haiku for evidence/actionability/usefulness, (3) apply total cap across lenses (high-confidence findings exempt). Unverified findings are downgraded to body-only comments (not inline). All decisions logged at INFO.
 
 ## Commands (via PR comments on Gitea or GitHub)
 
