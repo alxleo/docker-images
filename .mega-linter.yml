@@ -33,3 +33,5 @@ REPOSITORY_SEMGREP_ARGUMENTS:
   - "--exclude-rule=trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url"
   - "--exclude-rule=trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url"
   - "--exclude-rule=trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode"
+  # CI test commands legitimately use --user 0 to simulate root-owned volumes
+  - "--exclude=*/.ci.json"
