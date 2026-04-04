@@ -457,12 +457,13 @@ class TestEndToEnd:
                 "log = logging.getLogger(__name__)",
                 "",
                 "def login(user, password):",
+                '    """Authenticate user."""',
                 "    if not password:",
                 "        return False",
                 "    if not user:",
                 "        return False",
-                "    token = generate_token(user)",
-                "    log.info('Token: %s', token)",  # line 12
+                "    token = generate_token(user)",  # line 12
+                "    log.info('Token: %s', token)",  # line 13 — matches diff + lens output
                 "    return True",
             ])
         )
@@ -529,10 +530,11 @@ class TestEndToEnd:
         # Score 4 (index 1, rate limiting) should be dropped (below threshold 5)
         assert not any("rate limiting" in f.title for f in findings)
 
-        # Cap is 2, but CRITICAL (score 9) is exempt — so up to 3 can survive
-        assert len(findings) <= 3
+        # 3 findings survive threshold. Cap=2 with 1 exempt (CRITICAL, score 9):
+        # remaining_cap = max(0, 2 - 1) = 1 → 1 exempt + 1 cappable = 2 total
+        assert len(findings) == 2
 
-        # The CRITICAL finding (score 9) should survive (exempt from cap)
+        # The CRITICAL finding (score 9) must survive (exempt from cap)
         assert any(f.severity == "CRITICAL" and f.confidence_score >= 9 for f in findings)
 
         # Step 4: Render
@@ -561,10 +563,10 @@ class TestEndToEnd:
         rendered = render_findings(findings)
         assert rendered == ""
 
-    def test_pipeline_scoring_failure_preserves_findings(self, tmp_path):
-        """If haiku crashes, scoring is skipped (fail-open) but cap still applies."""
+    def test_pipeline_scoring_failure_unlimited_cap(self, tmp_path):
+        """Haiku crashes + unlimited cap → all findings pass through unscored."""
         self._setup_repo(tmp_path)
-        config = {"scoring_threshold": 6, "max_total_comments": 0}  # 0 = unlimited cap
+        config = {"scoring_threshold": 6, "max_total_comments": 0}
 
         findings = parse_findings(E2E_LENS_OUTPUT, lens_name="security")
         findings = verify_findings(findings, E2E_DIFF, tmp_path)
@@ -574,5 +576,23 @@ class TestEndToEnd:
         with patch("verification.subprocess.run", side_effect=sp.TimeoutExpired("cmd", 60)):
             result = score_findings(findings, tmp_path, config)
 
-        # All findings preserved — scoring skipped (fail-open), cap unlimited
+        # Scoring skipped (fail-open), cap=0 (unlimited) → all findings preserved
         assert len(result) == pre_count
+        assert all(f.confidence_score == -1 for f in result)  # unscored
+
+    def test_pipeline_scoring_failure_with_cap(self, tmp_path):
+        """Haiku crashes + real cap → cap still applies to unscored findings."""
+        self._setup_repo(tmp_path)
+        config = {"scoring_threshold": 6, "max_total_comments": 2, "scoring_exempt_threshold": 9}
+
+        findings = parse_findings(E2E_LENS_OUTPUT, lens_name="security")
+        findings = verify_findings(findings, E2E_DIFF, tmp_path)
+        assert len(findings) == 4  # all 4 parsed
+
+        import subprocess as sp
+        with patch("verification.subprocess.run", side_effect=sp.TimeoutExpired("cmd", 60)):
+            result = score_findings(findings, tmp_path, config)
+
+        # Scoring failed → unscored (-1), none exempt → cap of 2 applies
+        assert len(result) == 2
+        assert all(f.confidence_score == -1 for f in result)
