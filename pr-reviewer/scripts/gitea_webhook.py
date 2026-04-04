@@ -400,6 +400,23 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
         if config.get("scoring_enabled", True) and all_findings:
             all_findings = core.score_findings(all_findings, repo_dir, config)
 
+        # Meta lens: post-hoc review of specialist findings (opus by default)
+        if config.get("lenses", {}).get("meta", {}).get("enabled", False):
+            relevant = core.analyze_diff_relevance(diff)
+            if "meta" in relevant:
+                meta_findings = core.run_meta_lens(
+                    all_findings, diff, repo_dir, config,
+                    commit_messages=commit_messages,
+                    pr_description=pr_description,
+                    repomap=repomap,
+                    cross_file_context=cross_file_context,
+                )
+                if meta_findings:
+                    meta_findings = core.verify_findings(meta_findings, diff, repo_dir)
+                    all_findings.extend(meta_findings)
+                    if config.get("scoring_enabled", True):
+                        all_findings = core.score_findings(all_findings, repo_dir, config)
+
         # Post: group by lens, separate inline vs body-only
         lenses_posted = 0
         all_results: list[str] = []

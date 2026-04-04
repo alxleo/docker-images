@@ -418,21 +418,14 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
 
 
 
-def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
-    """Use a fast LLM to generate targeted search queries, execute them, return context.
+def _run_planner(planner_file: Path, diff: str, repo_dir: Path) -> list[dict[str, str]]:
+    """Run a single planner prompt via haiku, return list of query dicts.
 
-    A haiku-class model reads the diff, generates ripgrep patterns across five
-    categories (callers, symmetric counterparts, test pairs, config limits,
-    upstream deps). Python executes the searches and returns the results as
-    cross-file context for the review prompt.
+    Returns [] on any failure (missing file, timeout, bad JSON).
     """
-    if not config.get("planned_searches", True):
-        return ""
-
-    planner_file = PROMPTS_DIR / "_planner.md"
     if not planner_file.exists():
         log.warning("Planner prompt not found at %s", planner_file)
-        return ""
+        return []
 
     planner_instructions = planner_file.read_text()
     planner_prompt = f"{planner_instructions}\n\nDiff:\n```\n{diff[:8000]}\n```"
@@ -448,29 +441,46 @@ def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
         start = time.time()
         result = subprocess.run(cmd, input=planner_prompt, capture_output=True,
                                 text=True, cwd=repo_dir, timeout=90, check=False)
-        log.info("Search planner completed in %.1fs", time.time() - start)
+        log.info("Planner %s completed in %.1fs", planner_file.stem, time.time() - start)
 
         if result.returncode != 0:
-            log.warning("Search planner failed (exit %d)", result.returncode)
-            return ""
+            log.warning("Planner %s failed (exit %d)", planner_file.stem, result.returncode)
+            return []
 
         output = json.loads(result.stdout)
         raw_result = output.get("result", "")
 
         json_match = re.search(r'\[.*\]', raw_result, re.DOTALL)
         if not json_match:
-            return ""
+            return []
         queries = json.loads(json_match.group())
+        return queries if isinstance(queries, list) else []
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, OSError) as e:
-        log.warning("Search planner error: %s", e)
-        return ""
+        log.warning("Planner %s error: %s", planner_file.stem, e)
+        return []
 
-    if not queries:
-        return ""
 
+def _deduplicate_queries(queries: list[dict[str, str]], cap: int = 12) -> list[dict[str, str]]:
+    """Deduplicate queries by pattern, keeping the longer rationale on collision."""
+    seen: dict[str, dict[str, str]] = {}
+    for q in queries:
+        pattern = q.get("pattern", "")
+        if not pattern:
+            continue
+        if pattern in seen:
+            if len(q.get("rationale", "")) > len(seen[pattern].get("rationale", "")):
+                seen[pattern] = q
+        else:
+            seen[pattern] = q
+    return list(seen.values())[:cap]
+
+
+def _execute_queries(queries: list[dict[str, str]], repo_dir: Path,
+                     cap: int = 12) -> list[str]:
+    """Execute ripgrep queries and return formatted context lines."""
     context_lines: list[str] = []
-    for query in queries[:8]:
+    for query in queries[:cap]:
         pattern = query.get("pattern", "")
         category = query.get("category", "")
         rationale = query.get("rationale", "")
@@ -493,6 +503,32 @@ def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
                 )
         except (subprocess.TimeoutExpired, FileNotFoundError):
             continue
+    return context_lines
+
+
+def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
+    """Generate cross-file context via LLM-planned ripgrep searches.
+
+    Runs one or two planner prompts (category-based + symbol-centric) via haiku,
+    executes the resulting ripgrep patterns, and returns formatted context.
+    """
+    if not config.get("planned_searches", True):
+        return ""
+
+    if config.get("dual_planner", True):
+        cat_queries = _run_planner(PROMPTS_DIR / "_planner_categories.md", diff, repo_dir)
+        sym_queries = _run_planner(PROMPTS_DIR / "_planner_symbols.md", diff, repo_dir)
+        queries = _deduplicate_queries(cat_queries + sym_queries, cap=12)
+        if not queries:
+            # Fallback to original planner if neither dual file exists
+            queries = _run_planner(PROMPTS_DIR / "_planner.md", diff, repo_dir)
+    else:
+        queries = _run_planner(PROMPTS_DIR / "_planner.md", diff, repo_dir)
+
+    if not queries:
+        return ""
+
+    context_lines = _execute_queries(queries, repo_dir, cap=12)
 
     if not context_lines:
         return ""
