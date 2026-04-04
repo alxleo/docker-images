@@ -33,11 +33,11 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
-check "Routes work on HTTP"           "$BASE/echo/test"   "200"  "pong"
-check "Health endpoint not shadowed"   "$BASE/health"      "200"  "OK"
-check "Prefix stripping works"         "$BASE/echo/test"   "200"  "pong"
-check "Fallback redirect (no follow)"  "$BASE/unknown"     "301"
-check "Route not caught by redirect"   "$BASE/echo/mcp"    "200"  "pong"
+check "Routes work on HTTP" "$BASE/echo/test" "200" "pong"
+check "Health endpoint not shadowed" "$BASE/health" "200" "OK"
+check "Prefix stripping works" "$BASE/echo/test" "200" "pong"
+check "Fallback redirect (no follow)" "$BASE/unknown" "301"
+check "Route not caught by redirect" "$BASE/echo/mcp" "200" "pong"
 
 if [[ "$FAIL" -eq 0 ]]; then
     echo ""
