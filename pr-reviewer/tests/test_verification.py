@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from unittest.mock import patch
 
 from verification import (
@@ -375,3 +376,223 @@ class TestApplyTotalCap:
         severities = {f.severity for f in result}
         assert "CRITICAL" in severities
         assert "HIGH" in severities
+
+
+# ---------------------------------------------------------------------------
+# End-to-end integration: parse -> verify -> score -> cap -> render
+# ---------------------------------------------------------------------------
+
+# Realistic lens output: mix of valid, invalid, and edge-case findings
+E2E_LENS_OUTPUT = """\
+### [CRITICAL] [src/auth.py:13] Token logged at INFO
+
+**What:** `generate_token()` return value is logged via `log.info("Token: %s", token)`.
+**Why:** Secrets in structured logs leak to aggregators, SIEM, and anyone with log access.
+**Fix:** Remove the token from the log call.
+
+```suggestion
+    log.info("Token generated for user %s", user)
+```
+
+### [LOW] [src/auth.py:50] Consider adding rate limiting
+
+**What:** Login endpoint has no rate limit.
+**Why:** Brute force risk.
+**Fix:** Add rate limiter middleware.
+
+### [HIGH] [nonexistent.py:10] Hardcoded database password
+
+**What:** Password is hardcoded in connection string.
+**Why:** Credential leak if repo is public.
+**Fix:** Use environment variable.
+
+### [MEDIUM] [src/utils.py:1] Unused import os
+
+**What:** `os` is imported but never used.
+**Why:** Dead code.
+**Fix:** Remove the import.
+
+```suggestion
+```
+"""
+
+E2E_DIFF = """\
+diff --git a/src/auth.py b/src/auth.py
+--- a/src/auth.py
++++ b/src/auth.py
+@@ -10,6 +10,8 @@ def login(user, password):
+     if not user:
+         return False
++    token = generate_token(user)
++    log.info("Token: %s", token)
+     return True
+diff --git a/src/utils.py b/src/utils.py
+--- a/src/utils.py
++++ b/src/utils.py
+@@ -1,3 +1,5 @@
++import os
++import sys
+
+ def helper():
+     pass
+"""
+
+
+class TestEndToEnd:
+    """Full pipeline: parse -> verify -> score (mocked) -> cap -> render.
+
+    Exercises the core verification pipeline used by gh_watcher.py /
+    gitea_webhook.py, but not every orchestration step those handlers apply
+    (for example severity capping before parsing and config-gated scoring).
+    """
+
+    def _setup_repo(self, tmp_path):
+        """Create a realistic repo checkout matching the diff."""
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "auth.py").write_text(
+            "\n".join([
+                "from auth_lib import generate_token",
+                "import logging",
+                "",
+                "log = logging.getLogger(__name__)",
+                "",
+                "def login(user, password):",
+                '    """Authenticate user."""',
+                "    if not password:",
+                "        return False",
+                "    if not user:",
+                "        return False",
+                "    token = generate_token(user)",  # line 12
+                "    log.info('Token: %s', token)",  # line 13 — matches diff + lens output
+                "    return True",
+            ])
+        )
+        (tmp_path / "src" / "utils.py").write_text(
+            "\n".join([
+                "import os",      # line 1
+                "import sys",     # line 2
+                "",
+                "def helper():",
+                "    pass",
+            ])
+        )
+        # nonexistent.py deliberately NOT created
+
+    def test_full_pipeline_with_mock_scoring(self, tmp_path):
+        """End-to-end: valid findings kept, unverified downgraded, scored, capped."""
+        self._setup_repo(tmp_path)
+        config = {
+            "scoring_threshold": 5,
+            "max_total_comments": 2,
+            "scoring_exempt_threshold": 9,
+        }
+
+        # Step 1: Parse
+        findings = parse_findings(E2E_LENS_OUTPUT, lens_name="security")
+        assert len(findings) == 4
+
+        # Step 2: Verify
+        findings = verify_findings(findings, E2E_DIFF, tmp_path)
+
+        # Check verification results:
+        # - src/auth.py:13 — in diff (post-diff line 13), file exists, has suggestion
+        auth_finding = next(f for f in findings if f.line_num == 13 and f.file_path == "src/auth.py")
+        assert auth_finding.verified is True
+        assert auth_finding.in_diff is True
+        assert auth_finding.has_suggestion is True
+
+        # - src/auth.py:50 — NOT in diff (line 50 is way past the hunk)
+        auth_50 = next(f for f in findings if "rate limiting" in f.title)
+        assert auth_50.in_diff is False  # downgraded
+
+        # - nonexistent.py:10 — file doesn't exist
+        nonexist = next(f for f in findings if f.file_path == "nonexistent.py")
+        assert nonexist.verified is False
+
+        # - src/utils.py:1 — in diff (added line), file exists
+        utils_finding = next(f for f in findings if f.file_path == "src/utils.py")
+        assert utils_finding.verified is True
+        assert utils_finding.in_diff is True
+
+        # Step 3: Score (mocked haiku)
+        scores = [
+            {"index": 0, "score": 9, "reason": "concrete secret leak with suggestion"},
+            {"index": 1, "score": 4, "reason": "vague, no concrete fix"},
+            {"index": 2, "score": 8, "reason": "real issue but file missing"},
+            {"index": 3, "score": 6, "reason": "valid but low value"},
+        ]
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(_mock_haiku_success(scores))
+        )
+        with patch("verification.subprocess.run", return_value=mock_result):
+            findings = score_findings(findings, tmp_path, config)
+
+        # Score 4 (index 1, rate limiting) should be dropped (below threshold 5)
+        assert not any("rate limiting" in f.title for f in findings)
+
+        # 3 findings survive threshold. Cap=2 with 1 exempt (CRITICAL, score 9):
+        # remaining_cap = max(0, 2 - 1) = 1 → 1 exempt + 1 cappable = 2 total
+        assert len(findings) == 2
+
+        # The CRITICAL finding (score 9) must survive (exempt from cap)
+        assert any(f.severity == "CRITICAL" and f.confidence_score >= 9 for f in findings)
+
+        # Step 4: Render
+        # Split inline vs body-only (as handlers do)
+        inline = [f for f in findings if f.in_diff and f.verified]
+        body_only = [f for f in findings if not f.in_diff or not f.verified]
+
+        assert inline, "expected at least one verified inline finding after scoring"
+        rendered_inline = render_findings(inline)
+        assert "### [CRITICAL]" in rendered_inline or "### [MEDIUM]" in rendered_inline
+        # Roundtrip: re-parse should produce same count
+        reparsed = parse_findings(rendered_inline)
+        assert len(reparsed) == len(inline)
+
+        if body_only:
+            rendered_body = render_findings(body_only)
+            reparsed_body = parse_findings(rendered_body)
+            assert len(reparsed_body) == len(body_only)
+
+    def test_pipeline_with_zero_findings(self, tmp_path):
+        """Empty lens output -> no crash, empty result."""
+        findings = parse_findings("No issues found.", lens_name="security")
+        assert findings == []
+        findings = verify_findings(findings, E2E_DIFF, tmp_path)
+        assert findings == []
+        rendered = render_findings(findings)
+        assert rendered == ""
+
+    def test_pipeline_scoring_failure_unlimited_cap(self, tmp_path):
+        """Haiku crashes + unlimited cap → all findings pass through unscored."""
+        self._setup_repo(tmp_path)
+        config = {"scoring_threshold": 6, "max_total_comments": 0}
+
+        findings = parse_findings(E2E_LENS_OUTPUT, lens_name="security")
+        findings = verify_findings(findings, E2E_DIFF, tmp_path)
+        pre_count = len(findings)
+
+        import subprocess as sp
+        with patch("verification.subprocess.run", side_effect=sp.TimeoutExpired("cmd", 60)):
+            result = score_findings(findings, tmp_path, config)
+
+        # Scoring skipped (fail-open), cap=0 (unlimited) → all findings preserved
+        assert len(result) == pre_count
+        assert all(f.confidence_score == -1 for f in result)  # unscored
+
+    def test_pipeline_scoring_failure_with_cap(self, tmp_path):
+        """Haiku crashes + real cap → cap still applies to unscored findings."""
+        self._setup_repo(tmp_path)
+        config = {"scoring_threshold": 6, "max_total_comments": 2, "scoring_exempt_threshold": 9}
+
+        findings = parse_findings(E2E_LENS_OUTPUT, lens_name="security")
+        findings = verify_findings(findings, E2E_DIFF, tmp_path)
+        assert len(findings) == 4  # all 4 parsed
+
+        import subprocess as sp
+        with patch("verification.subprocess.run", side_effect=sp.TimeoutExpired("cmd", 60)):
+            result = score_findings(findings, tmp_path, config)
+
+        # Scoring failed → unscored (-1), none exempt → cap of 2 applies
+        assert len(result) == 2
+        assert all(f.confidence_score == -1 for f in result)
