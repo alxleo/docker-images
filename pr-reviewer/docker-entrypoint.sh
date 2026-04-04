@@ -5,7 +5,8 @@ set -euo pipefail
 # Named volumes retain root-owned files from before the UID 1000 migration.
 # This runs as root, then drops to UID 1000 via gosu (postgres/redis pattern).
 
-WRITABLE_DIRS="/app/state /app/repos /app/plugins /app/.claude /app/.codex /app/.gemini"
+# Only named volumes (writable). Skip .codex/.gemini — read-only bind mounts from host.
+WRITABLE_DIRS="/app/state /app/repos /app/plugins /app/.claude"
 
 for dir in $WRITABLE_DIRS; do
     if [[ -d "$dir" ]]; then
