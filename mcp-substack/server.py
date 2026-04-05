@@ -124,49 +124,89 @@ def _crawl4ai_request(url: str, session_id: str = "", js_code: str = "") -> dict
         return None
 
 
-def _fetch_via_crawl4ai(post_url: str) -> str | None:
-    """Fetch full paid content via crawl4ai two-step browser login.
-
-    Step 1: Navigate to substack.com/sign-in, execute login via JS fetch()
-    Step 2: Navigate to the post page with the authenticated session
-    Full content renders via client-side JS (server-side always truncates paid posts).
-    """
-    email = os.environ.get("SUBSTACK_EMAIL", "")
-    password = os.environ.get("SUBSTACK_PASSWORD", "")
-    if not all((email, password)):
-        log.warning("SUBSTACK_EMAIL/PASSWORD not set — cannot authenticate for paid content")
-        return None
-
-    session_id = "substack-auth"
-
-    # Step 1: Login via browser JS
-    login_js = (
-        'const r = await fetch("/api/v1/login", '
-        '{method: "POST", headers: {"Content-Type": "application/json"}, '
-        f'body: JSON.stringify({{redirect: "/", for_pub: "", email: "{email}", '
-        f'password: "{password}", captcha_response: null}})}});'
-    )
-    login_result = _crawl4ai_request("https://substack.com/sign-in", session_id=session_id, js_code=login_js)
-    login_ok = login_result is not None and login_result.get("success")
-    if not login_ok:
-        log.warning("crawl4ai login step failed")
-        return None
-
-    # Step 2: Fetch the post with the authenticated session
-    post_result = _crawl4ai_request(post_url, session_id=session_id)
-    if not post_result:
-        return None
-
-    md = post_result.get("markdown", "")
+def _extract_crawl4ai_markdown(result: dict[str, Any]) -> str:
+    """Extract raw markdown from a crawl4ai result."""
+    md = result.get("markdown", "")
     if isinstance(md, dict):
         md = md.get("raw_markdown", md.get("markdown", ""))
+    return str(md) if md else ""
 
-    if md and len(md.split()) > 100:
-        log.info("crawl4ai: got content (%d words)", len(md.split()))
-        return md
 
-    log.warning("crawl4ai: content too short (%d words)", len(str(md).split()))
-    return None
+class _Crawl4AISession:
+    """Persistent crawl4ai browser session for Substack authentication.
+
+    Logs in once, reuses the session across get_post calls.
+    Re-logs in if a fetch returns only a preview (<500 words).
+    """
+
+    SESSION_ID = "substack-auth"
+
+    def __init__(self) -> None:
+        self.logged_in = False
+
+    def login(self) -> bool:
+        """Login to Substack via crawl4ai browser."""
+        email = os.environ.get("SUBSTACK_EMAIL", "")
+        password = os.environ.get("SUBSTACK_PASSWORD", "")
+        if not all((email, password)):
+            log.warning("SUBSTACK_EMAIL/PASSWORD not set — cannot authenticate for paid content")
+            return False
+
+        login_js = (
+            'const r = await fetch("/api/v1/login", '
+            '{method: "POST", headers: {"Content-Type": "application/json"}, '
+            f'body: JSON.stringify({{redirect: "/", for_pub: "", email: "{email}", '
+            f'password: "{password}", captcha_response: null}})}});'
+        )
+        result = _crawl4ai_request(
+            "https://substack.com/sign-in", session_id=self.SESSION_ID, js_code=login_js,
+        )
+        if result and result.get("success"):
+            self.logged_in = True
+            log.info("crawl4ai: logged in to Substack")
+            return True
+
+        log.warning("crawl4ai: login failed")
+        return False
+
+    def fetch(self, post_url: str) -> str | None:
+        """Fetch a post, logging in if needed. Retries once on preview."""
+        if not self.logged_in and not self.login():
+            return None
+
+        post_result = _crawl4ai_request(post_url, session_id=self.SESSION_ID)
+        if not post_result:
+            return None
+
+        md = _extract_crawl4ai_markdown(post_result)
+        word_count = len(md.split()) if md else 0
+
+        # Preview (<500 words) means session may have expired — retry once
+        if word_count < 500:
+            log.info("crawl4ai: only %d words — re-logging in and retrying", word_count)
+            self.logged_in = False
+            if not self.login():
+                return md if word_count > 100 else None
+            post_result = _crawl4ai_request(post_url, session_id=self.SESSION_ID)
+            if not post_result:
+                return md if word_count > 100 else None
+            md = _extract_crawl4ai_markdown(post_result)
+            word_count = len(md.split()) if md else 0
+
+        if word_count > 100:
+            log.info("crawl4ai: got content (%d words)", word_count)
+            return md
+
+        log.warning("crawl4ai: content too short (%d words)", word_count)
+        return None
+
+
+_crawl4ai_session = _Crawl4AISession()
+
+
+def _fetch_via_crawl4ai(post_url: str) -> str | None:
+    """Fetch full paid content via crawl4ai browser with persistent session."""
+    return _crawl4ai_session.fetch(post_url)
 
 
 def _build_header(meta: dict[str, Any]) -> str:
