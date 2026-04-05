@@ -47,7 +47,7 @@ from routing import (  # noqa: F401
 from orchestrator import run_review_orchestrated  # noqa: F401
 
 # diff.py
-from diff import preprocess_diff, shuffle_diff  # noqa: F401
+from diff import preprocess_diff, shuffle_diff, build_change_manifest  # noqa: F401
 
 # context.py
 from context import generate_repomap, plan_searches  # noqa: F401
@@ -59,3 +59,6 @@ from output import parse_inline_comments, cap_by_severity  # noqa: F401
 from verification import (  # noqa: F401
     Finding, parse_findings, verify_findings, score_findings, render_findings,
 )
+
+# meta.py
+from meta import run_meta_lens  # noqa: F401

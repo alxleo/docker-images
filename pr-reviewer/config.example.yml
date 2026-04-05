@@ -51,6 +51,11 @@ lenses:
   architecture:
     enabled: true
     max_comments: 5
+  # Meta lens: opus-powered second opinion on test/API changes (opt-in)
+  # meta:
+  #   enabled: false
+  #   model: opus
+  #   max_comments: 3
 
 # Deep review overrides (unlimited comments)
 deep_overrides:
@@ -66,3 +71,7 @@ scoring_enabled: true           # LLM scoring pass via haiku (~$0.001/review)
 scoring_threshold: 6            # drop findings scored below this (0-10)
 max_total_comments: 7           # cross-lens total cap (0 = unlimited)
 scoring_exempt_threshold: 9     # findings scored >= this bypass the total cap
+scoring_model: haiku            # which model scores findings (haiku default)
+
+# Dual planner: run both category and symbol planners for cross-file context
+dual_planner: true

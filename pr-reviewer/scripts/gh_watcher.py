@@ -386,9 +386,11 @@ def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: st
     # Fetch PR metadata for context
     pr_description = ""
     commit_messages = ""
-    pr_data = gh_json(["pr", "view", str(pr_number), "--json", "body,commits"], repo=repo)
+    pr_data = gh_json(["pr", "view", str(pr_number), "--json", "body,commits,baseRefName"], repo=repo)
+    base_branch = "main"
     if isinstance(pr_data, dict):
         pr_description = pr_data.get("body") if pr_data.get("body") else ""
+        base_branch = pr_data.get("baseRefName", "main")
         commits = pr_data.get("commits", [])
         if commits:
             commit_messages = "\n".join(
@@ -430,6 +432,7 @@ def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: st
         model_override=model_override,
         repomap=repomap, depth=depth, impact=impact,
         cross_file_context=cross_file_context,
+        base_branch=base_branch,
     )
 
     # Post-processing: per-lens cap -> parse -> verify -> cross-lens score -> post
@@ -441,6 +444,17 @@ def dispatch_review(config: dict[str, Any], repo: str, pr_number: int, depth: st
         findings = core.parse_findings(result, lens_name=lens_name)
         findings = core.verify_findings(findings, diff, repo_dir)
         all_findings.extend(findings)
+
+    # Meta lens: opus-powered second opinion (opt-in)
+    meta_result = core.run_meta_lens(all_findings, diff, repo_dir, config,
+                                     base_branch=base_branch)
+    if meta_result:
+        meta_cfg = config.get("lenses", {}).get("meta", {})
+        meta_max = meta_cfg.get("max_comments", 3)
+        meta_result = core.cap_by_severity(meta_result, meta_max)
+        meta_findings = core.parse_findings(meta_result, lens_name="meta")
+        meta_findings = core.verify_findings(meta_findings, diff, repo_dir)
+        all_findings.extend(meta_findings)
 
     # Cross-lens scoring + total cap (haiku)
     if config.get("scoring_enabled", True) and all_findings:

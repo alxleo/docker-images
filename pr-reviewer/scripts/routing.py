@@ -39,6 +39,14 @@ def analyze_diff_relevance(diff: str) -> set[str]:
     has_config = bool(changed_exts & _CONFIG_EXTENSIONS)
     has_infra = bool(changed_exts & _INFRA_EXTENSIONS)
     has_new_files = "new file mode" in diff_lower
+    has_test_files = any(
+        "test" in line[6:].lower()
+        for line in diff.splitlines() if line.startswith("+++ b/")
+    )
+    has_public_api = (
+        bool(changed_exts & {".proto", ".graphql", ".openapi"})
+        or (has_code and "def " in diff)
+    )
 
     if has_code:
         relevant.add("simplification")
@@ -51,6 +59,8 @@ def analyze_diff_relevance(diff: str) -> set[str]:
         relevant.add("drift")
     if any((has_new_files, has_infra)):
         relevant.add("architecture")
+    if any((has_test_files, has_public_api)):
+        relevant.add("meta")
 
     if not relevant:
         relevant = {"simplification", "security"}

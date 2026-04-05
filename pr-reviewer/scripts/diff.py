@@ -83,6 +83,60 @@ def preprocess_diff(raw_diff: str, max_tokens: int = 30000) -> str:
     return "\n".join(d for _, d in processed)
 
 
+def build_change_manifest(raw_diff: str) -> tuple[str, list[str]]:
+    """Extract a change manifest from a diff: file table with status and line counts.
+
+    Returns (manifest_table, changed_files) where manifest_table is a markdown
+    table and changed_files is the list of file paths.
+    """
+    if not raw_diff.strip():
+        return ("", [])
+
+    files: list[dict[str, str | int]] = []
+    current_file = ""
+    current_lines: list[str] = []
+
+    def _process_file(filename: str, lines: list[str]):
+        if not filename:
+            return
+        text = "".join(lines)
+        # Detect status
+        if "new file mode" in text:
+            status = "new file"
+        elif "deleted file mode" in text:
+            status = "deleted"
+        elif "rename from" in text:
+            status = "renamed"
+        else:
+            status = "modified"
+        # Count additions/deletions (exclude +++ and --- headers)
+        adds = sum(1 for l in lines if l.startswith("+") and not l.startswith("+++"))
+        dels = sum(1 for l in lines if l.startswith("-") and not l.startswith("---"))
+        files.append({"file": filename, "status": status, "adds": adds, "dels": dels})
+
+    for line in raw_diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            _process_file(current_file, current_lines)
+            current_lines = [line]
+            parts = line.strip().split(" b/", 1)
+            current_file = parts[1] if len(parts) > 1 else ""
+        else:
+            current_lines.append(line)
+
+    _process_file(current_file, current_lines)
+
+    if not files:
+        return ("", [])
+
+    # Build markdown table
+    rows = ["| File | Status | +/- |", "|------|--------|-----|"]
+    for f in files:
+        rows.append(f"| {f['file']} | {f['status']} | +{f['adds']} -{f['dels']} |")
+
+    changed_files = [f["file"] for f in files if isinstance(f["file"], str)]
+    return ("\n".join(rows), changed_files)
+
+
 def shuffle_diff(raw_diff: str) -> str:
     """Shuffle file order in a unified diff to break positional bias.
 

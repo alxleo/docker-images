@@ -78,7 +78,8 @@ Decomposed into focused modules (each <200 lines):
 
 Prompts are `.md` files — text, not Python. They change independently of logic:
 - `prompts/_preamble.md` — shared review rules
-- `prompts/_planner.md` — LLM-planned search instructions
+- `prompts/_planner_categories.md` — LLM-planned search instructions (category-based)
+- `prompts/_planner_symbols.md` — LLM-planned search instructions (symbol-centric)
 - `prompts/*.md` — lens-specific cognitive moves
 - `plugin/agents/*.md` — lens agent definitions with frontmatter
 
