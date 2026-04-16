@@ -152,11 +152,21 @@ class _Crawl4AISession:
             log.warning("SUBSTACK_EMAIL/PASSWORD not set — cannot authenticate for paid content")
             return False
 
+        # Double-encode credentials: first to JSON, then to a JS string literal.
+        # json.dumps handles embedded quotes, backslashes, control chars in both
+        # layers. Avoids malformed JS / injection if creds contain special chars.
+        login_body_json = json.dumps({
+            "redirect": "/",
+            "for_pub": "",
+            "email": email,
+            "password": password,
+            "captcha_response": None,
+        })
+        body_js_literal = json.dumps(login_body_json)
         login_js = (
             'const r = await fetch("/api/v1/login", '
             '{method: "POST", headers: {"Content-Type": "application/json"}, '
-            f'body: JSON.stringify({{redirect: "/", for_pub: "", email: "{email}", '
-            f'password: "{password}", captcha_response: null}})}});'
+            f'body: {body_js_literal}}});'
         )
         result = _crawl4ai_request(
             "https://substack.com/sign-in", session_id=self.SESSION_ID, js_code=login_js,
@@ -181,15 +191,20 @@ class _Crawl4AISession:
         md = _extract_crawl4ai_markdown(post_result)
         word_count = len(md.split()) if md else 0
 
-        # Preview (<500 words) means session may have expired — retry once
+        # Preview (<500 words) means session may have expired — retry once.
+        # If the retry itself fails, return None rather than the preview content:
+        # returning the short preview would mask a genuine fetch failure as a
+        # successful-but-short post.
         if word_count < 500:
             log.info("crawl4ai: only %d words — re-logging in and retrying", word_count)
             self.logged_in = False
             if not self.login():
-                return md if word_count > 100 else None
+                log.warning("crawl4ai: re-login failed during preview retry")
+                return None
             post_result = _crawl4ai_request(post_url, session_id=self.SESSION_ID)
             if not post_result:
-                return md if word_count > 100 else None
+                log.warning("crawl4ai: retry fetch failed after re-login")
+                return None
             md = _extract_crawl4ai_markdown(post_result)
             word_count = len(md.split()) if md else 0
 
