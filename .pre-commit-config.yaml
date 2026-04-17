@@ -41,6 +41,12 @@ repos:
         language: system
         files: 'Dockerfile'
         types: [dockerfile]
+      - id: check-user-has-group
+        name: USER <numeric> must have preceding addgroup (see #143)
+        entry: scripts/check-user-has-group.sh
+        language: system
+        files: 'Dockerfile'
+        types: [dockerfile]
       - id: actionlint
         name: actionlint
         entry: actionlint
