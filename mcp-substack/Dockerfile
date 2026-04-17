@@ -46,10 +46,12 @@ ENV MCP_PORT=8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
-# Create a matching uid=1000/gid=1000 app user. The base python:3.13-alpine
-# doesn't ship one (unlike node:24-alpine), so USER 1000 was running with
-# gid=0 (root) and couldn't read Docker secrets group-owned by gid=1000.
-# Addresses "cat: can't open /run/secrets/substack_*: Permission denied".
+# Create a matching uid=1000/gid=1000 app user. The base image here,
+# ghcr.io/alxleo/base-images/python:3.13-alpine (derived from upstream
+# python:3.13-alpine), doesn't ship one (unlike node:24-alpine), so
+# USER 1000 was running with gid=0 (root) and couldn't read Docker secrets
+# group-owned by gid=1000. Addresses
+# "cat: can't open /run/secrets/substack_*: Permission denied".
 RUN addgroup -g 1000 -S app \
     && adduser -u 1000 -G app -S -D -s /sbin/nologin app
 USER app
