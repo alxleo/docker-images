@@ -45,6 +45,8 @@ RUN rm -rf /root/.npm
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
-USER 1000
+# node:24-alpine ships `node` at uid=1000/gid=1000 — reference by name so
+# intent is explicit and the check-user-has-group lint rule stays clean.
+USER node
 
 ENTRYPOINT ["/entrypoint.sh"]
