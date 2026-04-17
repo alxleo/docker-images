@@ -45,6 +45,7 @@ for f in "$@"; do
             *addgroup* | *adduser* | *useradd* | *groupadd*)
                 saw_addgroup=1
                 ;;
+            *) ;;
             esac
             continue
             ;;
@@ -66,8 +67,11 @@ for f in "$@"; do
                 continue
             fi
 
+            # shellcheck disable=SC2016  # backticks in format strings are literal display, not command substitution
             printf '%s:%s — numeric USER %s without a preceding addgroup/adduser/useradd in this build stage\n' "$f" "$lineno" "$user_spec"
+            # shellcheck disable=SC2016
             printf '  Fix: add `RUN addgroup -g %s app && adduser -u %s -G app -S -D app` and `USER app`,\n' "$user_part" "$user_part"
+            # shellcheck disable=SC2016
             printf '  or switch to a base image that provides the user (node:*-alpine ships `node` at uid=1000) and use `USER <name>`.\n'
             fail=1
             ;;
