@@ -241,8 +241,9 @@ def _validate_suggestion(finding: Finding, repo_dir: Path,
 # ---------------------------------------------------------------------------
 
 def score_findings(findings: list[Finding], repo_dir: Path,
-                   config: dict[str, Any]) -> list[Finding]:
-    """Score findings via haiku, apply threshold + total cap.
+                   config: dict[str, Any],
+                   scoring_model: str | None = None) -> list[Finding]:
+    """Score findings via LLM, apply threshold + total cap.
 
     Returns filtered list. Findings below scoring_threshold are dropped.
     Total cap applied, but findings >= scoring_exempt_threshold bypass it.
@@ -273,9 +274,10 @@ def score_findings(findings: list[Finding], repo_dir: Path,
         f"Findings:\n\n{findings_text}"
     )
 
+    model = scoring_model or config.get("scoring_model", "haiku")
     cmd = [
         "claude", "-p",
-        "--model", "haiku",
+        "--model", model,
         "--output-format", "json",
         "--allowedTools", "",
         "--max-turns", "1",
@@ -288,7 +290,7 @@ def score_findings(findings: list[Finding], repo_dir: Path,
             cwd=repo_dir, timeout=60, check=False,
         )
         elapsed = time.time() - start
-        log.info("score_findings: haiku completed in %.1fs", elapsed)
+        log.info("score_findings: %s completed in %.1fs", model, elapsed)
 
         if result.returncode != 0:
             log.warning("score_findings: haiku failed (exit %d), passing all findings through",

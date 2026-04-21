@@ -59,3 +59,6 @@ from output import parse_inline_comments, cap_by_severity  # noqa: F401
 from verification import (  # noqa: F401
     Finding, parse_findings, verify_findings, score_findings, render_findings,
 )
+
+# meta.py
+from meta import run_meta_lens  # noqa: F401
