@@ -306,11 +306,13 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
     with gitea_client() as client:
         # Fetch PR metadata once — used for head_sha, description, and context
         pr_description = ""
+        base_branch = "main"
         pr_data = {}
         r = client.get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
         if r.status_code == 200:
             pr_data = r.json()
             pr_description = pr_data.get("body") if pr_data.get("body") else ""
+            base_branch = pr_data.get("base", {}).get("ref", "main")
             if not head_sha:
                 head_sha = pr_data.get("head", {}).get("sha", "")
                 log.info("Resolved head_sha from PR API: %s", head_sha[:8] if head_sha else "empty")
@@ -384,6 +386,7 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
             model_override=model_override,
             repomap=repomap, depth=depth, impact=impact,
             cross_file_context=cross_file_context,
+            base_branch=base_branch,
         )
 
         # Post-processing: per-lens cap -> parse -> verify -> cross-lens score -> post
@@ -395,6 +398,17 @@ def _dispatch_review_inner(config: dict[str, Any], owner: str, repo: str, pr_num
             findings = core.parse_findings(result, lens_name=lens_name)
             findings = core.verify_findings(findings, diff, repo_dir)
             all_findings.extend(findings)
+
+        # Meta lens: opus-powered second opinion (opt-in)
+        meta_result = core.run_meta_lens(all_findings, diff, repo_dir, config,
+                                         base_branch=base_branch)
+        if meta_result:
+            meta_cfg = config.get("lenses", {}).get("meta", {})
+            meta_max = meta_cfg.get("max_comments", 3)
+            meta_result = core.cap_by_severity(meta_result, meta_max)
+            meta_findings = core.parse_findings(meta_result, lens_name="meta")
+            meta_findings = core.verify_findings(meta_findings, diff, repo_dir)
+            all_findings.extend(meta_findings)
 
         # Cross-lens scoring + total cap (haiku)
         if config.get("scoring_enabled", True) and all_findings:

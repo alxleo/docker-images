@@ -47,9 +47,10 @@ VALID_MODELS = {"claude", "gemini", "codex"}
 LENS_ICONS = {
     "simplification": "\U0001f50d",  # 🔍
     "standards": "\U0001f4cf",       # 📏
-    "drift": "\U0001f504",           # 🔄
+    "drift": "\U0001f504",           # ���
     "security": "\U0001f512",        # 🔒
     "architecture": "\U0001f3db",    # 🏛
+    "meta": "\U0001f9e0",            # 🧠
 }
 
 DEFAULT_MODEL = "claude"

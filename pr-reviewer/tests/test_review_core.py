@@ -285,6 +285,82 @@ class TestAnalyzeDiffRelevance:
         assert "simplification" in result
         assert "security" in result
 
+    def test_test_files_get_meta(self):
+        test_diff = """\
+diff --git a/tests/test_auth.py b/tests/test_auth.py
+--- a/tests/test_auth.py
++++ b/tests/test_auth.py
+@@ -1,3 +1,5 @@
++def test_login():
++    assert True
+"""
+        result = core.analyze_diff_relevance(test_diff)
+        assert "meta" in result
+
+    def test_public_api_gets_meta(self):
+        result = core.analyze_diff_relevance(PYTHON_DIFF)
+        # PYTHON_DIFF has "def new_function" — triggers public API detection
+        assert "meta" in result
+
+
+# ---------------------------------------------------------------------------
+# build_change_manifest
+# ---------------------------------------------------------------------------
+
+class TestBuildChangeManifest:
+    def test_modified_file(self):
+        diff = """\
+diff --git a/src/app.py b/src/app.py
+--- a/src/app.py
++++ b/src/app.py
+@@ -1,3 +1,5 @@
+ import os
++def new_func():
++    pass
+-old_line
+"""
+        table, files = core.build_change_manifest(diff)
+        assert "src/app.py" in table
+        assert "modified" in table
+        assert "+2" in table
+        assert "-1" in table
+        assert files == ["src/app.py"]
+
+    def test_new_file(self):
+        table, files = core.build_change_manifest(NEW_FILE_DIFF)
+        assert "new file" in table
+        assert "new_service.py" in table
+        assert files == ["new_service.py"]
+
+    def test_multiple_files(self):
+        diff = (
+            "diff --git a/a.py b/a.py\n+++ b/a.py\n+line\n"
+            "diff --git a/b.py b/b.py\n+++ b/b.py\n+line\n"
+        )
+        table, files = core.build_change_manifest(diff)
+        assert "a.py" in table
+        assert "b.py" in table
+        assert len(files) == 2
+
+    def test_empty_diff(self):
+        table, files = core.build_change_manifest("")
+        assert table == ""
+        assert files == []
+
+    def test_deleted_file(self):
+        diff = """\
+diff --git a/old.py b/old.py
+deleted file mode 100644
+--- a/old.py
++++ /dev/null
+@@ -1,3 +0,0 @@
+-class Old:
+-    pass
+"""
+        table, files = core.build_change_manifest(diff)
+        assert "deleted" in table
+        assert "old.py" in table
+
 
 # ---------------------------------------------------------------------------
 # cap_by_severity
@@ -715,25 +791,32 @@ class TestPlanSearches:
     @patch("subprocess.run")
     def test_planner_generates_and_executes_queries(self, mock_run, tmp_path):
         """If planner returns queries, rg should be called for each."""
-        (core.PROMPTS_DIR / "_planner.md").write_text("planner prompt")
-        # First call: claude planner returns JSON queries
+        (core.PROMPTS_DIR / "_planner_categories.md").write_text("planner prompt")
+        (core.PROMPTS_DIR / "_planner_symbols.md").write_text("symbol planner prompt")
+        # First call: claude category planner returns JSON queries
         planner_output = json.dumps({
             "result": '[{"pattern": "my_function", "category": "callers", "rationale": "find callers"}]'
         })
-        # Second call: rg finds matches
+        # Second call: claude symbol planner returns JSON queries
+        symbol_output = json.dumps({
+            "result": '[{"pattern": "my_function", "category": "callers", "rationale": "find callers"}]'
+        })
+        # Third call: rg finds matches (deduped to one query)
         rg_output = "scripts/app.py:42:    my_function()"
 
         mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=planner_output, stderr=""),  # claude
+            MagicMock(returncode=0, stdout=planner_output, stderr=""),  # claude categories
+            MagicMock(returncode=0, stdout=symbol_output, stderr=""),   # claude symbols
             MagicMock(returncode=0, stdout=rg_output, stderr=""),       # rg
         ]
         result = core.plan_searches("diff content", tmp_path, {})
         assert "my_function" in result
         assert "callers" in result
-        assert mock_run.call_count == 2
+        assert mock_run.call_count == 3  # 2 planners + 1 rg
 
     @patch("subprocess.run")
     def test_planner_failure_returns_empty(self, mock_run, tmp_path):
+        (core.PROMPTS_DIR / "_planner_categories.md").write_text("planner prompt")
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
         result = core.plan_searches("diff", tmp_path, {})
         assert result == ""
@@ -856,3 +939,34 @@ class TestRunReviewOrchestrated:
             prompt = mock_claude.call_args[0][0]
         assert "pr-reviewer-lenses:simplification-lens" in prompt
         assert "pr-reviewer-lenses:standards-lens" in prompt
+
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text="finding"))
+    def test_orchestrator_prompt_uses_manifest_not_diff(self, mock_claude, config, tmp_path):
+        """The orchestrator should embed a change manifest, not the full diff."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        diff = "diff --git a/src/app.py b/src/app.py\n+++ b/src/app.py\n+new line\n"
+        lenses = [{"name": "simplification", "max_comments": 5}]
+        config["default_model"] = "claude"
+        core.run_review_orchestrated(lenses, diff, tmp_path, config)
+        prompt = mock_claude.call_args.kwargs.get("prompt")
+        if not prompt:
+            prompt = mock_claude.call_args[0][0]
+        # Should contain manifest table, not a ```diff block
+        assert "| File | Status | +/- |" in prompt
+        assert "src/app.py" in prompt
+        assert "```diff" not in prompt
+        # Should contain investigation instructions
+        assert "git diff" in prompt
+        assert "How to Investigate" in prompt
+
+    @patch("orchestrator.run_lens_claude", return_value=ReviewResult(text="finding"))
+    def test_orchestrator_prompt_includes_base_branch(self, mock_claude, config, tmp_path):
+        """The orchestrator prompt should include the base branch for git diff."""
+        (core.PROMPTS_DIR / "_preamble.md").write_text("preamble")
+        lenses = [{"name": "simplification", "max_comments": 5}]
+        config["default_model"] = "claude"
+        core.run_review_orchestrated(lenses, "diff", tmp_path, config, base_branch="develop")
+        prompt = mock_claude.call_args.kwargs.get("prompt")
+        if not prompt:
+            prompt = mock_claude.call_args[0][0]
+        assert "develop...HEAD" in prompt

@@ -418,25 +418,8 @@ def _generate_repomap_simple(repo_dir: Path, max_chars: int) -> str:
 
 
 
-def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
-    """Use a fast LLM to generate targeted search queries, execute them, return context.
-
-    A haiku-class model reads the diff, generates ripgrep patterns across five
-    categories (callers, symmetric counterparts, test pairs, config limits,
-    upstream deps). Python executes the searches and returns the results as
-    cross-file context for the review prompt.
-    """
-    if not config.get("planned_searches", True):
-        return ""
-
-    planner_file = PROMPTS_DIR / "_planner.md"
-    if not planner_file.exists():
-        log.warning("Planner prompt not found at %s", planner_file)
-        return ""
-
-    planner_instructions = planner_file.read_text()
-    planner_prompt = f"{planner_instructions}\n\nDiff:\n```\n{diff[:8000]}\n```"
-
+def _run_planner(prompt: str, repo_dir: Path) -> list[dict]:
+    """Run a single planner prompt via haiku. Returns list of query dicts."""
     cmd = [
         "claude", "-p",
         "--model", "haiku",
@@ -446,31 +429,79 @@ def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
     ]
     try:
         start = time.time()
-        result = subprocess.run(cmd, input=planner_prompt, capture_output=True,
+        result = subprocess.run(cmd, input=prompt, capture_output=True,
                                 text=True, cwd=repo_dir, timeout=90, check=False)
         log.info("Search planner completed in %.1fs", time.time() - start)
 
         if result.returncode != 0:
             log.warning("Search planner failed (exit %d)", result.returncode)
-            return ""
+            return []
 
         output = json.loads(result.stdout)
         raw_result = output.get("result", "")
 
         json_match = re.search(r'\[.*\]', raw_result, re.DOTALL)
         if not json_match:
-            return ""
+            return []
         queries = json.loads(json_match.group())
+        return queries if isinstance(queries, list) else []
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, OSError) as e:
         log.warning("Search planner error: %s", e)
+        return []
+
+
+def _deduplicate_queries(queries: list[dict], max_queries: int = 12) -> list[dict]:
+    """Deduplicate queries by pattern and cap total count."""
+    seen_patterns: set[str] = set()
+    unique: list[dict] = []
+    for q in queries:
+        pattern = q.get("pattern", "")
+        if not pattern or pattern in seen_patterns:
+            continue
+        seen_patterns.add(pattern)
+        unique.append(q)
+        if len(unique) >= max_queries:
+            break
+    return unique
+
+
+def plan_searches(diff: str, repo_dir: Path, config: dict[str, Any]) -> str:
+    """Use a fast LLM to generate targeted search queries, execute them, return context.
+
+    Runs one or two planner prompts (category-based and symbol-centric) via haiku,
+    deduplicates the queries, then executes them as ripgrep searches.
+    """
+    if not config.get("planned_searches", True):
         return ""
+
+    diff_snippet = diff[:8000]
+
+    # Category planner (original)
+    categories_file = PROMPTS_DIR / "_planner_categories.md"
+    if not categories_file.exists():
+        log.warning("Category planner prompt not found at %s", categories_file)
+        return ""
+
+    categories_prompt = f"{categories_file.read_text()}\n\nDiff:\n```\n{diff_snippet}\n```"
+    queries = _run_planner(categories_prompt, repo_dir)
+
+    # Symbol planner (dual planner mode)
+    if config.get("dual_planner", True):
+        symbols_file = PROMPTS_DIR / "_planner_symbols.md"
+        if symbols_file.exists():
+            symbols_prompt = f"{symbols_file.read_text()}\n\nDiff:\n```\n{diff_snippet}\n```"
+            symbol_queries = _run_planner(symbols_prompt, repo_dir)
+            queries = _deduplicate_queries(queries + symbol_queries)
+            log.info("Dual planner: %d queries after dedup", len(queries))
+        else:
+            log.warning("Symbol planner prompt not found at %s", symbols_file)
 
     if not queries:
         return ""
 
     context_lines: list[str] = []
-    for query in queries[:8]:
+    for query in queries[:12]:
         pattern = query.get("pattern", "")
         category = query.get("category", "")
         rationale = query.get("rationale", "")

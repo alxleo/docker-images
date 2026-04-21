@@ -250,6 +250,7 @@ def score_findings(findings: list[Finding], repo_dir: Path,
     if not findings:
         return findings
 
+    scoring_model = config.get("scoring_model", "haiku")
     threshold = config.get("scoring_threshold", 6)
     total_cap = config.get("max_total_comments", 7)
     exempt_threshold = config.get("scoring_exempt_threshold", 9)
@@ -275,7 +276,7 @@ def score_findings(findings: list[Finding], repo_dir: Path,
 
     cmd = [
         "claude", "-p",
-        "--model", "haiku",
+        "--model", scoring_model,
         "--output-format", "json",
         "--allowedTools", "",
         "--max-turns", "1",
