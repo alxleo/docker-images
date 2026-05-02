@@ -1,4 +1,4 @@
-FROM semaphoreui/semaphore@sha256:afa4a557e78561a6c1293670daf78129d7d8e3c474c11b2bd823408fc868f83e
+FROM semaphoreui/semaphore@sha256:0a5db8fffcc6df148e8682acdd860aa96a82cb7b07540c10a688a6076838d3d1
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 USER root
