@@ -23,9 +23,9 @@
   {
     "name": "mcp-auth-proxy",
     "context": "mcp-auth-proxy",
-    "tag": "v2.5.3",
-    "why": "Patched build — VARCHAR(255) fix for session storage (sigbit/mcp-auth-proxy#111)",
-    "remove_when": "upstream merges the VARCHAR fix and publishes a new release"
+    "tag": "v2.9.1",
+    "why": "Built from source on our base-images (golang:1.25-bookworm + distroless:nonroot) for consistent base + tooling. No code patches as of v2.9.1 — upstream merged the VARCHAR(255) fix (#111).",
+    "remove_when": "we move to ghcr.io/sigbit/mcp-auth-proxy upstream image (gives up base-image control + reproducible build)"
   },
   {
     "name": "semaphore",

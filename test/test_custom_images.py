@@ -164,16 +164,29 @@ class TestGitMCPServer:
 
 @pytest.mark.mcp_auth_proxy
 class TestMCPAuthProxy:
-    """Validate mcp-auth-proxy has the VARCHAR fix applied."""
+    """Validate mcp-auth-proxy has size:512 on all session-storage fields.
+
+    Originally guarded a local Dockerfile sed patch for sigbit/mcp-auth-proxy#111.
+    Upstream merged the fix in v2.9.x; we still build from source on our base-images,
+    so the binary should still contain size:512. Test stays as a regression check —
+    fails if upstream ever shrinks the field width back to 255.
+    """
 
     IMAGE = _get_image_tag("TEST_MCP_AUTH_PROXY_TAG", "mcp-auth-proxy")
 
-    def test_varchar_patch_applied(self):
-        """The size:512 patch is present in the compiled binary.
+    def test_size_512_session_fields(self):
+        """The size:512 GORM tag is present in the compiled binary, with no size:255 regressions.
 
-        The sed command in the Dockerfile replaces 7 'size:255' -> 'size:512'
-        in pkg/repository/sql.go. Go embeds struct tags as string literals,
-        so grep -ac finds them in the binary.
+        Upstream v2.9.1+ ships pkg/repository/sql.go with seven `size:512` GORM tags
+        across the AuthorizationCode, AccessToken, RefreshToken, Session and DCRClient
+        structs. Go's compiler interns identical tag-string literals, so the binary
+        typically contains fewer distinct copies than there are fields (3 observed
+        for v2.9.1). The exact count is not load-bearing here — only that:
+
+          - at least one `size:512` literal is present (sanity check; would be 0 if
+            upstream nuked the whole feature), AND
+          - zero `size:255` literals are present (catches partial regressions — if
+            even one field shrinks back to 255, that string would appear).
 
         Uses docker cp to extract the binary since distroless has no shell.
         """
@@ -193,14 +206,28 @@ class TestMCPAuthProxy:
                 ["docker", "cp", f"{container_id}:/usr/local/bin/mcp-auth-proxy", tmp_path],
                 capture_output=True, text=True, check=True,
             )
-            result = subprocess.run(
-                ["grep", "-ac", "size:512", tmp_path],
-                capture_output=True, text=True,
+            # grep -c return codes: 0 = found (count in stdout), 1 = no matches
+            # (count=0), 2 = grep itself errored (unreadable file, etc).
+            def _grep_count(pattern: str) -> int:
+                r = subprocess.run(
+                    ["grep", "-ac", pattern, tmp_path],
+                    capture_output=True, text=True,
+                )
+                assert r.returncode in (0, 1), (
+                    f"grep -ac {pattern!r} errored (rc={r.returncode}): {r.stderr}"
+                )
+                return int(r.stdout.strip()) if r.stdout.strip() else 0
+
+            count_512 = _grep_count("size:512")
+            assert count_512 >= 1, (
+                "No 'size:512' tags found in binary — upstream may have removed "
+                "the wider field width entirely"
             )
-            assert result.returncode == 0, f"grep failed: {result.stderr}"
-            count = int(result.stdout.strip())
-            assert count >= 1, (
-                f"Expected 'size:512' in binary (VARCHAR fix), got {count} matches"
+
+            count_255 = _grep_count("size:255")
+            assert count_255 == 0, (
+                f"Found {count_255} 'size:255' tags in binary — upstream sql.go "
+                f"may have regressed one or more session-storage fields back to 255"
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
