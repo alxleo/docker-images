@@ -24,8 +24,8 @@
     "name": "mcp-auth-proxy",
     "context": "mcp-auth-proxy",
     "tag": "v2.9.1",
-    "why": "Built from source on our base-images (golang:1.25-bookworm + distroless:nonroot) for consistent base + tooling. No code patches as of v2.9.1 — upstream merged the VARCHAR(255) fix (#111).",
-    "remove_when": "we move to ghcr.io/sigbit/mcp-auth-proxy upstream image (gives up base-image control + reproducible build)"
+    "why": "Built from source on our base-images (golang:1.25-bookworm builder + alpine:3.23 runtime). Alpine runtime is required so the homelab compose pattern can wrap the entrypoint in /bin/sh -c to materialize the Postgres DSN from Docker secrets (see alxleo/homelab#401). No code patches as of v2.9.1 — upstream merged the VARCHAR(255) fix (#111).",
+    "remove_when": "upstream sigbit/mcp-auth-proxy ships an image with /bin/sh and *_FILE env-var support (then we can switch back to upstream and drop the local build)"
   },
   {
     "name": "semaphore",
