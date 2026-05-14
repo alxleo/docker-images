@@ -178,15 +178,15 @@ class TestMCPAuthProxy:
         """The size:512 GORM tag is present in the compiled binary, with no size:255 regressions.
 
         Upstream v2.9.1+ ships pkg/repository/sql.go with seven `size:512` GORM tags
-        across the AuthorizationCode, AccessToken, RefreshToken, Session and
-        DCRClient structs (some fields share the name `Signature` across structs).
-        Go embeds struct tags as string literals, so grep finds them in the binary.
+        across the AuthorizationCode, AccessToken, RefreshToken, Session and DCRClient
+        structs. Go's compiler interns identical tag-string literals, so the binary
+        typically contains fewer distinct copies than there are fields (3 observed
+        for v2.9.1). The exact count is not load-bearing here — only that:
 
-        Asserts two things:
-          - At least 7 `size:512` occurrences (any upstream regression that shrinks
-            a single field would drop the count to 6).
-          - Zero `size:255` occurrences (any partial regression that misses one
-            field would show up here as a non-zero count).
+          - at least one `size:512` literal is present (sanity check; would be 0 if
+            upstream nuked the whole feature), AND
+          - zero `size:255` literals are present (catches partial regressions — if
+            even one field shrinks back to 255, that string would appear).
 
         Uses docker cp to extract the binary since distroless has no shell.
         """
@@ -206,27 +206,28 @@ class TestMCPAuthProxy:
                 ["docker", "cp", f"{container_id}:/usr/local/bin/mcp-auth-proxy", tmp_path],
                 capture_output=True, text=True, check=True,
             )
-            r512 = subprocess.run(
-                ["grep", "-ac", "size:512", tmp_path],
-                capture_output=True, text=True,
-            )
-            assert r512.returncode == 0, f"grep size:512 failed: {r512.stderr}"
-            count_512 = int(r512.stdout.strip())
-            assert count_512 >= 7, (
-                f"Expected >=7 'size:512' tags in binary (upstream sql.go has 7), "
-                f"got {count_512} — upstream may have regressed a field to size:255"
+            # grep -c return codes: 0 = found (count in stdout), 1 = no matches
+            # (count=0), 2 = grep itself errored (unreadable file, etc).
+            def _grep_count(pattern: str) -> int:
+                r = subprocess.run(
+                    ["grep", "-ac", pattern, tmp_path],
+                    capture_output=True, text=True,
+                )
+                assert r.returncode in (0, 1), (
+                    f"grep -ac {pattern!r} errored (rc={r.returncode}): {r.stderr}"
+                )
+                return int(r.stdout.strip()) if r.stdout.strip() else 0
+
+            count_512 = _grep_count("size:512")
+            assert count_512 >= 1, (
+                f"No 'size:512' tags found in binary — upstream may have removed "
+                f"the wider field width entirely"
             )
 
-            # Any size:255 means a partial regression — should be zero
-            r255 = subprocess.run(
-                ["grep", "-ac", "size:255", tmp_path],
-                capture_output=True, text=True,
-            )
-            # grep -c returns rc=1 when count is 0 (no matches); treat as "good"
-            count_255 = int(r255.stdout.strip())
+            count_255 = _grep_count("size:255")
             assert count_255 == 0, (
                 f"Found {count_255} 'size:255' tags in binary — upstream sql.go "
-                f"may have regressed one or more session-storage fields"
+                f"may have regressed one or more session-storage fields back to 255"
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
