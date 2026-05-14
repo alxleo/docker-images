@@ -45,9 +45,10 @@ jobs:
       - run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
           # tree-sitter-language-pack pinned: 1.8.0 (2026-05-09) broke TestGenerateRepomap
-          # by changing parser-load semantics; 1.6.3 is last-known-good. Revisit when
+          # by changing parser-load semantics; 1.6.2 is last-known-good with a Py3.11
+          # wheel (1.6.3 has no manylinux wheel for cpython 3.11). Revisit when
           # pr-reviewer/scripts/context.py is updated for the newer API.
-          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.6.3'
+          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.6.2'
       - run: pytest pr-reviewer/tests/ -x
         env:
           PYTHONPATH: pr-reviewer/scripts
