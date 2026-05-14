@@ -164,18 +164,23 @@ class TestGitMCPServer:
 
 @pytest.mark.mcp_auth_proxy
 class TestMCPAuthProxy:
-    """Validate mcp-auth-proxy has the VARCHAR fix applied."""
+    """Validate mcp-auth-proxy has size:512 on all session-storage fields.
+
+    Originally guarded a local Dockerfile sed patch for sigbit/mcp-auth-proxy#111.
+    Upstream merged the fix in v2.9.x; we still build from source on our base-images,
+    so the binary should still contain size:512. Test stays as a regression check —
+    fails if upstream ever shrinks the field width back to 255.
+    """
 
     IMAGE = _get_image_tag("TEST_MCP_AUTH_PROXY_TAG", "mcp-auth-proxy")
 
-    def test_varchar_patch_applied(self):
-        """The size:512 patch is present in the compiled binary.
+    def test_size_512_session_fields(self):
+        """The size:512 GORM tag is present in the compiled binary.
 
-        The sed command in the Dockerfile replaces 7 'size:255' -> 'size:512'
-        in pkg/repository/sql.go. Go embeds struct tags as string literals,
-        so grep -ac finds them in the binary.
-
-        Uses docker cp to extract the binary since distroless has no shell.
+        Upstream v2.9.1+ ships pkg/repository/sql.go with size:512 on 7 fields
+        (Code, Signature, AccessSignature, ID, RequestID — see upstream sql.go).
+        Go embeds struct tags as string literals, so grep -ac finds them in the
+        binary. Uses docker cp to extract the binary since distroless has no shell.
         """
         import tempfile
 
