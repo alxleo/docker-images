@@ -188,7 +188,7 @@ class TestMCPAuthProxy:
           - zero `size:255` literals are present (catches partial regressions — if
             even one field shrinks back to 255, that string would appear).
 
-        Uses docker cp to extract the binary since distroless has no shell.
+        Uses docker cp to extract the binary since the runtime image is minimal.
         """
         import tempfile
 
@@ -236,6 +236,49 @@ class TestMCPAuthProxy:
                     os.unlink(tmp_path)
                 except FileNotFoundError:
                     pass
+
+    def test_alpine_runtime_provides_shell_user_data(self):
+        """The Alpine runtime layer provides everything homelab's compose pattern depends on.
+
+        Homelab's auth-proxy compose wraps the binary in a /bin/sh -c entrypoint
+        to materialize the Postgres DSN from Docker secrets. The previous
+        distroless final stage broke this silently (no /bin/sh). This test
+        exercises each surface independently so a future runtime-base change
+        that breaks any one of them fails loudly:
+
+          - /bin/sh exists and runs (the entrypoint pattern depends on it)
+          - ca-certificates bundle is readable (OAuth/TLS to identity providers)
+          - container runs as UID 65532 (matches the prior distroless nonroot
+            user, preserves auth-proxy-data volume permissions)
+          - /data is writable by that UID (DCR client store, session DB if file
+            backend used)
+        """
+        # /bin/sh runs and can exec a builtin
+        r = subprocess.run(
+            ["docker", "run", "--rm", self.IMAGE, "/bin/sh", "-c", "echo shell-ok"],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0, f"/bin/sh missing or broken: rc={r.returncode}, stderr={r.stderr}"
+        assert "shell-ok" in r.stdout, f"shell did not echo as expected: {r.stdout!r}"
+
+        # CA cert bundle present and non-empty (OAuth IDPs need it)
+        r = subprocess.run(
+            ["docker", "run", "--rm", self.IMAGE, "/bin/sh", "-c", "wc -c </etc/ssl/certs/ca-certificates.crt"],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0, f"ca-certificates bundle unreadable: {r.stderr}"
+        ca_bytes = int(r.stdout.strip())
+        assert ca_bytes > 100_000, f"ca-certificates bundle suspiciously small ({ca_bytes} bytes)"
+
+        # USER 65532 + /data is writable as that user
+        r = subprocess.run(
+            ["docker", "run", "--rm", self.IMAGE, "/bin/sh", "-c", "id -u && touch /data/.write-test && rm /data/.write-test && echo writable"],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0, f"USER/data check failed: {r.stderr}"
+        lines = r.stdout.strip().split("\n")
+        assert lines[0] == "65532", f"container runs as UID {lines[0]!r}, expected 65532"
+        assert "writable" in r.stdout, f"/data not writable by UID 65532: {r.stdout!r}"
 
 
 # =========================================================================
