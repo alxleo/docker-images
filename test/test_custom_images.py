@@ -220,8 +220,8 @@ class TestMCPAuthProxy:
 
             count_512 = _grep_count("size:512")
             assert count_512 >= 1, (
-                f"No 'size:512' tags found in binary — upstream may have removed "
-                f"the wider field width entirely"
+                "No 'size:512' tags found in binary — upstream may have removed "
+                "the wider field width entirely"
             )
 
             count_255 = _grep_count("size:255")
