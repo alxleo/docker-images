@@ -175,12 +175,20 @@ class TestMCPAuthProxy:
     IMAGE = _get_image_tag("TEST_MCP_AUTH_PROXY_TAG", "mcp-auth-proxy")
 
     def test_size_512_session_fields(self):
-        """The size:512 GORM tag is present in the compiled binary.
+        """The size:512 GORM tag is present in the compiled binary, with no size:255 regressions.
 
-        Upstream v2.9.1+ ships pkg/repository/sql.go with size:512 on 7 fields
-        (Code, Signature, AccessSignature, ID, RequestID — see upstream sql.go).
-        Go embeds struct tags as string literals, so grep -ac finds them in the
-        binary. Uses docker cp to extract the binary since distroless has no shell.
+        Upstream v2.9.1+ ships pkg/repository/sql.go with seven `size:512` GORM tags
+        across the AuthorizationCode, AccessToken, RefreshToken, Session and
+        DCRClient structs (some fields share the name `Signature` across structs).
+        Go embeds struct tags as string literals, so grep finds them in the binary.
+
+        Asserts two things:
+          - At least 7 `size:512` occurrences (any upstream regression that shrinks
+            a single field would drop the count to 6).
+          - Zero `size:255` occurrences (any partial regression that misses one
+            field would show up here as a non-zero count).
+
+        Uses docker cp to extract the binary since distroless has no shell.
         """
         import tempfile
 
@@ -198,14 +206,27 @@ class TestMCPAuthProxy:
                 ["docker", "cp", f"{container_id}:/usr/local/bin/mcp-auth-proxy", tmp_path],
                 capture_output=True, text=True, check=True,
             )
-            result = subprocess.run(
+            r512 = subprocess.run(
                 ["grep", "-ac", "size:512", tmp_path],
                 capture_output=True, text=True,
             )
-            assert result.returncode == 0, f"grep failed: {result.stderr}"
-            count = int(result.stdout.strip())
-            assert count >= 1, (
-                f"Expected 'size:512' in binary (VARCHAR fix), got {count} matches"
+            assert r512.returncode == 0, f"grep size:512 failed: {r512.stderr}"
+            count_512 = int(r512.stdout.strip())
+            assert count_512 >= 7, (
+                f"Expected >=7 'size:512' tags in binary (upstream sql.go has 7), "
+                f"got {count_512} — upstream may have regressed a field to size:255"
+            )
+
+            # Any size:255 means a partial regression — should be zero
+            r255 = subprocess.run(
+                ["grep", "-ac", "size:255", tmp_path],
+                capture_output=True, text=True,
+            )
+            # grep -c returns rc=1 when count is 0 (no matches); treat as "good"
+            count_255 = int(r255.stdout.strip())
+            assert count_255 == 0, (
+                f"Found {count_255} 'size:255' tags in binary — upstream sql.go "
+                f"may have regressed one or more session-storage fields"
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
