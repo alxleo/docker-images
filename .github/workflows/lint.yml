@@ -44,7 +44,10 @@ jobs:
           python-version: "3.11"
       - run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
-          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast tree-sitter-language-pack
+          # tree-sitter-language-pack pinned: 1.8.0 (2026-05-09) broke TestGenerateRepomap
+          # by changing parser-load semantics; 1.6.3 is last-known-good. Revisit when
+          # pr-reviewer/scripts/context.py is updated for the newer API.
+          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.6.3'
       - run: pytest pr-reviewer/tests/ -x
         env:
           PYTHONPATH: pr-reviewer/scripts
