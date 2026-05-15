@@ -33,7 +33,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 |------|-----|---------|
 | **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, semaphore |
 | **MCP images** | `mcp-images.json` -> `Dockerfile.npm` or `.python` | mcp-reddit, mcp-arxiv |
-| **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (VARCHAR/distroless), cadvisor (Docker 29) |
+| **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose), cadvisor (Docker 29) |
 
 ### Base Image Strategy
 
@@ -42,8 +42,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 | `node:24-alpine` | Dockerfile.npm (16 MCP images), git-mcp-server | Smallest viable Node base, no setuid binaries |
 | `node:24-slim` | Dockerfile.python (3 MCP images), pr-reviewer | Python C extensions (pymupdf) need glibc |
 | `python:3.13-alpine` | mcp-substack | Pure Python deps, Alpine viable |
-| `gcr.io/distroless/static-debian12:nonroot` | mcp-auth-proxy | Static Go binary, minimal attack surface |
-| `alpine:3.23` | pihole-exporter, cadvisor (runtime) | Already Alpine |
+| `alpine:3.23` | pihole-exporter, cadvisor (runtime), mcp-auth-proxy (runtime) | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
 
 All images build multi-arch (amd64 + arm64). All have `USER` (non-root) and `HEALTHCHECK` where applicable.
 
