@@ -11,7 +11,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + tailscale plugins | Never (plugins aren't in upstream) |
 | `cadvisor` | Built from source (Docker 29+ compat fix) | ghcr.io/google/cadvisor publishes v0.57+ |
 | `mcp-git` | Git MCP server with ssh deps + Docker secret injection | Upstream publishes official Docker image |
-| `mcp-auth-proxy` | OAuth proxy with VARCHAR(255) fix | Upstream merges the fix |
+| `mcp-auth-proxy` | OAuth proxy on alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `pr-reviewer` | AI PR reviewer with Claude/Gemini/Codex CLIs | Never (custom multi-model engine) |
 | `semaphore` | Semaphore UI + homelab tools (sops, age, dig, jq, rsync) | Never (tooling layer always needed) |
 | `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
