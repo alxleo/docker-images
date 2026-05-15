@@ -253,9 +253,15 @@ class TestMCPAuthProxy:
           - /data is writable by that UID (DCR client store, session DB if file
             backend used)
         """
+        # NOTE: every `docker run` here uses --entrypoint to OVERRIDE the image's
+        # ENTRYPOINT (which is /usr/local/bin/mcp-auth-proxy). Without the override,
+        # the trailing args are appended as flags to the binary, not run by /bin/sh —
+        # which means a missing shell wouldn't fail this test, silently inverting
+        # its purpose.
+
         # /bin/sh runs and can exec a builtin
         r = subprocess.run(
-            ["docker", "run", "--rm", self.IMAGE, "/bin/sh", "-c", "echo shell-ok"],
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "echo shell-ok"],
             capture_output=True, text=True,
         )
         assert r.returncode == 0, f"/bin/sh missing or broken: rc={r.returncode}, stderr={r.stderr}"
@@ -263,7 +269,7 @@ class TestMCPAuthProxy:
 
         # CA cert bundle present and non-empty (OAuth IDPs need it)
         r = subprocess.run(
-            ["docker", "run", "--rm", self.IMAGE, "/bin/sh", "-c", "wc -c </etc/ssl/certs/ca-certificates.crt"],
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "wc -c </etc/ssl/certs/ca-certificates.crt"],
             capture_output=True, text=True,
         )
         assert r.returncode == 0, f"ca-certificates bundle unreadable: {r.stderr}"
@@ -272,7 +278,7 @@ class TestMCPAuthProxy:
 
         # USER 65532 + /data is writable as that user
         r = subprocess.run(
-            ["docker", "run", "--rm", self.IMAGE, "/bin/sh", "-c", "id -u && touch /data/.write-test && rm /data/.write-test && echo writable"],
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "id -u && touch /data/.write-test && rm /data/.write-test && echo writable"],
             capture_output=True, text=True,
         )
         assert r.returncode == 0, f"USER/data check failed: {r.stderr}"
