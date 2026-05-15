@@ -268,8 +268,9 @@ class TestMCPAuthProxy:
         assert "shell-ok" in r.stdout, f"shell did not echo as expected: {r.stdout!r}"
 
         # CA cert bundle present and non-empty (OAuth IDPs need it)
+        ca_cmd = "wc -c </etc/ssl/certs/ca-certificates.crt"
         r = subprocess.run(
-            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "wc -c </etc/ssl/certs/ca-certificates.crt"],
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", ca_cmd],
             capture_output=True, text=True,
         )
         assert r.returncode == 0, f"ca-certificates bundle unreadable: {r.stderr}"
@@ -277,8 +278,12 @@ class TestMCPAuthProxy:
         assert ca_bytes > 100_000, f"ca-certificates bundle suspiciously small ({ca_bytes} bytes)"
 
         # USER 65532 + /data is writable as that user
+        data_cmd = (
+            "id -u && touch /data/.write-test "
+            "&& rm /data/.write-test && echo writable"
+        )
         r = subprocess.run(
-            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "id -u && touch /data/.write-test && rm /data/.write-test && echo writable"],
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", data_cmd],
             capture_output=True, text=True,
         )
         assert r.returncode == 0, f"USER/data check failed: {r.stderr}"
