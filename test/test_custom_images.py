@@ -238,23 +238,22 @@ class TestMCPAuthProxy:
                     pass
 
     def test_alpine_runtime_provides_shell_curl_root_data(self):
-        """The Alpine runtime layer provides everything homelab's compose pattern depends on.
+        """The Alpine runtime layer provides shell + curl + root + writable /data.
 
-        Homelab's auth-proxy compose wraps the binary in a /bin/sh -c entrypoint
-        to materialize the Postgres DSN from Docker secrets. The previous
-        distroless final stage broke this silently (no /bin/sh). This test
-        exercises each surface independently so a future runtime-base change
+        Operators using a /bin/sh -c entrypoint wrapper (to materialize env from
+        Docker secret files at startup) depend on several runtime-surface
+        guarantees. This test exercises each so a future runtime-base change
         that breaks any one of them fails loudly:
 
-          - /bin/sh exists and runs (the entrypoint pattern depends on it)
-          - ca-certificates bundle is readable (OAuth/TLS to identity providers)
-          - curl exists (homelab compose healthcheck depends on it)
-          - container runs as root (must be — homelab mounts Docker secrets at
-            mode 0640 root:<host-group>; non-root UIDs can't read them, as we
-            learned the hard way when PR #153 added USER 65532 and the deploy
-            crash-looped on 'open /data/secret: permission denied'. See
-            alxleo/homelab#404 for the incident)
-          - /data is writable by that root user
+          - /bin/sh exists and runs
+          - ca-certificates bundle is readable (TLS to OAuth IDPs)
+          - curl is installed (typical healthcheck dep)
+          - container runs as root (Compose short-syntax mounts secrets at
+            mode 0640 host-uid-owned; non-root UIDs inside the container can't
+            read them — PR #153 hit this regression)
+          - /data is writable
+          - root can read a 0640 file with uid 0 / gid 1000 (production-parity
+            for the secret mount mode)
         """
         # NOTE: every `docker run` here uses --entrypoint to OVERRIDE the image's
         # ENTRYPOINT (which is /usr/local/bin/mcp-auth-proxy). Without the override,
