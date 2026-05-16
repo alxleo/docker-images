@@ -237,21 +237,23 @@ class TestMCPAuthProxy:
                 except FileNotFoundError:
                     pass
 
-    def test_alpine_runtime_provides_shell_user_data(self):
-        """The Alpine runtime layer provides everything homelab's compose pattern depends on.
+    def test_alpine_runtime_provides_shell_curl_root_data(self):
+        """The Alpine runtime layer provides shell + curl + root + writable /data.
 
-        Homelab's auth-proxy compose wraps the binary in a /bin/sh -c entrypoint
-        to materialize the Postgres DSN from Docker secrets. The previous
-        distroless final stage broke this silently (no /bin/sh). This test
-        exercises each surface independently so a future runtime-base change
+        Operators using a /bin/sh -c entrypoint wrapper (to materialize env from
+        Docker secret files at startup) depend on several runtime-surface
+        guarantees. This test exercises each so a future runtime-base change
         that breaks any one of them fails loudly:
 
-          - /bin/sh exists and runs (the entrypoint pattern depends on it)
-          - ca-certificates bundle is readable (OAuth/TLS to identity providers)
-          - container runs as UID 65532 (matches the prior distroless nonroot
-            user, preserves auth-proxy-data volume permissions)
-          - /data is writable by that UID (DCR client store, session DB if file
-            backend used)
+          - /bin/sh exists and runs
+          - ca-certificates bundle is readable (TLS to OAuth IDPs)
+          - curl is installed (typical healthcheck dep)
+          - container runs as root (Compose short-syntax mounts secrets at
+            mode 0640 host-uid-owned; non-root UIDs inside the container can't
+            read them — PR #153 hit this regression)
+          - /data is writable
+          - root can read a 0640 file with uid 0 / gid 1000 (production-parity
+            for the secret mount mode)
         """
         # NOTE: every `docker run` here uses --entrypoint to OVERRIDE the image's
         # ENTRYPOINT (which is /usr/local/bin/mcp-auth-proxy). Without the override,
@@ -277,10 +279,26 @@ class TestMCPAuthProxy:
         ca_bytes = int(r.stdout.strip())
         assert ca_bytes > 100_000, f"ca-certificates bundle suspiciously small ({ca_bytes} bytes)"
 
-        # USER 65532 + /data is writable as that user
+        # curl exists (homelab healthcheck depends on it)
+        r = subprocess.run(
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "curl --version | head -1"],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0 and "curl " in r.stdout, (
+            f"curl missing or broken: rc={r.returncode}, stderr={r.stderr!r}"
+        )
+
+        # USER root + /data is writable + can read a mode-0640 root-owned file
+        # (the last assertion is the load-bearing one — mirrors the prod secret-read
+        # pattern that crashed under USER 65532 in #153)
         data_cmd = (
-            "id -u && touch /data/.write-test "
-            "&& rm /data/.write-test && echo writable"
+            "id -u "
+            "&& touch /data/.write-test "
+            "&& rm /data/.write-test "
+            "&& printf prod-parity > /tmp/fake-secret "
+            "&& chmod 0640 /tmp/fake-secret "
+            "&& chown 0:1000 /tmp/fake-secret "
+            "&& cat /tmp/fake-secret"
         )
         r = subprocess.run(
             ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", data_cmd],
@@ -288,8 +306,8 @@ class TestMCPAuthProxy:
         )
         assert r.returncode == 0, f"USER/data check failed: {r.stderr}"
         lines = r.stdout.strip().split("\n")
-        assert lines[0] == "65532", f"container runs as UID {lines[0]!r}, expected 65532"
-        assert "writable" in r.stdout, f"/data not writable by UID 65532: {r.stdout!r}"
+        assert lines[0] == "0", f"container runs as UID {lines[0]!r}, expected 0 (root)"
+        assert "prod-parity" in r.stdout, f"could not read 0640 root-owned file: {r.stdout!r}"
 
 
 # =========================================================================
