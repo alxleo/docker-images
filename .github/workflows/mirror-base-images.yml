@@ -3,6 +3,11 @@
 # Keeps GHCR mirrors fresh with upstream security patches.
 # If images haven't changed upstream, this is a fast no-op.
 # Manual trigger available for immediate updates after version bumps.
+#
+# Requires GHCR_PAT secret: a classic PAT with read:packages + write:packages scope.
+# GITHUB_TOKEN cannot write to these packages because they were created via a local
+# PAT push and are not auto-linked to this repository. See GHCR access control docs:
+# https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility
 
 name: Mirror base images
 
@@ -12,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  packages: write
+  contents: read
 
 jobs:
   mirror:
@@ -24,10 +29,10 @@ jobs:
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: alxleo
+          password: ${{ secrets.GHCR_PAT }} # zizmor: ignore[secrets-outside-env]
       - name: Mirror base images
         run: bash scripts/mirror-base-images.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }} # zizmor: ignore[secrets-outside-env]
+          GITHUB_ACTOR: alxleo
