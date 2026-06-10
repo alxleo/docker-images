@@ -1,0 +1,7 @@
+# v8r ignore patterns — skip directories that can't usefully be schema-validated.
+# v8r auto-discovers this file (default ignorePatternFiles includes .v8rignore).
+**/node_modules/**
+**/.venv/**
+**/megalinter-reports/**
+**/.mega-linter-config/**
+**/.ruff_cache/**
