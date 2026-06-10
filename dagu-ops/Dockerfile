@@ -16,7 +16,7 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 ARG DAGU_VERSION=2.6.3
 # ARG names avoid RCLONE_ prefix — rclone interprets RCLONE_* env vars as CLI flags
 ARG RESTIC_VERSION=0.18.1
-ARG RCLONE_DL_VERSION=1.73.3
+ARG RCLONE_DL_VERSION=1.73.5
 ARG DOCKER_CLI_VERSION=27.5.1
 ARG TARGETARCH
 
