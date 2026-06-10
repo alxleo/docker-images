@@ -110,6 +110,7 @@ jobs:
     steps:
       - name: Run dockle
         run: |
+          # DKL-DI-0004 fires on apk-add layers inside upstream base images (e.g. python:3.13-alpine); our own layers are covered by hadolint DL3019
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             goodwithtech/dockle:v0.4.15 \
@@ -118,6 +119,7 @@ jobs:
             --ignore CIS-DI-0001 \
             --ignore CIS-DI-0005 \
             --ignore DKL-DI-0006 \
+            --ignore DKL-DI-0004 \
             -af settings.py \
             "ghcr.io/alxleo/${{ matrix.name }}:latest"
 
