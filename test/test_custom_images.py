@@ -188,7 +188,7 @@ class TestMCPAuthProxy:
           - zero `size:255` literals are present (catches partial regressions — if
             even one field shrinks back to 255, that string would appear).
 
-        Uses docker cp to extract the binary since distroless has no shell.
+        Uses docker cp to extract the binary since the runtime image is minimal.
         """
         import tempfile
 
@@ -236,6 +236,78 @@ class TestMCPAuthProxy:
                     os.unlink(tmp_path)
                 except FileNotFoundError:
                     pass
+
+    def test_alpine_runtime_provides_shell_curl_root_data(self):
+        """The Alpine runtime layer provides shell + curl + root + writable /data.
+
+        Operators using a /bin/sh -c entrypoint wrapper (to materialize env from
+        Docker secret files at startup) depend on several runtime-surface
+        guarantees. This test exercises each so a future runtime-base change
+        that breaks any one of them fails loudly:
+
+          - /bin/sh exists and runs
+          - ca-certificates bundle is readable (TLS to OAuth IDPs)
+          - curl is installed (typical healthcheck dep)
+          - container runs as root (Compose short-syntax mounts secrets at
+            mode 0640 host-uid-owned; non-root UIDs inside the container can't
+            read them — PR #153 hit this regression)
+          - /data is writable
+          - root can read a 0640 file with uid 0 / gid 1000 (production-parity
+            for the secret mount mode)
+        """
+        # NOTE: every `docker run` here uses --entrypoint to OVERRIDE the image's
+        # ENTRYPOINT (which is /usr/local/bin/mcp-auth-proxy). Without the override,
+        # the trailing args are appended as flags to the binary, not run by /bin/sh —
+        # which means a missing shell wouldn't fail this test, silently inverting
+        # its purpose.
+
+        # /bin/sh runs and can exec a builtin
+        r = subprocess.run(
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "echo shell-ok"],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0, f"/bin/sh missing or broken: rc={r.returncode}, stderr={r.stderr}"
+        assert "shell-ok" in r.stdout, f"shell did not echo as expected: {r.stdout!r}"
+
+        # CA cert bundle present and non-empty (OAuth IDPs need it)
+        ca_cmd = "wc -c </etc/ssl/certs/ca-certificates.crt"
+        r = subprocess.run(
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", ca_cmd],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0, f"ca-certificates bundle unreadable: {r.stderr}"
+        ca_bytes = int(r.stdout.strip())
+        assert ca_bytes > 100_000, f"ca-certificates bundle suspiciously small ({ca_bytes} bytes)"
+
+        # curl exists (homelab healthcheck depends on it)
+        r = subprocess.run(
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "curl --version | head -1"],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0 and "curl " in r.stdout, (
+            f"curl missing or broken: rc={r.returncode}, stderr={r.stderr!r}"
+        )
+
+        # USER root + /data is writable + can read a mode-0640 root-owned file
+        # (the last assertion is the load-bearing one — mirrors the prod secret-read
+        # pattern that crashed under USER 65532 in #153)
+        data_cmd = (
+            "id -u "
+            "&& touch /data/.write-test "
+            "&& rm /data/.write-test "
+            "&& printf prod-parity > /tmp/fake-secret "
+            "&& chmod 0640 /tmp/fake-secret "
+            "&& chown 0:1000 /tmp/fake-secret "
+            "&& cat /tmp/fake-secret"
+        )
+        r = subprocess.run(
+            ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", data_cmd],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 0, f"USER/data check failed: {r.stderr}"
+        lines = r.stdout.strip().split("\n")
+        assert lines[0] == "0", f"container runs as UID {lines[0]!r}, expected 0 (root)"
+        assert "prod-parity" in r.stdout, f"could not read 0640 root-owned file: {r.stdout!r}"
 
 
 # =========================================================================

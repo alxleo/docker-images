@@ -1,4 +1,13 @@
 # Upstream: sigbit/mcp-auth-proxy v2.9.1
+#
+# Alpine final stage so shell-based entrypoint wrappers work (materializing
+# env from Docker secret files, etc.). ~5MB over distroless/static.
+#
+# Runs as root. Compose short-syntax mounts secrets at mode 0640 host-uid-
+# owned; a non-root UID inside the container can't read them. Effective
+# security here is cap_drop:ALL + read_only + reverse-proxy isolation. If
+# you need non-root, use Compose long-syntax with `uid:` to chown secrets
+# on materialization.
 
 FROM ghcr.io/alxleo/base-images/golang:1.25-bookworm AS builder
 
@@ -9,17 +18,18 @@ RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/si
 
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
 
-# Create data dir in builder (distroless has no mkdir)
-# distroless nonroot UID/GID is 65532
-RUN mkdir -p /data && chown 65532:65532 /data
-
-# conftest:exempt=healthcheck_required -- proxied behind caddy
-FROM gcr.io/distroless/static-debian12:nonroot
+# conftest:exempt=healthcheck_required -- proxied behind a reverse proxy
+# conftest:exempt=user_required -- runs as root to read default-mode Compose secrets (see header)
+FROM ghcr.io/alxleo/base-images/alpine:3.23
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
-COPY --from=builder /usr/local/bin/mcp-auth-proxy /usr/local/bin/mcp-auth-proxy
-COPY --from=builder /data /data
-ENV DATA_PATH=/data
 
-USER nonroot
+# ca-certificates: TLS bundle for OAuth IDP requests
+# curl: typical healthcheck dependency
+RUN apk add --no-cache ca-certificates curl
+
+COPY --from=builder /usr/local/bin/mcp-auth-proxy /usr/local/bin/mcp-auth-proxy
+
+RUN mkdir -p /data
+ENV DATA_PATH=/data
 
 ENTRYPOINT ["/usr/local/bin/mcp-auth-proxy"]
