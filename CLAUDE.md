@@ -52,8 +52,8 @@ Each image gets a monotonically incrementing build counter tracked via git tags.
 
 - Base version: the `tag` field in `.ci.json` (defaults to `latest`)
 - Build counter: stored as `{name}/{tag}-build.{N}` git tags, auto-incremented on every push to main
-- Pushed tags: `:latest`, `:{tag}` (from `.ci.json`), and `:{tag}-build.{N}` (build version)
-- `pr-reviewer` is special: tagged with `github.sha` instead of the `.ci.json` tag
+- Pushed tags: `:latest`, `:{tag}` (from `.ci.json`), and `:{tag}-build.{N}` (build version); `pr-reviewer` is the exception — it receives `:{github.sha}` and `:latest` (no static version tag, so `:latest` is the stable reference)
+- The `tags: ['*/v*']` trigger in `build-images.yml` is inert — actual build tags follow the `{name}/{tag}-build.{N}` pattern and do not match `*/v*`
 - Conventional commits are used for commit messages and readability; no automated release tooling runs
 
 ### GHCR Base Image Mirrors

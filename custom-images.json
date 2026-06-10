@@ -54,5 +54,12 @@
     "tag": "v1.2.0",
     "why": "Thin wrapper around upstream exporter to support Docker secret injection instead of env_file",
     "remove_when": "upstream supports *_FILE or Docker secret ingestion natively"
+  },
+  {
+    "name": "pr-reviewer",
+    "context": "pr-reviewer",
+    "tag": "github.sha",
+    "why": "AI-assisted PR review pipeline: Claude + Gemini + Codex reviewers with verification/scoring. Tagged with github.sha per build (no static version tag; use :latest as the stable reference).",
+    "remove_when": "never — custom reviewer pipeline with no upstream equivalent"
   }
 ]

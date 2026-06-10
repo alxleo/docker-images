@@ -37,7 +37,7 @@ services:
   # Simple service — no API key needed
   mcp-hackernews:
     <<: *common
-    image: ghcr.io/alxleo/mcp-hackernews:1.0.3
+    image: ghcr.io/alxleo/mcp-hackernews:latest
     container_name: mcp-hackernews
     ports: ["127.0.0.1:8080:8080"]
 
@@ -45,7 +45,7 @@ services:
   # entrypoint.py reads /run/secrets/* into environment automatically
   mcp-brave:
     <<: *common
-    image: ghcr.io/alxleo/mcp-brave:2.0.1
+    image: ghcr.io/alxleo/mcp-brave:latest
     container_name: mcp-brave
     secrets:
       - brave_api_key
@@ -55,7 +55,7 @@ services:
   # FILTER_INCLUDE: allow only specific tools (alternative)
   mcp-jira:
     <<: *common
-    image: ghcr.io/alxleo/mcp-jira:3.3.0
+    image: ghcr.io/alxleo/mcp-jira:latest
     container_name: mcp-jira
     environment:
       FILTER_EXCLUDE: "delete_issue create_issue update_issue"
