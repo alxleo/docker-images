@@ -305,6 +305,7 @@ jobs:
             --platform "${IMAGE_PLATFORMS}" \
             --push \
             --cache-from type=gha,scope="${IMAGE_NAME}" \
+            --cache-to type=gha,scope="${IMAGE_NAME}",mode=min \
             "${BUILD_ARG_FLAGS[@]}" \
             "${TAGS[@]}" \
             "${IMAGE_CONTEXT}/"

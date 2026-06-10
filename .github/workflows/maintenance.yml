@@ -55,6 +55,17 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Resolve trivyignore path
+        id: trivyignore
+        env:
+          IMAGE_CONTEXT: ${{ matrix.context }}
+        run: |
+          path="${IMAGE_CONTEXT}/.trivyignore"
+          if [ -f "$path" ]; then
+            echo "path=${path}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
@@ -63,7 +74,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
-          trivyignores: ${{ matrix.context }}/.trivyignore
+          trivyignores: ${{ steps.trivyignore.outputs.path }}
 
   trivy-mcp:
     name: Trivy MCP ${{ matrix.name }}
@@ -141,6 +152,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           branch="maintenance/update-actions-$(date +%Y%m%d)"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
           git checkout -b "$branch"
           git add -A
           git commit -m "ci: update GitHub Actions versions"
