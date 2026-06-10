@@ -9,7 +9,7 @@
 # you need non-root, use Compose long-syntax with `uid:` to chown secrets
 # on materialization.
 
-FROM ghcr.io/alxleo/base-images/golang:1.25-bookworm AS builder
+FROM ghcr.io/alxleo/base-images/golang:1.26-bookworm AS builder
 
 # CVE-2026-33816 (pgx v5.7.6 → v5.9.2 fixed in upstream v2.10.1): bump to v2.10.2 (latest stable).
 ARG MCP_AUTH_PROXY_VERSION=v2.10.2
@@ -17,8 +17,6 @@ ARG MCP_AUTH_PROXY_VERSION=v2.10.2
 WORKDIR /src
 RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
 
-# v2.10.2 requires go 1.26.2; GOTOOLCHAIN=auto lets the go 1.25 image download it.
-ENV GOTOOLCHAIN=auto
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
 
 # conftest:exempt=healthcheck_required -- proxied behind a reverse proxy

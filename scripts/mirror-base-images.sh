@@ -21,6 +21,7 @@ images=(
     "debian:bookworm-slim"
     "golang:1.25-alpine"
     "golang:1.25-bookworm"
+    "golang:1.26-bookworm"
     "node:24-alpine"
     "node:24-slim"
     "python:3.13-alpine"
