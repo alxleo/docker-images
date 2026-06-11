@@ -37,8 +37,10 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 # Install Python 3.11+, git (for git+ packages), and entrypoint deps
 # No curl needed — uv copied from build stage, healthcheck uses microcheck
+# libgnutls30: targeted upgrade for CVE-2026-33845, CVE-2026-42010 (fixed in 3.7.9-2+deb12u7)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 git unzip jq ca-certificates && \
+    apt-get install -y --only-upgrade libgnutls30 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -97,7 +99,7 @@ RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true \
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
-USER 1000
+USER node
 
 ENTRYPOINT ["/entrypoint.py"]
 CMD []
