@@ -26,14 +26,3 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
-
-  - package-ecosystem: docker
-    directory: /restic-scheduler
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    cooldown:
-      default-days: 7
