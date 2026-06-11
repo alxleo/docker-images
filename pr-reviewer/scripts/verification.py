@@ -237,7 +237,7 @@ def _validate_suggestion(finding: Finding, repo_dir: Path,
 
 
 # ---------------------------------------------------------------------------
-# Score (haiku)
+# Score
 # ---------------------------------------------------------------------------
 
 def score_findings(findings: list[Finding], repo_dir: Path,
@@ -293,21 +293,21 @@ def score_findings(findings: list[Finding], repo_dir: Path,
         log.info("score_findings: %s completed in %.1fs", model, elapsed)
 
         if result.returncode != 0:
-            log.warning("score_findings: haiku failed (exit %d), passing all findings through",
-                        result.returncode)
+            log.warning("score_findings: %s failed (exit %d), passing all findings through",
+                        model, result.returncode)
             return _apply_total_cap(findings, total_cap, exempt_threshold)
 
         output = json.loads(result.stdout)
         if not isinstance(output, dict):
-            log.warning("score_findings: unexpected haiku JSON shape (%s), passing through",
-                        type(output).__name__)
+            log.warning("score_findings: unexpected %s JSON shape (%s), passing through",
+                        model, type(output).__name__)
             return _apply_total_cap(findings, total_cap, exempt_threshold)
 
         raw_result = output.get("result", "")
 
         json_match = re.search(r'\[.*\]', raw_result, re.DOTALL)
         if not json_match:
-            log.warning("score_findings: no JSON array in haiku output, passing through")
+            log.warning("score_findings: no JSON array in %s output, passing through", model)
             return _apply_total_cap(findings, total_cap, exempt_threshold)
 
         scores = json.loads(json_match.group())
