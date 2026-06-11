@@ -1,4 +1,4 @@
-# Upstream: sigbit/mcp-auth-proxy v2.9.1
+# Upstream: sigbit/mcp-auth-proxy v2.10.2
 #
 # Alpine final stage so shell-based entrypoint wrappers work (materializing
 # env from Docker secret files, etc.). ~5MB over distroless/static.
@@ -9,9 +9,10 @@
 # you need non-root, use Compose long-syntax with `uid:` to chown secrets
 # on materialization.
 
-FROM ghcr.io/alxleo/base-images/golang:1.25-bookworm AS builder
+FROM ghcr.io/alxleo/base-images/golang:1.26-bookworm AS builder
 
-ARG MCP_AUTH_PROXY_VERSION=v2.9.1
+# CVE-2026-33816 (pgx v5.7.6 → v5.9.2 fixed in upstream v2.10.1): bump to v2.10.2 (latest stable).
+ARG MCP_AUTH_PROXY_VERSION=v2.10.2
 
 WORKDIR /src
 RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
