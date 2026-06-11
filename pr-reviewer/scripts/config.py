@@ -50,6 +50,7 @@ LENS_ICONS = {
     "drift": "\U0001f504",           # 🔄
     "security": "\U0001f512",        # 🔒
     "architecture": "\U0001f3db",    # 🏛
+    "meta": "\U0001f9e0",            # 🧠
 }
 
 DEFAULT_MODEL = "claude"

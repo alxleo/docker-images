@@ -19,6 +19,8 @@ _SECURITY_PATTERNS = {"secret", "password", "token", "key", "auth", "env_file",
 _CODE_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".go", ".rs", ".rb", ".java", ".kt"}
 _CONFIG_EXTENSIONS = {".yml", ".yaml", ".toml", ".json", ".env", ".cfg", ".ini"}
 _INFRA_EXTENSIONS = {".tf", ".hcl", ".dockerfile"}
+_TEST_PATTERNS = {"test_", "_test.", ".test.", ".spec.", "/tests/", "/__tests__/"}
+_PUBLIC_API_PREFIXES = ("def ", "class ", "async def ", "export ", "pub fn ", "func ")
 
 
 def analyze_diff_relevance(diff: str) -> set[str]:
@@ -26,10 +28,12 @@ def analyze_diff_relevance(diff: str) -> set[str]:
     relevant = set()
     diff_lower = diff.lower()
 
+    changed_files = []
     changed_exts = set()
     for line in diff.splitlines():
         if line.startswith("+++ b/"):
             filename = line[6:]
+            changed_files.append(filename)
             ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
             changed_exts.add(ext.lower())
             if "dockerfile" in filename.lower():
@@ -51,6 +55,15 @@ def analyze_diff_relevance(diff: str) -> set[str]:
         relevant.add("drift")
     if any((has_new_files, has_infra)):
         relevant.add("architecture")
+
+    # Meta lens: fires when test files or public API definitions change
+    has_test_files = any(p in f for f in changed_files for p in _TEST_PATTERNS)
+    has_public_api = any(
+        line.lstrip("+").lstrip().startswith(_PUBLIC_API_PREFIXES)
+        for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++")
+    )
+    if has_test_files or has_public_api:
+        relevant.add("meta")
 
     if not relevant:
         relevant = {"simplification", "security"}
