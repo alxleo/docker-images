@@ -46,11 +46,10 @@ Conventions (no `.ci.json` needed): platforms=amd64, tag=latest, push=docker, no
 
 | Workflow | Trigger | What |
 |----------|---------|------|
-| **Build** | Push to main, PRs | Auto-discover + matrix build, Trivy scan, test, push to GHCR |
+| **Build** | Push to main, PRs, dispatch | Auto-discover + matrix build, test, push to GHCR; gitleaks scan on PRs |
 | **Lint** | Push, PRs | ruff, shellcheck, hadolint, actionlint, yamllint, zizmor, lychee |
-| **Release Please** | Push to main | Conventional commits -> version bumps + changelogs + GitHub Releases |
-| **Mirror base images** | Weekly + PRs | Mirrors Docker Hub base images to GHCR, checks PRs for missing mirrors |
-| **Cleanup GHCR** | Monthly | Deletes untagged manifests, keeps 5 most recent versions |
+| **Maintenance** | Weekly, dispatch | Trivy vuln scan, dockle CIS scan |
+| **Mirror base images** | Weekly, dispatch | Mirrors Docker Hub base images to GHCR |
 
 Base images mirrored to `ghcr.io/alxleo/base-images/` -- zero Docker Hub dependency for builds.
 

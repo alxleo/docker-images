@@ -46,18 +46,15 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 All images build multi-arch (amd64 + arm64). All have `USER` (non-root) and `HEALTHCHECK` where applicable.
 
-### Versioning (release-please)
+### Versioning
 
-Conventional commits -> release-please -> version bump + CHANGELOG -> GitHub Release + git tag.
+Each image gets a monotonically incrementing build counter tracked via git tags.
 
-- Commit format: `type(scope): message` where scope = directory name
-- `fix(pr-reviewer): ...` -> patch bump, `feat(caddy-cloudflare): ...` -> minor bump
-- release-please opens a grouped PR with all pending version bumps
-- Merging the release PR creates GitHub Releases + tags
-- Build workflow tags images with the version from `.release-please-manifest.json`
-- VERSION tags only pushed on release builds (`refs/tags/*`), not every push
-
-Config: `release-please-config.json` (components), `.release-please-manifest.json` (current versions).
+- Base version: the `tag` field in `.ci.json` (defaults to `latest`)
+- Build counter: stored as `{name}/{tag}-build.{N}` git tags, auto-incremented on every push to main
+- Pushed tags: `:latest`, `:{tag}` (from `.ci.json`), and `:{tag}-build.{N}` (build version); `pr-reviewer` is the exception — it receives `:{github.sha}` and `:latest` (no static version tag, so `:latest` is the stable reference)
+- The `tags: ['*/v*']` trigger in `build-images.yml` is inert — actual build tags follow the `{name}/{tag}-build.{N}` pattern and do not match `*/v*`
+- Conventional commits are used for commit messages and readability; no automated release tooling runs
 
 ### GHCR Base Image Mirrors
 
@@ -65,7 +62,6 @@ All Dockerfiles pull from `ghcr.io/alxleo/base-images/` instead of Docker Hub. Z
 
 - `scripts/mirror-base-images.sh` mirrors images (amd64+arm64) via `docker buildx imagetools create`
 - Weekly refresh via `.github/workflows/mirror-base-images.yml`
-- PRs that touch Dockerfiles trigger `--check` mode (fails if mirror is missing)
 - To update after version bump: run the script or trigger the workflow manually
 
 ### OCI Labels
@@ -77,12 +73,10 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
-| Build | `build-images.yml` | push main, PRs, dispatch | Auto-discover, matrix build, test, push |
+| Build | `build-images.yml` | push main, PRs, tags, dispatch | Auto-discover, matrix build, test, push; gitleaks scan on PRs |
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest, log audit |
 | Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan, action updates |
-| Release Please | `release-please.yml` | push main | Conventional commit -> version bump + CHANGELOG |
-| Mirror | `mirror-base-images.yml` | weekly, PRs (check), dispatch | GHCR base image mirrors |
-| Cleanup | `cleanup-ghcr.yml` | monthly | Delete untagged GHCR manifests |
+| Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
 
 ### Dockerfile Policies
 
@@ -101,7 +95,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 
 ### Pre-commit hooks
 
-gitleaks, shellcheck, hadolint, actionlint, yamllint, zizmor, ruff, log audit (no sensitive data at INFO), no-unicode-in-config, secret file blocking, caddy fmt.
+gitleaks, shellcheck, hadolint, check-user-has-group (USER numeric ID must have preceding addgroup), actionlint, yamllint, zizmor, ruff, log audit (no sensitive data at INFO), no-unicode-in-config, secret file blocking, caddy fmt.
 
 ## Development
 
@@ -136,9 +130,8 @@ docker build -t test caddy-cloudflare/
 # Run discover script
 bash scripts/discover-images.sh | jq .
 
-# Mirror base images
-bash scripts/mirror-base-images.sh --check  # verify mirrors exist
-bash scripts/mirror-base-images.sh           # full mirror
+# Mirror base images (run after bumping a base image version)
+bash scripts/mirror-base-images.sh
 ```
 
 Do NOT add `justfile`, `Makefile`, or wrapper scripts -- there are no manual commands to automate beyond `docker build`.
