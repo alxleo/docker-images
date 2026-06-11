@@ -29,6 +29,7 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # System packages: git, code search (ripgrep, fd), JSON processing, Python
+# libgnutls30: targeted upgrade for CVE-2026-33845, CVE-2026-42010 (fixed in 3.7.9-2+deb12u7)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gosu \
@@ -41,6 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-yaml \
     ca-certificates \
     curl \
+    && apt-get install -y --no-install-recommends --only-upgrade libgnutls30 \
     && pip3 install --no-cache-dir --break-system-packages \
        "PyJWT[crypto]==2.11.0" "httpx==0.28.1" "grep-ast==0.9.0" \
     && rm -rf /var/lib/apt/lists/* \
