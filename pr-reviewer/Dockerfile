@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-yaml \
     ca-certificates \
     curl \
-    && apt-get install -y --only-upgrade libgnutls30 \
+    && apt-get install -y --no-install-recommends --only-upgrade libgnutls30 \
     && pip3 install --no-cache-dir --break-system-packages \
        "PyJWT[crypto]==2.11.0" "httpx==0.28.1" "grep-ast==0.9.0" \
     && rm -rf /var/lib/apt/lists/* \

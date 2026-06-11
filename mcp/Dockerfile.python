@@ -40,7 +40,7 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 # libgnutls30: targeted upgrade for CVE-2026-33845, CVE-2026-42010 (fixed in 3.7.9-2+deb12u7)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 git unzip jq ca-certificates && \
-    apt-get install -y --only-upgrade libgnutls30 && \
+    apt-get install -y --no-install-recommends --only-upgrade libgnutls30 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
