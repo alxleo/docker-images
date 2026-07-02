@@ -31,8 +31,8 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 | Type | How | Examples |
 |------|-----|---------|
-| **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, semaphore |
-| **MCP images** | `mcp-images.json` -> `Dockerfile.npm` or `.python` | mcp-reddit, mcp-arxiv |
+| **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, semaphore, mcp-reddit |
+| **MCP images** | `mcp-images.json` -> `Dockerfile.npm` or `.python` | mcp-brave, mcp-arxiv |
 | **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose), cadvisor (Docker 29) |
 
 ### Base Image Strategy

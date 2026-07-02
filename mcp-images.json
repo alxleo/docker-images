@@ -7,20 +7,14 @@
     "description": "Hacker News stories, comments, and discussions"
   },
   {
-    "name": "mcp-reddit",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=reddit-mcp-server@1.4.4",
-    "tag": "1.4.4",
-    "description": "Reddit posts, comments, and subreddit browsing",
-    "secrets": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
-  },
-  {
     "name": "mcp-brave",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.0.75",
     "tag": "2.0.75",
     "description": "Web search via Brave Search API (official)",
-    "secrets": ["BRAVE_API_KEY"]
+    "secrets": [
+      "BRAVE_API_KEY"
+    ]
   },
   {
     "name": "mcp-slack",
@@ -28,7 +22,9 @@
     "build_args": "MCP_PACKAGE=slack-mcp-server@1.2.3",
     "tag": "1.2.3",
     "description": "Slack channel messages and search",
-    "secrets": ["SLACK_MCP_XOXP_TOKEN"]
+    "secrets": [
+      "SLACK_MCP_XOXP_TOKEN"
+    ]
   },
   {
     "name": "mcp-tavily",
@@ -36,7 +32,9 @@
     "build_args": "MCP_PACKAGE=tavily-mcp@0.2.18",
     "tag": "0.2.18",
     "description": "AI-optimized web search and content extraction",
-    "secrets": ["TAVILY_API_KEY"]
+    "secrets": [
+      "TAVILY_API_KEY"
+    ]
   },
   {
     "name": "mcp-context7",
@@ -44,7 +42,9 @@
     "build_args": "MCP_PACKAGE=@upstash/context7-mcp@2.1.6",
     "tag": "2.1.6",
     "description": "Library documentation lookup with version awareness",
-    "secrets": ["CONTEXT7_API_KEY"]
+    "secrets": [
+      "CONTEXT7_API_KEY"
+    ]
   },
   {
     "name": "mcp-searxng",
@@ -66,7 +66,9 @@
     "build_args": "MCP_PACKAGE=firecrawl-mcp@3.11.0",
     "tag": "3.11.0",
     "description": "Web scraping and crawling with JS rendering",
-    "secrets": ["FIRECRAWL_API_KEY"]
+    "secrets": [
+      "FIRECRAWL_API_KEY"
+    ]
   },
   {
     "name": "mcp-jina",
@@ -74,7 +76,9 @@
     "build_args": "MCP_PACKAGE=mcp-remote@0.1.38",
     "tag": "0.1.38",
     "description": "URL to clean markdown conversion",
-    "secrets": ["JINA_API_KEY"]
+    "secrets": [
+      "JINA_API_KEY"
+    ]
   },
   {
     "name": "mcp-confluence",
@@ -82,7 +86,11 @@
     "build_args": "MCP_PACKAGE=@aashari/mcp-server-atlassian-confluence@3.3.0",
     "tag": "3.3.0",
     "description": "Atlassian Confluence space and page search",
-    "secrets": ["ATLASSIAN_API_TOKEN", "ATLASSIAN_SITE_NAME", "ATLASSIAN_USER_EMAIL"]
+    "secrets": [
+      "ATLASSIAN_API_TOKEN",
+      "ATLASSIAN_SITE_NAME",
+      "ATLASSIAN_USER_EMAIL"
+    ]
   },
   {
     "name": "mcp-jira",
@@ -90,7 +98,11 @@
     "build_args": "MCP_PACKAGE=@aashari/mcp-server-atlassian-jira@3.3.0",
     "tag": "3.3.0",
     "description": "Atlassian Jira issues and project search",
-    "secrets": ["ATLASSIAN_API_TOKEN", "ATLASSIAN_SITE_NAME", "ATLASSIAN_USER_EMAIL"]
+    "secrets": [
+      "ATLASSIAN_API_TOKEN",
+      "ATLASSIAN_SITE_NAME",
+      "ATLASSIAN_USER_EMAIL"
+    ]
   },
   {
     "name": "mcp-youtube",
@@ -112,7 +124,10 @@
     "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@v9.8.2\nMCP_ENTRYPOINT=pal-mcp-server",
     "tag": "9.8.2",
     "description": "Multi-model AI orchestrator (Gemini, OpenAI)",
-    "secrets": ["GOOGLE_API_KEY", "OPENAI_API_KEY"]
+    "secrets": [
+      "GOOGLE_API_KEY",
+      "OPENAI_API_KEY"
+    ]
   },
   {
     "name": "mcp-exa",
@@ -120,7 +135,9 @@
     "build_args": "MCP_PACKAGE=exa-mcp-server@3.2.0",
     "tag": "3.2.0",
     "description": "Semantic web search, code search, and company research",
-    "secrets": ["EXA_API_KEY"]
+    "secrets": [
+      "EXA_API_KEY"
+    ]
   },
   {
     "name": "mcp-karakeep",
