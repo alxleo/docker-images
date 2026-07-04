@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
-"""Reddit MCP backed by Arctic-Shift — no Reddit API credentials required.
+"""Reddit MCP — no Reddit API credentials required.
 
 Why this exists: Reddit closed self-serve API access (Responsible Builder Policy,
 Nov 2025; new credentials now require manual approval that personal/hobby use is
 rarely granted) and blocks unauthenticated `.json` (403 since 2026-05-30). The old
-OAuth `mcp-reddit` service is therefore dead and unrevivable without an approved
-app. Arctic-Shift (https://arctic-shift.photon-reddit.com) is the community's
-free, no-auth, near-real-time Reddit archive (newest posts indexed within minutes)
-with full comment trees. This server exposes its API as MCP tools, so programmatic
-Reddit read access works again with zero credentials.
+OAuth `mcp-reddit` service is therefore dead and unrevivable without an approved app.
 
-Run (stdio): uv run --with mcp --with httpx python server.py
+Two credential-free backends, each doing what it's best at:
+  - **Reads** (read_thread, browse_subreddit) → Arctic-Shift
+    (https://arctic-shift.photon-reddit.com), the community's free, no-auth,
+    near-real-time archive with full comment trees.
+  - **Search** (search_reddit) → the homelab's self-hosted SearXNG. Arctic-Shift's
+    own full-text index is under maintenance, so global keyword search runs through
+    SearXNG (site:reddit.com) and enriches hits with live post data via Arctic-Shift.
+
+Run (stdio): SEARXNG_URL=http://localhost:8888 uv run --with mcp --with httpx python server.py
 """
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 from urllib.parse import urlparse
@@ -28,6 +33,12 @@ TIMEOUT = 25
 API_MAX_LIMIT = 100  # Arctic-Shift rejects limit outside 1..100 with HTTP 400
 COMMENT_BODY_MAX = 600
 MAX_ATTEMPTS = 2
+
+# Reddit search runs through the homelab's self-hosted SearXNG (Arctic-Shift's
+# own full-text index is under maintenance). Same integration mcp-searxng uses:
+# the container reaches it by Docker DNS on mcp-network.
+SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://searxng:8080")
+_THREAD_RE = re.compile(r"reddit\.com/r/([^/]+)/comments/([0-9a-z]+)")
 
 SHARE_LINK_ERROR = (
     "This is a Reddit share link (/s/…); the real post id hides behind a redirect "
@@ -56,12 +67,6 @@ def _is_removed(post: dict[str, Any]) -> bool:
     if post.get("removed_by_category"):
         return True
     return _text(post.get("title")).lower() in _REMOVED_STUBS
-
-
-def _matches(post: dict[str, Any], terms: list[str]) -> bool:
-    """True if every search term appears in the post's title or selftext."""
-    haystack = f"{_text(post.get('title'))} {_text(post.get('selftext'))}".lower()
-    return all(term in haystack for term in terms)
 
 
 def _get(path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -169,32 +174,70 @@ def read_thread(url_or_id: str, comment_limit: int = 40) -> str:
 
 
 SEARCH_UNAVAILABLE = (
-    "Reddit full-text search is unavailable — Arctic-Shift's search index (the "
-    "query/title/selftext filters) is under maintenance and returns HTTP 503. "
-    "Pass a `subreddit` to keyword-filter its recent posts instead, or use "
-    "browse_subreddit / read_thread."
+    "Reddit search is temporarily unavailable — the SearXNG backend "
+    f"({SEARXNG_URL}) did not respond. read_thread and browse_subreddit still work."
 )
 
 
-@mcp.tool()
-def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = "new") -> str:
-    """Search a subreddit's recent posts by keyword. sort='new' or 'top' (by score).
+def _searxng_reddit(query: str, subreddit: str, want: int) -> list[dict[str, str]]:
+    """Full-text Reddit search via the self-hosted SearXNG JSON API.
 
-    Arctic-Shift's server-side full-text index is under maintenance, so this
-    matches `query` terms against the ~100 most recent posts of `subreddit`
-    client-side. A `subreddit` is required; global text search is unavailable.
+    Returns thread hits [{subreddit, id, title, url}] in SearXNG relevance order,
+    deduped by submission id. Raises httpx.HTTPError if SearXNG is unreachable.
     """
-    if not subreddit:
+    site = f"reddit.com/r/{subreddit}" if subreddit else "reddit.com"
+    resp = _client.get(f"{SEARXNG_URL}/search", params={"q": f"{query} site:{site}", "format": "json"})
+    resp.raise_for_status()
+    hits: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for result in resp.json().get("results", []):
+        match = _THREAD_RE.search(result.get("url", ""))
+        if not match or match.group(2) in seen:
+            continue
+        seen.add(match.group(2))
+        hits.append({"subreddit": match.group(1), "id": match.group(2), "title": _text(result.get("title")), "url": result.get("url", "")})
+        if len(hits) >= want:
+            break
+    return hits
+
+
+@mcp.tool()
+def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = "relevance") -> str:
+    """Search all of Reddit by keyword. Optionally restrict to one `subreddit`.
+
+    Runs a full-text search via the homelab's SearXNG, then enriches each hit with
+    live post data (score, comment count) from Arctic-Shift. sort='relevance'
+    (SearXNG ranking, default), 'top' (by score), or 'new' (most recent).
+    """
+    try:
+        hits = _searxng_reddit(query, subreddit, min(limit * 2, API_MAX_LIMIT))
+    except (httpx.HTTPError, ValueError):  # unreachable, or a non-JSON body (json.JSONDecodeError ⊂ ValueError)
         return SEARCH_UNAVAILABLE
-    terms = query.lower().split()
-    posts = _recent_posts(subreddit, sort)
-    hits = [p for p in posts if _matches(p, terms)]
-    if not hits:
-        return (
-            f"No recent posts in r/{subreddit} matching '{query}'. (Search is limited "
-            "to the ~100 most recent posts while Arctic-Shift's full-text index is down.)"
-        )
-    return "\n\n".join(_post_line(p) for p in hits[:limit])
+    ids = ",".join(f"t3_{h['id']}" for h in hits)
+    enriched = {p.get("id"): p for p in _get("/posts/ids", {"ids": ids})} if ids else {}
+    posts = [_merge_hit(h, enriched.get(h["id"])) for h in hits]
+    posts = [p for p in posts if not _is_removed(p)]
+    if not posts:
+        where = f" in r/{subreddit}" if subreddit else ""
+        return f"No Reddit results for '{query}'{where}."
+    if sort == "top":
+        posts.sort(key=lambda p: p["score"] if isinstance(p.get("score"), int) else -1, reverse=True)
+    elif sort == "new":
+        posts.sort(key=lambda p: p.get("created_utc") or 0, reverse=True)
+    return "\n\n".join(_post_line(p) for p in posts[:limit])
+
+
+def _merge_hit(hit: dict[str, str], post: dict[str, Any] | None) -> dict[str, Any]:
+    """Arctic-Shift post if it indexed the thread, else the SearXNG result as a stub."""
+    if post is not None:
+        return post
+    return {
+        "subreddit": hit["subreddit"],
+        "title": hit["title"],
+        "permalink": urlparse(hit["url"]).path,
+        "score": "?",
+        "num_comments": "?",
+    }
 
 
 @mcp.tool()

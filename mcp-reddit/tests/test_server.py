@@ -97,9 +97,6 @@ def test_api_limits_capped_at_max(server, monkeypatch):
     server.read_thread("1abc234", comment_limit=100)
     assert captured["/comments/search"]["limit"] <= server.API_MAX_LIMIT
 
-    server.search_reddit("q", subreddit="homelab", limit=80, sort="top")
-    assert captured["/posts/search"]["limit"] <= server.API_MAX_LIMIT
-
     server.browse_subreddit("homelab", limit=500)
     assert captured["/posts/search"]["limit"] <= server.API_MAX_LIMIT
 
@@ -107,15 +104,12 @@ def test_api_limits_capped_at_max(server, monkeypatch):
     assert captured["/posts/search"]["limit"] <= server.API_MAX_LIMIT
 
 
-def test_listing_never_sends_text_query(server, monkeypatch):
-    """Upstream text search (query/title/selftext) is under maintenance (503) —
-    listing must only ever filter by subreddit, never send those params."""
+def test_browse_never_sends_text_query(server, monkeypatch):
+    """Arctic-Shift's text index (query/title/selftext) is under maintenance (503)
+    — browse must only ever filter by subreddit, never send those params."""
     captured = {}
     monkeypatch.setattr(server, "_get", lambda path, params: captured.update(params) or [])
     server.browse_subreddit("homelab")
-    assert set(captured) <= {"subreddit", "limit", "sort"}
-    captured.clear()
-    server.search_reddit("docker", subreddit="homelab")
     assert set(captured) <= {"subreddit", "limit", "sort"}
 
 
@@ -141,19 +135,77 @@ def test_browse_all_removed_returns_empty_msg(server, monkeypatch):
     assert server.browse_subreddit("selfhosted") == "No posts found in r/selfhosted."
 
 
-def test_search_requires_subreddit(server):
-    assert server.search_reddit("docker") == server.SEARCH_UNAVAILABLE
+class _FakeResp:
+    def __init__(self, results):
+        self._results = results
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"results": self._results}
 
 
-def test_search_keyword_filters_recent_window(server, monkeypatch):
-    posts = [LIVE, {"title": "unrelated", "selftext": "", "score": 3, "subreddit": "s", "permalink": "/q"}]
-    monkeypatch.setattr(server, "_get", lambda path, params: posts)
-    out = server.search_reddit("docker compose", subreddit="s")
-    assert "Real post about docker" in out
-    assert "unrelated" not in out
+SEARX = [
+    {"url": "https://www.reddit.com/r/selfhosted/comments/abc123/title/", "title": "First hit"},
+    {"url": "https://www.reddit.com/r/homelab/comments/def456/x/", "title": "Second hit"},
+    {"url": "https://www.reddit.com/user/spez", "title": "not a thread"},  # non-thread → dropped
+    {"url": "https://www.reddit.com/r/selfhosted/comments/abc123/dup/", "title": "dup"},  # same id → deduped
+]
 
 
-def test_search_no_match_explains_window(server, monkeypatch):
-    monkeypatch.setattr(server, "_get", lambda path, params: [LIVE])
-    out = server.search_reddit("kubernetes", subreddit="s")
-    assert "No recent posts" in out and "most recent" in out
+def _mock_searxng(monkeypatch, server, results):
+    monkeypatch.setattr(server._client, "get", lambda url, params=None: _FakeResp(results))
+
+
+def test_searxng_reddit_parses_dedups_drops_nonthreads(server, monkeypatch):
+    _mock_searxng(monkeypatch, server, SEARX)
+    hits = server._searxng_reddit("q", "", 10)
+    assert [h["id"] for h in hits] == ["abc123", "def456"]
+    assert hits[0]["subreddit"] == "selfhosted"
+
+
+def test_search_enriches_hits_and_falls_back_to_stub(server, monkeypatch):
+    _mock_searxng(monkeypatch, server, SEARX[:2])
+    # Arctic-Shift indexed abc123 (live data) but not def456 (→ SearXNG stub)
+    monkeypatch.setattr(server, "_get", lambda path, params: [
+        {"id": "abc123", "subreddit": "selfhosted", "title": "Enriched", "score": 42, "num_comments": 7, "permalink": "/r/selfhosted/comments/abc123/"},
+    ])
+    out = server.search_reddit("q")
+    assert "score 42" in out and "Enriched" in out  # enriched hit
+    assert "Second hit" in out and "score ?" in out  # stub fallback keeps SearXNG title
+
+
+def test_search_unavailable_when_searxng_down(server, monkeypatch):
+    def boom(url, params=None):
+        raise server.httpx.HTTPError("connection refused")
+
+    monkeypatch.setattr(server._client, "get", boom)
+    assert server.search_reddit("q") == server.SEARCH_UNAVAILABLE
+
+
+def test_search_unavailable_on_non_json_body(server, monkeypatch):
+    class _HtmlResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            raise ValueError("Expecting value")  # what resp.json() raises on an HTML error page
+
+    monkeypatch.setattr(server._client, "get", lambda url, params=None: _HtmlResp())
+    assert server.search_reddit("q") == server.SEARCH_UNAVAILABLE
+
+
+def test_search_no_results_message(server, monkeypatch):
+    _mock_searxng(monkeypatch, server, [])
+    assert server.search_reddit("obscure", subreddit="homelab") == "No Reddit results for 'obscure' in r/homelab."
+
+
+def test_search_sort_top_ranks_by_score(server, monkeypatch):
+    _mock_searxng(monkeypatch, server, SEARX[:2])
+    monkeypatch.setattr(server, "_get", lambda path, params: [
+        {"id": "abc123", "subreddit": "s", "title": "low", "score": 3, "permalink": "/a"},
+        {"id": "def456", "subreddit": "s", "title": "high", "score": 99, "permalink": "/b"},
+    ])
+    out = server.search_reddit("q", sort="top")
+    assert out.index("high") < out.index("low")
