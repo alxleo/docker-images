@@ -196,6 +196,28 @@ def test_search_unavailable_on_non_json_body(server, monkeypatch):
     assert server.search_reddit("q") == server.SEARCH_UNAVAILABLE
 
 
+def test_search_falls_back_to_pullpush_when_searxng_down(server, monkeypatch):
+    """SearXNG down → PullPush serves native posts, labelled as a dated archive."""
+    pp_post = {"subreddit": "selfhosted", "title": "Archived NAS build", "score": 55, "num_comments": 12, "permalink": "/r/selfhosted/comments/old1/"}
+
+    class _PPResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [pp_post]}
+
+    def routed_get(url, params=None):
+        if "pullpush" in url:
+            return _PPResp()
+        raise server.httpx.HTTPError("searxng down")
+
+    monkeypatch.setattr(server._client, "get", routed_get)
+    out = server.search_reddit("nas")
+    assert server.PULLPUSH_STALE_NOTE in out
+    assert "Archived NAS build" in out and "score 55" in out
+
+
 def test_search_no_results_message(server, monkeypatch):
     _mock_searxng(monkeypatch, server, [])
     assert server.search_reddit("obscure", subreddit="homelab") == "No Reddit results for 'obscure' in r/homelab."

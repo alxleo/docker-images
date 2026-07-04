@@ -40,6 +40,12 @@ MAX_ATTEMPTS = 2
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://searxng:8080")
 _THREAD_RE = re.compile(r"reddit\.com/r/([^/]+)/comments/([0-9a-z]+)")
 
+# Fallback search when SearXNG is unreachable: PullPush (Pushshift mirror, native
+# Reddit objects). It's a *historical archive* — its index lags live Reddit by
+# many months — so it is fallback-only and its results are labelled as dated.
+PULLPUSH_API = "https://api.pullpush.io/reddit/search/submission/"
+PULLPUSH_STALE_NOTE = "⚠️ SearXNG unavailable — showing PullPush archive results (a historical mirror; may be months out of date):"
+
 SHARE_LINK_ERROR = (
     "This is a Reddit share link (/s/…); the real post id hides behind a redirect "
     "this server can't follow. Open it in a browser and pass the expanded "
@@ -179,8 +185,9 @@ def read_thread(url_or_id: str, comment_limit: int = 40) -> str:
 
 
 SEARCH_UNAVAILABLE = (
-    "Reddit search is temporarily unavailable — the SearXNG backend "
-    f"({SEARXNG_URL}) did not respond. read_thread and browse_subreddit still work."
+    "Reddit search is temporarily unavailable — both the SearXNG backend "
+    f"({SEARXNG_URL}) and the PullPush fallback failed to respond. "
+    "read_thread and browse_subreddit still work."
 )
 
 
@@ -217,7 +224,7 @@ def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = 
     try:
         hits = _searxng_reddit(query, subreddit, min(limit * 2, API_MAX_LIMIT))
     except (httpx.HTTPError, ValueError):  # unreachable, or a non-JSON body (json.JSONDecodeError ⊂ ValueError)
-        return SEARCH_UNAVAILABLE
+        return _pullpush_fallback(query, subreddit, limit, sort)
     ids = ",".join(f"t3_{h['id']}" for h in hits)
     enriched = {p.get("id"): p for p in _get("/posts/ids", {"ids": ids})} if ids else {}
     posts = [_merge_hit(h, enriched.get(h["id"])) for h in hits]
@@ -243,6 +250,26 @@ def _merge_hit(hit: dict[str, str], post: dict[str, Any] | None) -> dict[str, An
         "score": "?",
         "num_comments": "?",
     }
+
+
+def _pullpush_fallback(query: str, subreddit: str, limit: int, sort: str) -> str:
+    """Search via PullPush when SearXNG is down. PullPush returns native (Pushshift-
+    schema) posts, so no enrichment is needed — but it's a dated archive, hence the note.
+    """
+    params = {"q": query, "size": min(limit, API_MAX_LIMIT), "sort": "desc"}
+    if subreddit:
+        params["subreddit"] = subreddit
+    try:
+        resp = _client.get(PULLPUSH_API, params=params)
+        resp.raise_for_status()
+        posts = [p for p in resp.json().get("data", []) if not _is_removed(p)]
+    except (httpx.HTTPError, ValueError):
+        return SEARCH_UNAVAILABLE
+    if not posts:
+        return SEARCH_UNAVAILABLE
+    if sort == "top":
+        posts.sort(key=lambda p: _int(p.get("score")), reverse=True)
+    return "\n\n".join([PULLPUSH_STALE_NOTE, *(_post_line(p) for p in posts[:limit])])
 
 
 @mcp.tool()
