@@ -26,6 +26,7 @@
     "mcp-substack",
     "pihole-exporter",
     "dagu-ops",
-    "semaphore"
+    "semaphore",
+    "miniflux-enricher"
   ]
 }
