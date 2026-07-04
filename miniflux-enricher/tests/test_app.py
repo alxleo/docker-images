@@ -40,10 +40,14 @@ def test_hmac_verify(enricher):
     assert enricher._verify(body, "deadbeef") is False
 
 
-def test_looks_english(enricher):
-    assert enricher._looks_english("A normal English sentence about Docker.") is True
-    assert enricher._looks_english("我用 Docker Compose 管理所有的自托管服务，效果非常好。") is False
-    assert enricher._looks_english("<p>Plain ascii html</p>") is True
+def test_skip_language(enricher):
+    # Skipped (Alex reads them): English + Russian.
+    assert enricher._skip_language("A normal English sentence about Docker.") is True
+    assert enricher._skip_language("<p>Plain ascii html</p>") is True
+    assert enricher._skip_language("По всей России начался бензиновый кризис на этой неделе.") is True
+    # Translated: everything else.
+    assert enricher._skip_language("我用 Docker Compose 管理所有的自托管服务，效果非常好。") is False
+    assert enricher._skip_language("無料でインターネット経由でも大容量ファイルを転送できる。") is False
 
 
 async def _run(enricher, entry, *, verdict="KEEP", translation="TRANSLATED"):

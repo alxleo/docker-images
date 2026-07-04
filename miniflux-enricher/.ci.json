@@ -1,5 +1,5 @@
 {
-  "tag": "1.0.0",
+  "tag": "1.1.0",
   "test_commands": [
     "uv run --with pytest --with pytest-asyncio --with fastapi --with httpx -- pytest miniflux-enricher/tests/ -v",
     "docker run --rm -d --name enricher-test -p 18082:8080 -e WEBHOOK_SECRET=test $IMAGE_REF && sleep 6 && curl -sf http://localhost:18082/ping && docker stop enricher-test || { docker rm -f enricher-test; false; }"
