@@ -56,6 +56,11 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _int(value: object) -> int:
+    """Sort key: 0 for missing/None/non-int (score/created_utc can be JSON null or a '?' stub)."""
+    return value if isinstance(value, int) else 0
+
+
 # Reddit replaces the title/body of removed posts with these stubs. Heavily
 # moderated subs (e.g. r/selfhosted) AutoMod-hold most *new* posts pending
 # review, so an unfiltered "newest" listing is a wall of these — drop them.
@@ -221,9 +226,9 @@ def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = 
         where = f" in r/{subreddit}" if subreddit else ""
         return f"No Reddit results for '{query}'{where}."
     if sort == "top":
-        posts.sort(key=lambda p: p["score"] if isinstance(p.get("score"), int) else -1, reverse=True)
+        posts.sort(key=lambda p: _int(p.get("score")), reverse=True)
     elif sort == "new":
-        posts.sort(key=lambda p: p.get("created_utc") or 0, reverse=True)
+        posts.sort(key=lambda p: _int(p.get("created_utc")), reverse=True)
     return "\n\n".join(_post_line(p) for p in posts[:limit])
 
 
