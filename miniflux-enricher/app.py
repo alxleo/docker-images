@@ -50,11 +50,16 @@ _NON_ASCII = re.compile(r"[^\x00-\x7f]")
 _TAG = re.compile(r"<[^>]+>")
 
 
+def _str(value: object) -> str:
+    """None-safe str: Miniflux returns JSON null for empty title/content/url."""
+    return value if isinstance(value, str) else ""
+
+
 def _verify(body: bytes, signature: str) -> bool:
     if not WEBHOOK_SECRET:
         return True  # unset ⇒ dev mode, accept (compose always sets it)
     expected = hmac.new(WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature or "")
+    return hmac.compare_digest(expected, _str(signature))
 
 
 def _looks_english(text: str) -> bool:
@@ -118,9 +123,9 @@ async def _write_back(client: httpx.AsyncClient, entry_id: int, title: str, cont
 
 async def process(client: httpx.AsyncClient, entry: dict[str, Any]) -> None:
     entry_id = entry.get("id")
-    title = entry.get("title", "") or ""
-    content = entry.get("content", "") or ""
-    url = entry.get("url", "") or ""
+    title = _str(entry.get("title"))
+    content = _str(entry.get("content"))
+    url = _str(entry.get("url"))
     if entry_id is None:
         return
 
