@@ -97,7 +97,7 @@ def test_api_limits_capped_at_max(server, monkeypatch):
     server.read_thread("1abc234", comment_limit=100)
     assert captured["/comments/search"]["limit"] <= server.API_MAX_LIMIT
 
-    server.search_reddit("q", limit=80, sort="top")
+    server.search_reddit("q", subreddit="homelab", limit=80, sort="top")
     assert captured["/posts/search"]["limit"] <= server.API_MAX_LIMIT
 
     server.browse_subreddit("homelab", limit=500)
@@ -105,3 +105,55 @@ def test_api_limits_capped_at_max(server, monkeypatch):
 
     server.browse_subreddit("homelab", limit=80, sort="top")
     assert captured["/posts/search"]["limit"] <= server.API_MAX_LIMIT
+
+
+def test_listing_never_sends_text_query(server, monkeypatch):
+    """Upstream text search (query/title/selftext) is under maintenance (503) —
+    listing must only ever filter by subreddit, never send those params."""
+    captured = {}
+    monkeypatch.setattr(server, "_get", lambda path, params: captured.update(params) or [])
+    server.browse_subreddit("homelab")
+    assert set(captured) <= {"subreddit", "limit", "sort"}
+    captured.clear()
+    server.search_reddit("docker", subreddit="homelab")
+    assert set(captured) <= {"subreddit", "limit", "sort"}
+
+
+REMOVED = {"removed_by_category": "moderator", "title": "[ Removed by moderator ]", "score": 1}
+LIVE = {"title": "Real post about docker", "selftext": "compose stack", "score": 9, "subreddit": "s", "permalink": "/p"}
+
+
+def test_is_removed_classifies(server):
+    assert server._is_removed(REMOVED) is True
+    assert server._is_removed({"title": "[deleted]"}) is True
+    assert server._is_removed(LIVE) is False
+
+
+def test_browse_filters_removed_posts(server, monkeypatch):
+    monkeypatch.setattr(server, "_get", lambda path, params: [REMOVED, LIVE, dict(REMOVED)])
+    out = server.browse_subreddit("s")
+    assert "Removed by moderator" not in out
+    assert "Real post about docker" in out
+
+
+def test_browse_all_removed_returns_empty_msg(server, monkeypatch):
+    monkeypatch.setattr(server, "_get", lambda path, params: [REMOVED, dict(REMOVED)])
+    assert server.browse_subreddit("selfhosted") == "No posts found in r/selfhosted."
+
+
+def test_search_requires_subreddit(server):
+    assert server.search_reddit("docker") == server.SEARCH_UNAVAILABLE
+
+
+def test_search_keyword_filters_recent_window(server, monkeypatch):
+    posts = [LIVE, {"title": "unrelated", "selftext": "", "score": 3, "subreddit": "s", "permalink": "/q"}]
+    monkeypatch.setattr(server, "_get", lambda path, params: posts)
+    out = server.search_reddit("docker compose", subreddit="s")
+    assert "Real post about docker" in out
+    assert "unrelated" not in out
+
+
+def test_search_no_match_explains_window(server, monkeypatch):
+    monkeypatch.setattr(server, "_get", lambda path, params: [LIVE])
+    out = server.search_reddit("kubernetes", subreddit="s")
+    assert "No recent posts" in out and "most recent" in out

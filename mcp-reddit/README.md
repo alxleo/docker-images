@@ -17,8 +17,8 @@ full comment trees — so programmatic Reddit reads work again with zero credent
 | Tool | Purpose |
 |------|---------|
 | `read_thread(url_or_id, comment_limit=40)` | A thread's post + its top comments (by score) |
-| `search_reddit(query, subreddit="", limit=25, sort="new"\|"top")` | Full-text post search, optionally within one subreddit |
-| `browse_subreddit(subreddit, limit=25, sort="new"\|"top")` | List a subreddit's posts |
+| `search_reddit(query, subreddit, limit=25, sort="new"\|"top")` | Keyword-filter a subreddit's recent posts (see search note below) |
+| `browse_subreddit(subreddit, limit=25, sort="new"\|"top")` | List a subreddit's posts (removed/deleted filtered out) |
 
 ## Run
 
@@ -27,6 +27,22 @@ uv run --no-project --with mcp --with httpx python server.py   # stdio MCP serve
 ```
 
 Ships as `ghcr.io/alxleo/mcp-reddit:latest` — mcp-proxy HTTP bridge on :8080 with `/ping`.
+
+## Search
+
+Arctic-Shift's **server-side full-text index (the `query`/`title`/`selftext`
+filters) is under maintenance and returns HTTP 503** — global keyword search is
+unavailable upstream. `search_reddit` therefore requires a `subreddit` and
+keyword-filters its ~100 most-recent posts client-side. Calling it without a
+subreddit returns a clear message rather than an error. If the upstream index
+comes back, this can be upgraded to real full-text search. `browse_subreddit`
+and `read_thread` are unaffected (they use the always-available listing/id
+endpoints).
+
+Listings drop mod-removed / deleted posts. This matters because heavily
+moderated subs (e.g. r/selfhosted) AutoMod-hold most *new* posts pending review,
+so an unfiltered "newest" list would otherwise be a wall of
+`[ Removed by moderator ]`.
 
 ## Limitation
 

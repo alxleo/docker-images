@@ -45,6 +45,25 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+# Reddit replaces the title/body of removed posts with these stubs. Heavily
+# moderated subs (e.g. r/selfhosted) AutoMod-hold most *new* posts pending
+# review, so an unfiltered "newest" listing is a wall of these — drop them.
+_REMOVED_STUBS = {"[removed]", "[deleted]", "[ removed by moderator ]", "[ removed by reddit ]"}
+
+
+def _is_removed(post: dict[str, Any]) -> bool:
+    """True if a post was removed/deleted and carries no readable content."""
+    if post.get("removed_by_category"):
+        return True
+    return _text(post.get("title")).lower() in _REMOVED_STUBS
+
+
+def _matches(post: dict[str, Any], terms: list[str]) -> bool:
+    """True if every search term appears in the post's title or selftext."""
+    haystack = f"{_text(post.get('title'))} {_text(post.get('selftext'))}".lower()
+    return all(term in haystack for term in terms)
+
+
 def _get(path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
     """GET an Arctic-Shift endpoint, returning the `data` list (empty on miss).
 
@@ -106,16 +125,18 @@ def _post_line(post: dict[str, Any]) -> str:
     )
 
 
-def _list_posts(limit: int, sort: str, empty_msg: str, *, subreddit: str = "", query: str = "") -> str:
-    # Arctic-Shift sorts only by created_utc; "top" = rank a wider recent window by score.
-    fetch = min(limit * 4 if sort == "top" else limit, API_MAX_LIMIT)
-    posts = _get("/posts/search", {"query": query, "subreddit": subreddit, "limit": fetch, "sort": "desc"})
-    if not posts:
-        return empty_msg
+def _recent_posts(subreddit: str, sort: str) -> list[dict[str, Any]]:
+    """Fetch the recent post window for a subreddit, minus removed/deleted posts.
+
+    Always over-fetches to API_MAX_LIMIT: after dropping mod-removed posts the
+    readable remainder can be thin, and "top" needs a wide window to rank.
+    Arctic-Shift sorts only by created_utc (`sort=desc` = newest first).
+    """
+    posts = _get("/posts/search", {"subreddit": subreddit, "limit": API_MAX_LIMIT, "sort": "desc"})
+    posts = [p for p in posts if not _is_removed(p)]
     if sort == "top":
         posts.sort(key=lambda p: p.get("score", 0), reverse=True)
-        posts = posts[:limit]
-    return "\n\n".join(_post_line(p) for p in posts)
+    return posts
 
 
 @mcp.tool()
@@ -147,18 +168,42 @@ def read_thread(url_or_id: str, comment_limit: int = 40) -> str:
     return "\n".join(out)
 
 
+SEARCH_UNAVAILABLE = (
+    "Reddit full-text search is unavailable — Arctic-Shift's search index (the "
+    "query/title/selftext filters) is under maintenance and returns HTTP 503. "
+    "Pass a `subreddit` to keyword-filter its recent posts instead, or use "
+    "browse_subreddit / read_thread."
+)
+
+
 @mcp.tool()
 def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = "new") -> str:
-    """Search Reddit posts by text. sort='new' (recent) or 'top' (highest score among recent).
-    Optionally restrict to a single subreddit.
+    """Search a subreddit's recent posts by keyword. sort='new' or 'top' (by score).
+
+    Arctic-Shift's server-side full-text index is under maintenance, so this
+    matches `query` terms against the ~100 most recent posts of `subreddit`
+    client-side. A `subreddit` is required; global text search is unavailable.
     """
-    return _list_posts(limit, sort, "No results.", subreddit=subreddit, query=query)
+    if not subreddit:
+        return SEARCH_UNAVAILABLE
+    terms = query.lower().split()
+    posts = _recent_posts(subreddit, sort)
+    hits = [p for p in posts if _matches(p, terms)]
+    if not hits:
+        return (
+            f"No recent posts in r/{subreddit} matching '{query}'. (Search is limited "
+            "to the ~100 most recent posts while Arctic-Shift's full-text index is down.)"
+        )
+    return "\n\n".join(_post_line(p) for p in hits[:limit])
 
 
 @mcp.tool()
 def browse_subreddit(subreddit: str, limit: int = 25, sort: str = "new") -> str:
     """List a subreddit's posts. sort='new' (recent) or 'top' (highest score among recent)."""
-    return _list_posts(limit, sort, f"No posts found in r/{subreddit}.", subreddit=subreddit)
+    posts = _recent_posts(subreddit, sort)
+    if not posts:
+        return f"No posts found in r/{subreddit}."
+    return "\n\n".join(_post_line(p) for p in posts[:limit])
 
 
 if __name__ == "__main__":
