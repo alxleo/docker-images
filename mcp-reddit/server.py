@@ -19,6 +19,7 @@ Run (stdio): SEARXNG_URL=http://localhost:8888 uv run --with mcp --with httpx py
 
 from __future__ import annotations
 
+import html
 import os
 import re
 from typing import Any
@@ -39,6 +40,16 @@ MAX_ATTEMPTS = 2
 # the container reaches it by Docker DNS on mcp-network.
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://searxng:8080")
 _THREAD_RE = re.compile(r"reddit\.com/r/([^/]+)/comments/([0-9a-z]+)")
+
+# Reddit's own search — for subreddit-scoped queries. Reddit blocks unauth .json
+# (403) but still serves .rss to residential IPs (this container's egress runs on
+# the homelab's residential line, so it works where a datacenter IP wouldn't). It's
+# rate-limited (429 under load), so it's tried first for freshness and falls back
+# to SearXNG on any failure. Reddit requires a unique descriptive User-Agent.
+REDDIT_SEARCH_URL = "https://www.reddit.com/r/{subreddit}/search.rss"
+REDDIT_UA = "mcp-reddit/2.0 (homelab feed reader; +https://github.com/alxleo/docker-images)"
+_ENTRY_RE = re.compile(r"<entry>(.*?)</entry>", re.DOTALL)
+_TITLE_RE = re.compile(r"<title>(.*?)</title>", re.DOTALL)
 
 # Fallback search when SearXNG is unreachable: PullPush (Pushshift mirror, native
 # Reddit objects). It's a *historical archive* — its index lags live Reddit by
@@ -191,6 +202,37 @@ SEARCH_UNAVAILABLE = (
 )
 
 
+def _reddit_native_search(subreddit: str, query: str, sort: str, want: int) -> list[dict[str, str]]:
+    """Subreddit search via Reddit's own search.rss (native, freshest source).
+
+    Returns thread hits [{subreddit, id, title, url}]. Raises httpx.HTTPError on a
+    non-200 (notably 429 rate-limit or 403) so the caller falls back to SearXNG.
+    """
+    sort_val = sort if sort in ("relevance", "top", "new") else "relevance"
+    params = {"q": query, "restrict_sr": "1", "sort": sort_val, "limit": str(min(want, 25))}
+    resp = _client.get(
+        REDDIT_SEARCH_URL.format(subreddit=subreddit), params=params, headers={"User-Agent": REDDIT_UA}
+    )
+    resp.raise_for_status()
+    hits: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for entry in _ENTRY_RE.findall(resp.text):
+        match = _THREAD_RE.search(entry)
+        if not match or match.group(2) in seen:
+            continue
+        seen.add(match.group(2))
+        title = _TITLE_RE.search(entry)
+        hits.append({
+            "subreddit": match.group(1),
+            "id": match.group(2),
+            "title": html.unescape(title.group(1).strip()) if title else "",
+            "url": f"https://www.reddit.com/r/{match.group(1)}/comments/{match.group(2)}/",
+        })
+        if len(hits) >= want:
+            break
+    return hits
+
+
 def _searxng_reddit(query: str, subreddit: str, want: int) -> list[dict[str, str]]:
     """Full-text Reddit search via the self-hosted SearXNG JSON API.
 
@@ -213,18 +255,8 @@ def _searxng_reddit(query: str, subreddit: str, want: int) -> list[dict[str, str
     return hits
 
 
-@mcp.tool()
-def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = "relevance") -> str:
-    """Search all of Reddit by keyword. Optionally restrict to one `subreddit`.
-
-    Runs a full-text search via the homelab's SearXNG, then enriches each hit with
-    live post data (score, comment count) from Arctic-Shift. sort='relevance'
-    (SearXNG ranking, default), 'top' (by score), or 'new' (most recent).
-    """
-    try:
-        hits = _searxng_reddit(query, subreddit, min(limit * 2, API_MAX_LIMIT))
-    except (httpx.HTTPError, ValueError):  # unreachable, or a non-JSON body (json.JSONDecodeError ⊂ ValueError)
-        return _pullpush_fallback(query, subreddit, limit, sort)
+def _enrich_and_format(hits: list[dict[str, str]], subreddit: str, query: str, limit: int, sort: str) -> str:
+    """Enrich search hits with live Arctic-Shift post data, drop removed, sort, render."""
     ids = ",".join(f"t3_{h['id']}" for h in hits)
     enriched = {p.get("id"): p for p in _get("/posts/ids", {"ids": ids})} if ids else {}
     posts = [_merge_hit(h, enriched.get(h["id"])) for h in hits]
@@ -237,6 +269,33 @@ def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = 
     elif sort == "new":
         posts.sort(key=lambda p: _int(p.get("created_utc")), reverse=True)
     return "\n\n".join(_post_line(p) for p in posts[:limit])
+
+
+@mcp.tool()
+def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = "relevance") -> str:
+    """Search all of Reddit by keyword. Optionally restrict to one `subreddit`.
+
+    Sources, in order: for a subreddit-scoped query, Reddit's own search.rss
+    (native, freshest); else / on failure, the self-hosted SearXNG; then PullPush.
+    Hits are enriched with live score + comment counts from Arctic-Shift.
+    sort='relevance' (default), 'top' (by score), or 'new' (most recent).
+    """
+    want = min(limit * 2, API_MAX_LIMIT)
+    # Subreddit-scoped: Reddit's own search is native + freshest. Its .rss works
+    # from this container's residential egress (unlike .json); rate-limited, so
+    # any failure (429/403/parse) silently falls through to SearXNG.
+    if subreddit:
+        try:
+            hits = _reddit_native_search(subreddit, query, sort, want)
+            if hits:
+                return _enrich_and_format(hits, subreddit, query, limit, sort)
+        except (httpx.HTTPError, ValueError):
+            pass
+    try:
+        hits = _searxng_reddit(query, subreddit, want)
+    except (httpx.HTTPError, ValueError):  # unreachable, or a non-JSON body (json.JSONDecodeError ⊂ ValueError)
+        return _pullpush_fallback(query, subreddit, limit, sort)
+    return _enrich_and_format(hits, subreddit, query, limit, sort)
 
 
 def _merge_hit(hit: dict[str, str], post: dict[str, Any] | None) -> dict[str, Any]:

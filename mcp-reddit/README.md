@@ -34,15 +34,20 @@ Ships as `ghcr.io/alxleo/mcp-reddit:latest` — mcp-proxy HTTP bridge on :8080 w
 
 ## Search
 
-Arctic-Shift's **server-side full-text index (the `query`/`title`/`selftext` filters)
-is under maintenance and returns HTTP 503**, and Reddit's own API/JSON is closed — so
-there is no credential-free native search. `search_reddit` instead runs a full-text
-query through the self-hosted **SearXNG** (`site:reddit.com`, aggregating Google/Bing/…),
-then enriches each hit with live score + comment counts from Arctic-Shift's `/posts/ids`
-(that endpoint works; only Arctic-Shift's *search* index is down). This gives real
-global, relevance-ranked Reddit search with zero credentials. `sort="top"`/`"new"` rerank
-by the enriched score/date. If SearXNG is unreachable, `search_reddit` returns a clear
-message; `read_thread` and `browse_subreddit` are unaffected.
+Reddit's `.json` API is closed (403) and Arctic-Shift's own full-text index is under
+maintenance (503) — but Reddit still serves **`.rss`** to residential IPs. `search_reddit`
+therefore layers three credential-free sources:
+
+1. **Subreddit-scoped** (`subreddit` given) → **Reddit's own `search.rss`** — native and
+   freshest. Reddit blocks `.json` but serves `.rss` from a residential IP (this container's
+   egress); it's rate-limited, so any failure (429/403) silently falls through to (2).
+2. **Global / fallback** → the self-hosted **SearXNG** (`site:reddit.com`, aggregating
+   Google/Bing/…).
+3. **SearXNG down** → **PullPush** archive (labelled as dated).
+
+All hits are enriched with live score + comment counts from Arctic-Shift's `/posts/ids`
+(that endpoint works; only its *search* index is down). `sort="top"`/`"new"` rerank by the
+enriched score/date. `read_thread` and `browse_subreddit` are unaffected.
 
 Listings drop mod-removed / deleted posts. This matters because heavily
 moderated subs (e.g. r/selfhosted) AutoMod-hold most *new* posts pending review,
