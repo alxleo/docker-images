@@ -27,6 +27,7 @@
     "pihole-exporter",
     "dagu-ops",
     "semaphore",
-    "miniflux-enricher"
+    "miniflux-enricher",
+    "docs-hub"
   ]
 }

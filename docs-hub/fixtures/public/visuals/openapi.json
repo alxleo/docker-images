@@ -1,0 +1,1 @@
+{"openapi":"3.1.0","info":{"title":"Docs Hub API","version":"1.0.0"},"paths":{"/api/v1/search":{"get":{"summary":"Search normalized documentation","parameters":[{"name":"q","in":"query","schema":{"type":"string"}}],"responses":{"200":{"description":"Search results"}}}}}}

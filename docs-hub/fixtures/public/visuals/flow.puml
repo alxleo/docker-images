@@ -1,0 +1,5 @@
+@startuml
+Gitea -> Ingestion
+Ingestion -> Starlight
+Starlight -> Published
+@enduml

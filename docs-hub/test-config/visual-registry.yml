@@ -1,0 +1,155 @@
+version: 1
+directive: ":::visual{format=\"<id>\" src=\"<relative path>\" caption=\"required description\"}"
+formats:
+  excalidraw:
+    extensions: [.excalidraw]
+    rendering: client-json
+    viewer: ExcalidrawReadOnly
+    max_bytes: 10485760
+    csp: ["script-src 'self'", "worker-src 'self' blob:"]
+    fallback: svg
+    verifier: excalidraw-scene-and-fallback
+  mermaid:
+    extensions: [.mmd, .mermaid]
+    rendering: client-declarative
+    viewer: MermaidPanZoom
+    max_bytes: 1048576
+    csp: ["script-src 'self'"]
+    fallback: source
+    verifier: interactive-svg
+  d2:
+    extensions: [.d2]
+    rendering: build-svg
+    viewer: SvgPanZoom
+    max_bytes: 1048576
+    csp: []
+    fallback: source
+    verifier: deterministic-svg
+  graphviz:
+    extensions: [.dot, .gv]
+    rendering: build-svg
+    viewer: SvgPanZoom
+    max_bytes: 1048576
+    csp: []
+    fallback: source
+    verifier: deterministic-svg
+  plantuml:
+    extensions: [.puml, .plantuml]
+    rendering: build-svg
+    viewer: SvgPanZoom
+    max_bytes: 1048576
+    csp: []
+    fallback: source
+    verifier: deterministic-svg
+  drawio:
+    extensions: [.drawio]
+    rendering: static-svg-fallback
+    viewer: SvgPanZoom
+    max_bytes: 10485760
+    csp: ["frame-src http://localhost:8081"]
+    fallback: svg
+    verifier: source-and-svg
+  vega-lite:
+    extensions: [.vl.json, .vega.json]
+    rendering: client-declarative
+    viewer: VegaLite
+    max_bytes: 2097152
+    csp: ["script-src 'self'"]
+    fallback: source
+    verifier: chart-controls
+  plotly:
+    extensions: [.plotly.json]
+    rendering: client-declarative
+    viewer: Plotly
+    max_bytes: 2097152
+    csp: ["script-src 'self'"]
+    fallback: source
+    verifier: chart-controls
+  pdf:
+    extensions: [.pdf]
+    rendering: client-binary
+    viewer: PdfJs
+    max_bytes: 52428800
+    csp: ["worker-src 'self' blob:"]
+    fallback: download
+    verifier: pdf-page-search-zoom
+  openapi:
+    extensions: [.openapi.json, .openapi.yaml, .openapi.yml]
+    rendering: client-declarative
+    viewer: ScalarApiReference
+    max_bytes: 5242880
+    csp: ["script-src 'self'"]
+    fallback: source
+    verifier: api-navigation
+  svg:
+    extensions: [.svg]
+    rendering: static-image
+    viewer: ResponsiveImage
+    max_bytes: 10485760
+    csp: ["img-src 'self' data:"]
+    fallback: source
+    verifier: visible-image
+  raster:
+    extensions: [.png, .jpg, .jpeg, .webp, .gif]
+    rendering: static-image
+    viewer: ResponsiveImage
+    max_bytes: 26214400
+    csp: ["img-src 'self' data:"]
+    fallback: download
+    verifier: visible-image
+  gltf:
+    extensions: [.gltf, .glb]
+    rendering: client-binary
+    viewer: ModelViewer
+    max_bytes: 52428800
+    csp: ["script-src 'self'", "worker-src 'self' blob:"]
+    fallback: download
+    verifier: model-camera-controls
+  stl:
+    extensions: [.stl]
+    rendering: client-binary
+    viewer: StlReadOnly
+    max_bytes: 52428800
+    csp: ["script-src 'self'", "worker-src 'self' blob:"]
+    fallback: download
+    verifier: model-camera-controls
+  geojson:
+    extensions: [.geojson]
+    rendering: client-declarative
+    viewer: LeafletReadOnly
+    max_bytes: 10485760
+    csp: ["script-src 'self'"]
+    fallback: source
+    verifier: map-pan-zoom
+  notebook:
+    extensions: [.ipynb]
+    rendering: client-saved-output
+    viewer: NotebookStatic
+    max_bytes: 26214400
+    csp: []
+    fallback: source
+    verifier: no-cell-execution
+  audio:
+    extensions: [.mp3, .m4a, .ogg, .wav]
+    rendering: native-media
+    viewer: NativeAudio
+    max_bytes: 104857600
+    csp: ["media-src 'self'"]
+    fallback: download
+    verifier: media-controls-and-transcript
+  video:
+    extensions: [.mp4, .webm, .mov]
+    rendering: native-media
+    viewer: NativeVideo
+    max_bytes: 524288000
+    csp: ["media-src 'self'"]
+    fallback: download
+    verifier: media-controls-and-captions
+  html:
+    extensions: [.html]
+    rendering: separate-origin-sandbox
+    viewer: SandboxedFrame
+    max_bytes: 10485760
+    csp: ["sandbox", "default-src 'none'"]
+    fallback: source
+    verifier: sandbox-origin-escape-denial

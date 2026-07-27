@@ -1,0 +1,8 @@
+{
+  "tag": "0.1.0",
+  "platforms": "linux/amd64,linux/arm64",
+  "test_commands": [
+    "cd docs-hub && npm ci --ignore-scripts && npm test && npm run check",
+    "bash docs-hub/tests/runtime-smoke.sh \"$IMAGE_REF\""
+  ]
+}

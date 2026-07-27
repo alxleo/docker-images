@@ -1,0 +1,53 @@
+version: 1
+defaults:
+  owner: example
+  branch: main
+  include:
+    - "**/*.md"
+    - "**/*.mdx"
+    - "**/*.excalidraw"
+    - "**/*.mmd"
+    - "**/*.mermaid"
+    - "**/*.d2"
+    - "**/*.dot"
+    - "**/*.gv"
+    - "**/*.puml"
+    - "**/*.plantuml"
+    - "**/*.drawio"
+    - "**/*.json"
+    - "**/*.yaml"
+    - "**/*.yml"
+    - "**/*.pdf"
+    - "**/*.svg"
+    - "**/*.png"
+    - "**/*.jpg"
+    - "**/*.jpeg"
+    - "**/*.webp"
+    - "**/*.ipynb"
+    - "**/*.gltf"
+    - "**/*.glb"
+    - "**/*.stl"
+    - "**/*.geojson"
+    - "**/*.mp3"
+    - "**/*.m4a"
+    - "**/*.wav"
+    - "**/*.mp4"
+    - "**/*.webm"
+    - "**/*.vtt"
+    - "**/*.html"
+  exclude:
+    - "**/.git/**"
+    - "**/node_modules/**"
+    - "**/.venv/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.decrypted/**"
+    - "**/secrets/**"
+    - "**/*secret*"
+    - "**/*credential*"
+  visual_policy: standard
+sources:
+  - id: example-docs
+    repository: example/docs
+    roots: [docs]
+    label: Example documentation
