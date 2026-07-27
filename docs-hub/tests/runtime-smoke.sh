@@ -15,6 +15,12 @@ root_container_name="${container_name}-root"
 cleanup() {
     docker rm -f "$container_name" >/dev/null 2>&1 || true
     docker rm -f "$root_container_name" >/dev/null 2>&1 || true
+    # Linux bind mounts preserve the container UID on generated files. Make
+    # both disposable state trees removable by an unprivileged CI runner.
+    docker run --rm --user 0:0 --volume "$state_dir:/state" \
+        --entrypoint chmod "$image_ref" -R a+rwx /state >/dev/null 2>&1 || true
+    docker run --rm --user 0:0 --volume "$root_state_dir:/state" \
+        --entrypoint chmod "$image_ref" -R a+rwx /state >/dev/null 2>&1 || true
     rm -rf "$state_dir" "$root_state_dir"
 }
 trap cleanup EXIT INT TERM
