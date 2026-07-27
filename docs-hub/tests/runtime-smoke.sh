@@ -7,6 +7,8 @@ if [ "$#" -ne 1 ]; then
 fi
 
 image_ref=$1
+host_uid=$(id -u)
+host_gid=$(id -g)
 state_dir=$(mktemp -d)
 root_state_dir="${state_dir}-root"
 container_name="docs-hub-smoke-$$"
@@ -15,12 +17,13 @@ root_container_name="${container_name}-root"
 cleanup() {
     docker rm -f "$container_name" >/dev/null 2>&1 || true
     docker rm -f "$root_container_name" >/dev/null 2>&1 || true
-    # Linux bind mounts preserve the container UID on generated files. Make
-    # both disposable state trees removable by an unprivileged CI runner.
+    # Linux bind mounts preserve the container UID on generated files, and the
+    # root-start path intentionally chowns the mount root. Restore the runner's
+    # ownership so /tmp's sticky bit permits removal of both disposable trees.
     docker run --rm --user 0:0 --volume "$state_dir:/state" \
-        --entrypoint chmod "$image_ref" -R a+rwx /state >/dev/null 2>&1 || true
+        --entrypoint chown "$image_ref" -R "${host_uid}:${host_gid}" /state >/dev/null 2>&1 || true
     docker run --rm --user 0:0 --volume "$root_state_dir:/state" \
-        --entrypoint chmod "$image_ref" -R a+rwx /state >/dev/null 2>&1 || true
+        --entrypoint chown "$image_ref" -R "${host_uid}:${host_gid}" /state >/dev/null 2>&1 || true
     rm -rf "$state_dir" "$root_state_dir"
 }
 trap cleanup EXIT INT TERM
