@@ -1,0 +1,1 @@
+{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","description":"Adaptive refresh minutes","data":{"values":[{"state":"changed","minutes":5},{"state":"quiet","minutes":120}]},"mark":"bar","encoding":{"x":{"field":"state","type":"nominal"},"y":{"field":"minutes","type":"quantitative"}}}

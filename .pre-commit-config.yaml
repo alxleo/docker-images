@@ -5,6 +5,10 @@ repos:
       - id: detect-private-key
       - id: check-added-large-files
         args: ['--maxkb=500']
+        # Docs Hub's pinned npm graph includes Starlight plus the approved
+        # visual viewers. Its deterministic lockfile is slightly over 500 KB;
+        # keep the general repository limit for every other added file.
+        exclude: ^docs-hub/package-lock\.json$
       - id: check-json
       - id: check-yaml
       - id: end-of-file-fixer

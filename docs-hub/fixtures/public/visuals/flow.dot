@@ -1,0 +1,1 @@
+digraph DocsHub { Gitea -> Ingestion -> Starlight -> Published; }
