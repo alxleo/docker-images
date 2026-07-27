@@ -2,8 +2,8 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-  echo "usage: runtime-smoke.sh IMAGE_REF" >&2
-  exit 2
+    echo "usage: runtime-smoke.sh IMAGE_REF" >&2
+    exit 2
 fi
 
 image_ref=$1
@@ -13,9 +13,9 @@ container_name="docs-hub-smoke-$$"
 root_container_name="${container_name}-root"
 
 cleanup() {
-  docker rm -f "$container_name" >/dev/null 2>&1 || true
-  docker rm -f "$root_container_name" >/dev/null 2>&1 || true
-  rm -rf "$state_dir" "$root_state_dir"
+    docker rm -f "$container_name" >/dev/null 2>&1 || true
+    docker rm -f "$root_container_name" >/dev/null 2>&1 || true
+    rm -rf "$state_dir" "$root_state_dir"
 }
 trap cleanup EXIT INT TERM
 
@@ -27,21 +27,21 @@ ln -s /app/node_modules "$state_dir/node_modules"
 chmod -R a+rwx "$state_dir"
 
 docker run --detach \
-  --name "$container_name" \
-  --publish 127.0.0.1::8080 \
-  --env DOCS_HUB_MODE=assets \
-  --volume "$state_dir:/state" \
-  "$image_ref" >/dev/null
+    --name "$container_name" \
+    --publish 127.0.0.1::8080 \
+    --env DOCS_HUB_MODE=assets \
+    --volume "$state_dir:/state" \
+    "$image_ref" >/dev/null
 
 port=$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$container_name")
 attempt=0
 until curl --fail --silent --show-error "http://127.0.0.1:${port}/healthz" >/dev/null; do
-  attempt=$((attempt + 1))
-  if [ "$attempt" -ge 20 ]; then
-    docker logs "$container_name" >&2
-    exit 1
-  fi
-  sleep 1
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge 20 ]; then
+        docker logs "$container_name" >&2
+        exit 1
+    fi
+    sleep 1
 done
 
 curl --fail --silent --show-error "http://127.0.0.1:${port}/" | grep -q "Docs Hub smoke"
@@ -52,15 +52,15 @@ docker exec "$container_name" dot -V >/dev/null 2>&1
 docker exec "$container_name" java -jar /opt/plantuml.jar -version >/dev/null
 
 docker run --rm \
-  --read-only \
-  --tmpfs /tmp:exec,mode=1777 \
-  --user 1000:1000 \
-  --workdir /app \
-  --env DOCS_HUB_CONTENT_ROOT=/app/fixtures/content \
-  --env DOCS_HUB_PUBLIC_ROOT=/app/fixtures/public \
-  --volume "$state_dir:/state" \
-  --entrypoint /app/node_modules/.bin/astro \
-  "$image_ref" build --outDir /state/read-only-build >/dev/null
+    --read-only \
+    --tmpfs /tmp:exec,mode=1777 \
+    --user 1000:1000 \
+    --workdir /app \
+    --env DOCS_HUB_CONTENT_ROOT=/app/fixtures/content \
+    --env DOCS_HUB_PUBLIC_ROOT=/app/fixtures/public \
+    --volume "$state_dir:/state" \
+    --entrypoint /app/node_modules/.bin/astro \
+    "$image_ref" build --outDir /state/read-only-build >/dev/null
 test -f "$state_dir/read-only-build/index.html"
 
 mkdir -p "$root_state_dir/releases/smoke"
@@ -69,20 +69,20 @@ ln -s releases/smoke "$root_state_dir/current"
 chmod 700 "$root_state_dir"
 
 docker run --detach \
-  --name "$root_container_name" \
-  --user 0:0 \
-  --env DOCS_HUB_MODE=assets \
-  --volume "$root_state_dir:/state" \
-  "$image_ref" >/dev/null
+    --name "$root_container_name" \
+    --user 0:0 \
+    --env DOCS_HUB_MODE=assets \
+    --volume "$root_state_dir:/state" \
+    "$image_ref" >/dev/null
 
 attempt=0
 until docker exec "$root_container_name" node /app/scripts/healthcheck.mjs >/dev/null 2>&1; do
-  attempt=$((attempt + 1))
-  if [ "$attempt" -ge 20 ]; then
-    docker logs "$root_container_name" >&2
-    exit 1
-  fi
-  sleep 1
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge 20 ]; then
+        docker logs "$root_container_name" >&2
+        exit 1
+    fi
+    sleep 1
 done
 
 docker exec "$root_container_name" awk '

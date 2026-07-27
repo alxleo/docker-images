@@ -231,7 +231,8 @@ export async function syncSource({ source, client, stateDir }) {
   let currentSha = "";
   try {
     currentSha = path.basename(await readlink(currentLink));
-  } catch {
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
     // First sync has no current source.
   }
   if (sha === currentSha) return { changed: false, sha };

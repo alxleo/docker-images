@@ -415,8 +415,9 @@ async function installRefreshControl(): Promise<void> {
       response.ok ? response.json() : []
     );
     for (const item of sources) source.append(new Option(item.label, item.id));
-  } catch {
+  } catch (error) {
     // The current published site stays usable if the controller is unavailable.
+    console.debug("Docs Hub refresh source discovery unavailable", error);
   }
   const status = document.createElement("span");
   status.setAttribute("role", "status");

@@ -10,7 +10,7 @@
     "build": "astro build",
     "check": "DOCS_HUB_CONFIG_ROOT=./test-config astro check && DOCS_HUB_CONFIG_ROOT=./test-config node scripts/verify-contract.mjs",
     "start": "node server/controller.mjs",
-    "test": "DOCS_HUB_CONFIG_ROOT=./test-config node --test --test-isolation=none tests/*.test.mjs"
+    "test": "DOCS_HUB_CONFIG_ROOT=./test-config node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "6.0.1",
