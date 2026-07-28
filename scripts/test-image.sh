@@ -107,10 +107,11 @@ if [[ "$test_count" -eq 0 ]]; then
 fi
 
 echo "==> Running $test_count configured test command(s)"
+rendered_test_commands="$(jq -r '.[]' <<<"$test_commands")"
 while IFS= read -r test_command; do
     echo "==> $test_command"
     (
         cd "$repo_root"
         bash -euo pipefail -c "$test_command"
     )
-done < <(jq -r '.[]' <<<"$test_commands")
+done <<<"$rendered_test_commands"

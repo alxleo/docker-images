@@ -26,7 +26,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx  # dependency of the mcp SDK — no extra install
-from mcp.server import MCPServer
+from mcp.server.mcpserver import MCPServer
 
 API = "https://arctic-shift.photon-reddit.com/api"
 USER_AGENT = "homelab-reddit-arctic-mcp/1.0"

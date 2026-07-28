@@ -28,7 +28,7 @@ from typing import Any
 
 import markdownify
 import requests
-from mcp.server import MCPServer
+from mcp.server.mcpserver import MCPServer
 from substack_api import Newsletter, Post, User
 
 mcp = MCPServer("substack", version="1.0.0")
