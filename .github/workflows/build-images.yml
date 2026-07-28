@@ -252,6 +252,7 @@ jobs:
       - name: Run tests
         if: steps.should-build.outputs.build == 'true' && toJson(matrix.test_commands) != '[]'
         env:
+          IMAGE_NAME: ${{ matrix.name }}
           IMAGE_REF: ${{ steps.build.outputs.image-ref }}
           TEST_COMMANDS: ${{ toJson(matrix.test_commands) }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
