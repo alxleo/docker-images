@@ -121,7 +121,7 @@ async function renderPdf(host: VisualElement, src: string): Promise<void> {
   const pdfjs = await import("pdfjs-dist");
   const worker = await import("pdfjs-dist/build/pdf.worker.mjs?url");
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-  const documentProxy = await pdfjs.getDocument(src).promise;
+  const documentProxy = await pdfjs.getDocument({ url: new URL(src, window.location.href).href }).promise;
   let pageNumber = 1;
   let scale = 1.15;
   const canvas = document.createElement("canvas");
@@ -464,23 +464,35 @@ async function renderVisual(host: VisualElement): Promise<void> {
 
 export default function VisualRuntime(): null {
   useEffect(() => {
-    void installRefreshControl();
-    for (const host of document.querySelectorAll<VisualElement>(".docs-visual")) {
-      if (host.dataset.hydrated === "true") continue;
-      host.dataset.hydrated = "true";
-      void renderVisual(host)
-        .then(() => {
-          host.dataset.ready = "true";
-        })
-        .catch((error: unknown) => {
-          host.replaceChildren();
-          const message = document.createElement("p");
-          message.className = "docs-visual__error";
-          message.textContent = error instanceof Error ? error.message : "Visual failed to render";
-          host.append(message);
-          if (host.dataset.fallback) host.append(link("Open fallback", host.dataset.fallback));
-        });
+    const install = () => {
+      void installRefreshControl();
+      for (const host of document.querySelectorAll<VisualElement>(".docs-visual")) {
+        if (host.dataset.hydrated === "true") continue;
+        host.dataset.hydrated = "true";
+        void renderVisual(host)
+          .then(() => {
+            host.dataset.ready = "true";
+          })
+          .catch((error: unknown) => {
+            host.replaceChildren();
+            const message = document.createElement("p");
+            message.className = "docs-visual__error";
+            message.textContent = error instanceof Error ? error.message : "Visual failed to render";
+            host.append(message);
+            if (host.dataset.fallback) host.append(link("Open fallback", host.dataset.fallback));
+          });
+      }
+    };
+
+    // Starlight renders this island in <head>. A client:load effect can run
+    // while the body is still parsing, before any imported visual placeholders
+    // exist, so defer the first scan until the document is complete.
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", install, { once: true });
+      return () => document.removeEventListener("DOMContentLoaded", install);
     }
+    install();
+    return undefined;
   }, []);
   return null;
 }
