@@ -17,7 +17,14 @@ ARG MCP_AUTH_PROXY_VERSION=v2.10.2
 WORKDIR /src
 RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
+# PATCH: issue #103's abort handling still logs expected client cancellations
+# before its custom callback runs. Remove when upstream recovery suppresses
+# http.ErrAbortHandler before logging it.
+# https://github.com/sigbit/mcp-auth-proxy/issues/103
+COPY quiet-abort-handler.patch /tmp/quiet-abort-handler.patch
+RUN git apply /tmp/quiet-abort-handler.patch \
+    && go test ./pkg/mcp-proxy \
+    && CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
 
 # conftest:exempt=healthcheck_required -- proxied behind a reverse proxy
 # conftest:exempt=user_required -- runs as root to read default-mode Compose secrets (see header)

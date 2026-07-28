@@ -1,0 +1,108 @@
+diff --git a/pkg/mcp-proxy/main.go b/pkg/mcp-proxy/main.go
+index 78a00a2..ac650fb 100644
+--- a/pkg/mcp-proxy/main.go
++++ b/pkg/mcp-proxy/main.go
+@@ -11,6 +11,7 @@ import (
+ 	"os"
+ 	"os/signal"
+ 	"path"
++	"runtime/debug"
+ 	"strings"
+ 	"sync"
+ 	"time"
+@@ -37,6 +38,28 @@ var ServerShutdownTimeout = 5 * time.Second
+ 
+ var newProxyRouter = proxy.NewProxyRouter
+ 
++func recoveryWithZap(logger *zap.Logger) gin.HandlerFunc {
++	return func(c *gin.Context) {
++		defer func() {
++			if recovered := recover(); recovered != nil {
++				if recovered == http.ErrAbortHandler {
++					c.Abort()
++					return
++				}
++
++				logger.Error("[Recovery from panic]",
++					zap.Any("error", recovered),
++					zap.ByteString("stack", debug.Stack()),
++					zap.String("method", c.Request.Method),
++					zap.String("path", c.Request.URL.Path),
++				)
++				c.AbortWithStatus(http.StatusInternalServerError)
++			}
++		}()
++		c.Next()
++	}
++}
++
+ func Run(
+ 	listen string,
+ 	tlsListen string,
+@@ -314,13 +337,7 @@ func Run(
+ 	})
+ 
+ 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+-	router.Use(ginzap.CustomRecoveryWithZap(logger, true, func(c *gin.Context, err any) {
+-		if err == http.ErrAbortHandler {
+-			c.Abort()
+-			return
+-		}
+-		c.AbortWithStatus(http.StatusInternalServerError)
+-	}))
++	router.Use(recoveryWithZap(logger))
+ 	store := cookie.NewStore(secret)
+ 	store.Options(sessions.Options{
+ 		Path:     "/",
+diff --git a/pkg/mcp-proxy/main_test.go b/pkg/mcp-proxy/main_test.go
+index 074cf18..1d95841 100644
+--- a/pkg/mcp-proxy/main_test.go
++++ b/pkg/mcp-proxy/main_test.go
+@@ -12,6 +12,8 @@ import (
+ 	"github.com/gin-gonic/gin"
+ 	"github.com/sigbit/mcp-auth-proxy/v2/pkg/proxy"
+ 	"github.com/stretchr/testify/require"
++	"go.uber.org/zap"
++	"go.uber.org/zap/zaptest/observer"
+ )
+ 
+ func TestRun_NormalizesExternalURLTrailingSlash(t *testing.T) {
+@@ -204,3 +206,38 @@ func TestHealthzEndpoint(t *testing.T) {
+ 	require.NoError(t, err)
+ 	require.Equal(t, "ok", body["status"])
+ }
++
++func TestRecoveryWithZap_IgnoresAbortHandler(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	core, logs := observer.New(zap.ErrorLevel)
++	router := gin.New()
++	router.Use(recoveryWithZap(zap.New(core)))
++	router.GET("/mcp", func(c *gin.Context) {
++		panic(http.ErrAbortHandler)
++	})
++
++	w := httptest.NewRecorder()
++	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
++	router.ServeHTTP(w, req)
++
++	require.Empty(t, logs.All(), "expected client abort must not be logged as a server error")
++}
++
++func TestRecoveryWithZap_LogsUnexpectedPanic(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	core, logs := observer.New(zap.ErrorLevel)
++	router := gin.New()
++	router.Use(recoveryWithZap(zap.New(core)))
++	router.GET("/mcp", func(c *gin.Context) {
++		panic("unexpected")
++	})
++
++	w := httptest.NewRecorder()
++	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
++	router.ServeHTTP(w, req)
++
++	require.Equal(t, http.StatusInternalServerError, w.Code)
++	require.Len(t, logs.All(), 1)
++	require.Equal(t, "[Recovery from panic]", logs.All()[0].Message)
++	require.Equal(t, "unexpected", logs.All()[0].ContextMap()["error"])
++}
