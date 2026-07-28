@@ -26,7 +26,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx  # dependency of the mcp SDK — no extra install
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 API = "https://arctic-shift.photon-reddit.com/api"
 USER_AGENT = "homelab-reddit-arctic-mcp/1.0"
@@ -65,7 +65,7 @@ SHARE_LINK_ERROR = (
 
 _client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
 
-mcp = FastMCP("reddit")
+mcp = MCPServer("reddit", version="1.3.0")
 
 
 def _text(value: object) -> str:

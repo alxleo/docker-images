@@ -33,7 +33,7 @@ COPY --from=build /usr/local/bin/uv /usr/local/bin/uv
 RUN uv pip install --system --break-system-packages \
     "substack-api>=1.2.0" \
     "markdownify>=0.14.1" \
-    "mcp[cli]>=1.9.0"
+    "mcp[cli]>=2,<3"
 
 # Copy server code
 COPY server.py /app/server.py

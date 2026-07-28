@@ -18,6 +18,8 @@ builds.
 - [ ] CI functional tests target the image built in the current job.
 - [ ] `images.json` contains exactly the auto-discovered custom images and
       `mcp-images.json` images, with no duplicates.
+- [ ] Custom Python MCP servers use the current MCP SDK major and pass an
+      initialize plus tools/list handshake through `mcp-proxy`.
 - [ ] Homelab's compose-image validator accepts the local `images.json`.
 
 ## User Flows
@@ -49,7 +51,8 @@ builds.
 
 ## Out of Scope
 
-- Dependency and upstream-version updates.
+- Broad dependency and upstream-version sweeps beyond blockers exposed by this
+  preflight.
 - Removing retired or currently unconsumed images.
 - Repairing scheduled maintenance and base-image mirror workflows.
 - Replacing the existing GitHub Actions build pipeline.
