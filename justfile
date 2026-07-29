@@ -13,6 +13,6 @@ check:
     conftest test --parser dockerfile -p policy/ -- */Dockerfile mcp/Dockerfile.*
     conftest test --parser yaml -p policy/ -- test/docker-compose*.yml examples/docker-compose.yml
 
-# Build one custom image locally and run its .ci.json test commands.
+# Build one custom or shared MCP image locally and run its configured tests.
 test-image image:
     bash scripts/test-image.sh "{{ image }}"

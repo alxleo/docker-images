@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build one auto-discovered custom image and run its CI test commands locally.
+# Build one auto-discovered custom or shared MCP image and run its CI tests locally.
 
 set -euo pipefail
 
@@ -28,7 +28,29 @@ for command_name in docker jq; do
 done
 
 requested_image="$1"
-matrix="$(bash "$repo_root/scripts/discover-images.sh")"
+custom_matrix="$(
+    bash "$repo_root/scripts/discover-images.sh" |
+        jq '[.[] | . + {dockerfile: "Dockerfile"}]'
+)"
+generic_mcp_matrix="$(
+    jq '
+        [.[] | . + {
+            context: "mcp",
+            platforms: "linux/amd64,linux/arm64",
+            test_commands: (
+                (.test_commands // []) +
+                (if ((.secrets // []) | length) == 0 then
+                    [
+                        "docker run -d --name \"${IMAGE_NAME}-test\" -e MCP_STARTUP_JITTER=0 -p 18080:8080 \"$IMAGE_REF\" && bash test/test-mcp-smoke.sh \"${IMAGE_NAME}-test\" 18080 && docker rm -f \"${IMAGE_NAME}-test\" || { docker logs \"${IMAGE_NAME}-test\" 2>/dev/null || true; docker rm -f \"${IMAGE_NAME}-test\" 2>/dev/null || true; false; }"
+                    ]
+                else
+                    []
+                end)
+            )
+        }]
+    ' "$repo_root/mcp-images.json"
+)"
+matrix="$(jq -s 'add' <<<"$custom_matrix"$'\n'"$generic_mcp_matrix")"
 match_count="$(
     jq --arg requested "$requested_image" \
         '[.[] | select(.name == $requested or .context == $requested)] | length' \
@@ -49,6 +71,7 @@ entry="$(
 )"
 image_name="$(jq -r '.name' <<<"$entry")"
 image_context="$(jq -r '.context' <<<"$entry")"
+image_dockerfile="$(jq -r '.dockerfile' <<<"$entry")"
 image_tag="$(jq -r '.tag' <<<"$entry")"
 configured_platforms="$(jq -r '.platforms' <<<"$entry")"
 build_args="$(jq -r '.build_args' <<<"$entry")"
@@ -82,6 +105,7 @@ build_command=(
     docker buildx build
     --load
     --platform "$build_platform"
+    --file "$repo_root/$image_context/$image_dockerfile"
     --tag "$image_ref"
 )
 

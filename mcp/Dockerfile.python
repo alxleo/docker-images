@@ -52,7 +52,7 @@ COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
 # mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)
-RUN npm install -g mcp-proxy@6.4.2 mcp-filter@0.6.0
+RUN npm install -g mcp-proxy@6.5.4 mcp-filter@0.6.0
 
 # Build arguments for the Python MCP package
 ARG MCP_PACKAGE

@@ -72,11 +72,15 @@ just check
 ```
 
 Build and exercise one custom image with the same `.ci.json` test commands CI
-uses:
+uses, or one shared MCP image from `mcp-images.json`:
 
 ```bash
 just test-image mcp-auth-proxy
+just test-image mcp-hackernews
 ```
+
+Credential-free shared MCP images get a live initialize + `tools/list` smoke
+test. Images that declare secrets are built without starting them.
 
 Local prerequisites are Docker, `just`, `jq`, `uv`, and `conftest`. Targeted
 image tests may require additional tools named by their test commands (for
