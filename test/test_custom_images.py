@@ -4,8 +4,9 @@ Functional tests for custom-built Docker images.
 Each image gets validation beyond build + Trivy scan. Tests use pytest
 marks so CI jobs run only the relevant subset (e.g., pytest -m cadvisor).
 
-Image tags are passed via environment variables (TEST_IMAGE_TAG) set
-in CI workflow steps after the build-push-action loads the image.
+The generic IMAGE_NAME/IMAGE_REF pair targets the image built by the current
+CI or local test job. Image-specific environment variables remain available
+for direct test overrides.
 """
 
 import json
@@ -17,16 +18,73 @@ import requests
 from conftest import extract_json_from_sse
 
 REGISTRY = "ghcr.io/alxleo"
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-# Load custom image tags from manifest (single source of truth)
-_manifest_path = os.path.join(os.path.dirname(__file__), "..", "custom-images.json")
-with open(_manifest_path) as _f:
-    _CUSTOM_TAGS = {img["name"]: img["tag"] for img in json.load(_f)}
+
+def _load_custom_tags() -> dict[str, str]:
+    """Read fallback published tags from auto-discovered .ci.json files."""
+    tags = {}
+    for entry in os.scandir(REPO_ROOT):
+        if not entry.is_dir():
+            continue
+        dockerfile = os.path.join(entry.path, "Dockerfile")
+        if not os.path.isfile(dockerfile):
+            continue
+        ci_path = os.path.join(entry.path, ".ci.json")
+        ci = {}
+        if os.path.isfile(ci_path):
+            with open(ci_path) as ci_file:
+                ci = json.load(ci_file)
+        tags[ci.get("name", entry.name)] = ci.get("tag", "latest")
+    return tags
+
+
+_CUSTOM_TAGS = _load_custom_tags()
 
 
 def _get_image_tag(env_var: str, image_name: str) -> str:
-    """Get image tag from env var or fall back to custom-images.json."""
-    return os.environ.get(env_var, f"{REGISTRY}/{image_name}:{_CUSTOM_TAGS[image_name]}")
+    """Resolve an explicit override, current build, or published fallback."""
+    if explicit_ref := os.environ.get(env_var):
+        return explicit_ref
+    if os.environ.get("IMAGE_NAME") == image_name:
+        if current_ref := os.environ.get("IMAGE_REF"):
+            return current_ref
+    return f"{REGISTRY}/{image_name}:{_CUSTOM_TAGS[image_name]}"
+
+
+@pytest.mark.caddy_cloudflare
+@pytest.mark.cadvisor
+@pytest.mark.git_mcp_server
+@pytest.mark.mcp_auth_proxy
+class TestImageReferenceResolution:
+    """Prevent functional tests from silently exercising an older GHCR image."""
+
+    def test_current_build_wins_for_matching_image(self, monkeypatch):
+        monkeypatch.setenv("IMAGE_NAME", "mcp-auth-proxy")
+        monkeypatch.setenv("IMAGE_REF", "docker-images-local/mcp-auth-proxy:test")
+
+        assert (
+            _get_image_tag("TEST_MCP_AUTH_PROXY_TAG", "mcp-auth-proxy")
+            == "docker-images-local/mcp-auth-proxy:test"
+        )
+
+    def test_current_build_is_ignored_for_other_images(self, monkeypatch):
+        monkeypatch.setenv("IMAGE_NAME", "mcp-auth-proxy")
+        monkeypatch.setenv("IMAGE_REF", "docker-images-local/mcp-auth-proxy:test")
+
+        assert _get_image_tag(
+            "TEST_CADDY_CLOUDFLARE_TAG", "caddy-cloudflare"
+        ) == f"{REGISTRY}/caddy-cloudflare:{_CUSTOM_TAGS['caddy-cloudflare']}"
+
+    def test_image_specific_override_wins(self, monkeypatch):
+        monkeypatch.setenv("IMAGE_NAME", "mcp-auth-proxy")
+        monkeypatch.setenv("IMAGE_REF", "docker-images-local/mcp-auth-proxy:test")
+        monkeypatch.setenv("TEST_MCP_AUTH_PROXY_TAG", "custom/override:tag")
+
+        assert (
+            _get_image_tag("TEST_MCP_AUTH_PROXY_TAG", "mcp-auth-proxy")
+            == "custom/override:tag"
+        )
 
 
 # =========================================================================

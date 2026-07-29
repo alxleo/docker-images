@@ -32,7 +32,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 | Type | How | Examples |
 |------|-----|---------|
 | **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, semaphore, mcp-reddit |
-| **MCP images** | `mcp-images.json` -> `Dockerfile.npm` or `.python` | mcp-brave, mcp-arxiv |
+| **MCP images** | `mcp-images.json` -> purpose-fit Dockerfile | mcp-brave, mcp-arxiv |
 | **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose), cadvisor (Docker 29) |
 
 ### Base Image Strategy
@@ -124,14 +124,15 @@ Edit `mcp-images.json` to add/update. Fields: `name`, `dockerfile`, `build_args`
 ### Testing locally
 
 ```bash
-# Build any image
-docker build -t test caddy-cloudflare/
+# Fast discovery, manifest, unit, and policy preflight
+just check
 
-# Run discover script
-bash scripts/discover-images.sh | jq .
+# Build one image and run its .ci.json tests against that exact local image
+just test-image caddy-cloudflare
 
 # Mirror base images (run after bumping a base image version)
 bash scripts/mirror-base-images.sh
 ```
 
-Do NOT add `justfile`, `Makefile`, or wrapper scripts -- there are no manual commands to automate beyond `docker build`.
+Keep `justfile` recipes thin. Image-specific behavior belongs in `.ci.json` so
+local and GitHub Actions verification use the same test commands.

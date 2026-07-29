@@ -7,6 +7,7 @@ cross-references between Caddyfile health_uri and defaults.
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -15,7 +16,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MCP_DIR = REPO_ROOT / "mcp"
 MCP_IMAGES = json.loads((REPO_ROOT / "mcp-images.json").read_text())
 MCP_DEFAULTS = json.loads((REPO_ROOT / "mcp-defaults.json").read_text())
-CUSTOM_IMAGES = json.loads((REPO_ROOT / "custom-images.json").read_text())
+PUBLISHED_IMAGES = json.loads((REPO_ROOT / "images.json").read_text())
+CUSTOM_IMAGES = json.loads(
+    subprocess.run(
+        ["bash", str(REPO_ROOT / "scripts" / "discover-images.sh")],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+)
 
 REQUIRED_IMAGE_FIELDS = {"name", "dockerfile", "build_args", "tag"}
 REQUIRED_CUSTOM_FIELDS = {"name", "context", "tag"}
@@ -65,12 +74,12 @@ class TestMCPImagesManifest:
 
 
 # =========================================================================
-# custom-images.json
+# Auto-discovered custom images
 # =========================================================================
 
 
 class TestCustomImagesManifest:
-    """Schema validation for the custom image tag manifest."""
+    """Schema validation for the auto-discovered custom image matrix."""
 
     def test_required_fields(self):
         for i, entry in enumerate(CUSTOM_IMAGES):
@@ -96,6 +105,31 @@ class TestCustomImagesManifest:
             assert context_dir.is_dir(), (
                 f"{entry['name']}: context dir '{entry['context']}' not found"
             )
+
+
+# =========================================================================
+# images.json (public downstream contract)
+# =========================================================================
+
+
+class TestPublishedImageManifest:
+    """Keep homelab's public image inventory aligned with build discovery."""
+
+    def test_registry(self):
+        assert PUBLISHED_IMAGES["registry"] == "ghcr.io/alxleo"
+
+    def test_no_duplicate_names(self):
+        names = PUBLISHED_IMAGES["images"]
+        assert len(names) == len(set(names)), "images.json contains duplicate names"
+
+    def test_exactly_matches_built_images(self):
+        published = set(PUBLISHED_IMAGES["images"])
+        built = {entry["name"] for entry in CUSTOM_IMAGES}
+        built.update(entry["name"] for entry in MCP_IMAGES)
+        assert published == built, (
+            f"images.json drift: missing={sorted(built - published)}, "
+            f"extra={sorted(published - built)}"
+        )
 
 
 # =========================================================================

@@ -9,19 +9,21 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | Image | Why | Remove when |
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + tailscale plugins | Never (plugins aren't in upstream) |
-| `cadvisor` | Built from source (Docker 29+ compat fix) | ghcr.io/google/cadvisor publishes v0.57+ |
-| `mcp-git` | Git MCP server with ssh deps + Docker secret injection | Upstream publishes official Docker image |
+| `cadvisor` | Built from source (Docker 29+ compat fix) | Review now: homelab retired cAdvisor in July 2026 |
+| `mcp-git` | Git MCP server with ssh deps + Docker secret injection | Review now: homelab retired the service in July 2026 |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `pr-reviewer` | AI PR reviewer with Claude/Gemini/Codex CLIs | Never (custom multi-model engine) |
 | `semaphore` | Semaphore UI + homelab tools (sops, age, dig, jq, rsync) | Never (tooling layer always needed) |
 | `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
+| `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `mcp-substack` | Custom MCP server for authenticated Substack content | Never (custom server) |
+| `miniflux-enricher` | Custom translation and de-SEO webhook worker | Review now: homelab decommissioned it in July 2026 |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 
 ## MCP Service Images
 
-17 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json). All follow the same pattern:
+16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json). All follow the same pattern:
 - npm-based: `mcp/Dockerfile.npm` | Python-based: `mcp/Dockerfile.python`
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
 - Health: `GET /ping` on port `8080` (from `mcp-proxy`, validated by CI)
@@ -40,7 +42,8 @@ That's it. The CI auto-discovers images from `*/Dockerfile`. Optional `.ci.json`
 }
 ```
 
-Conventions (no `.ci.json` needed): platforms=amd64, tag=latest, push=docker, no tests.
+Conventions (no `.ci.json` needed): platforms=linux/amd64+linux/arm64,
+tag=latest, no tests.
 
 ## CI & Automation
 
@@ -61,3 +64,20 @@ Base images mirrored to `ghcr.io/alxleo/base-images/` -- zero Docker Hub depende
 | Caddy routing E2E | Snippet imports, handle_path, redirects | caddy-cloudflare changes |
 | MCP E2E stack | Full Caddy -> mcp-proxy -> MCP server chain | MCP or caddy changes |
 | MCP smoke | Standalone health + MCP initialize | MCP canaries (npm + Python) |
+
+Run the fast local preflight before pushing:
+
+```bash
+just check
+```
+
+Build and exercise one custom image with the same `.ci.json` test commands CI
+uses:
+
+```bash
+just test-image mcp-auth-proxy
+```
+
+Local prerequisites are Docker, `just`, `jq`, `uv`, and `conftest`. Targeted
+image tests may require additional tools named by their test commands (for
+example npm or ripgrep). CI-only `test_setup` commands are not run locally.

@@ -29,7 +29,7 @@ COPY --from=build /usr/local/bin/uv /usr/local/bin/uv
 
 # Install Python dependencies
 RUN uv pip install --system --break-system-packages \
-    "mcp[cli]>=1.9.0" \
+    "mcp[cli]>=2,<3" \
     "httpx>=0.27"
 
 # Copy server code

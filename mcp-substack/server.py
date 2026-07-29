@@ -28,10 +28,10 @@ from typing import Any
 
 import markdownify
 import requests
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from substack_api import Newsletter, Post, User
 
-mcp = FastMCP("substack")
+mcp = MCPServer("substack", version="1.0.0")
 log = logging.getLogger("substack-mcp")
 
 CHROME_UA = (
