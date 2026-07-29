@@ -55,6 +55,17 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+      - name: Resolve trivyignore path
+        id: trivyignore
+        env:
+          IMAGE_CONTEXT: ${{ matrix.context }}
+        run: |
+          path="${IMAGE_CONTEXT}/.trivyignore"
+          if [ -f "$path" ]; then
+            echo "path=${path}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
@@ -63,7 +74,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           scanners: vuln
-          trivyignores: ${{ matrix.context }}/.trivyignore
+          trivyignores: ${{ steps.trivyignore.outputs.path }}
 
   trivy-mcp:
     name: Trivy MCP ${{ matrix.name }}
@@ -99,6 +110,7 @@ jobs:
     steps:
       - name: Run dockle
         run: |
+          # DKL-DI-0004 fires on apk-add layers inside upstream base images (e.g. python:3.13-alpine); our own layers are covered by hadolint DL3019
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             goodwithtech/dockle:v0.4.15 \
@@ -107,6 +119,7 @@ jobs:
             --ignore CIS-DI-0001 \
             --ignore CIS-DI-0005 \
             --ignore DKL-DI-0006 \
+            --ignore DKL-DI-0004 \
             -af settings.py \
             "ghcr.io/alxleo/${{ matrix.name }}:latest"
 
@@ -141,6 +154,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           branch="maintenance/update-actions-$(date +%Y%m%d)"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
           git checkout -b "$branch"
           git add -A
           git commit -m "ci: update GitHub Actions versions"
