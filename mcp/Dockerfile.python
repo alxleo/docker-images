@@ -64,7 +64,7 @@ ARG MCP_ENTRYPOINT
 # tmpfs mounts on ~/.cache and ~/.local/share.
 RUN if [ -n "$MCP_PACKAGE" ]; then \
         echo "Pre-installing Python package: $MCP_PACKAGE..." && \
-        uv pip install --system --break-system-packages "$MCP_PACKAGE" && \
+        uv pip install --system --break-system-packages "$MCP_PACKAGE" "mcp<2" && \
         echo "Installed. Verifying entrypoint '$MCP_ENTRYPOINT' exists..." && \
         which "$MCP_ENTRYPOINT"; \
     else \

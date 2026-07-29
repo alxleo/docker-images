@@ -109,7 +109,10 @@
     "dockerfile": "Dockerfile.python",
     "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.14\nMCP_ENTRYPOINT=mcp-youtube-transcript",
     "tag": "0.5.14",
-    "description": "YouTube transcript and video metadata extraction"
+    "description": "YouTube transcript and video metadata extraction",
+    "test_commands": [
+      "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('1.'); from mcp.server import FastMCP\""
+    ]
   },
   {
     "name": "mcp-arxiv",
@@ -127,6 +130,9 @@
     "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@v9.8.2\nMCP_ENTRYPOINT=pal-mcp-server",
     "tag": "9.8.2",
     "description": "Multi-model AI orchestrator (Gemini, OpenAI)",
+    "test_commands": [
+      "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('1.'); from mcp.server import Server; assert hasattr(Server, 'list_tools')\""
+    ],
     "secrets": [
       "GOOGLE_API_KEY",
       "OPENAI_API_KEY"
