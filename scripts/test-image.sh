@@ -38,13 +38,14 @@ generic_mcp_matrix="$(
             context: "mcp",
             platforms: "linux/amd64,linux/arm64",
             test_commands: (
-                if ((.secrets // []) | length) == 0 then
+                (.test_commands // []) +
+                (if ((.secrets // []) | length) == 0 then
                     [
                         "docker run -d --name \"${IMAGE_NAME}-test\" -e MCP_STARTUP_JITTER=0 -p 18080:8080 \"$IMAGE_REF\" && bash test/test-mcp-smoke.sh \"${IMAGE_NAME}-test\" 18080 && docker rm -f \"${IMAGE_NAME}-test\" || { docker logs \"${IMAGE_NAME}-test\" 2>/dev/null || true; docker rm -f \"${IMAGE_NAME}-test\" 2>/dev/null || true; false; }"
                     ]
                 else
                     []
-                end
+                end)
             )
         }]
     ' "$repo_root/mcp-images.json"
