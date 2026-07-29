@@ -113,10 +113,13 @@
   },
   {
     "name": "mcp-arxiv",
-    "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=arxiv-mcp-server==0.3.2\nMCP_ENTRYPOINT=arxiv-mcp-server",
-    "tag": "0.3.2",
-    "description": "Search and retrieve academic papers from arXiv"
+    "dockerfile": "Dockerfile.arxiv",
+    "build_args": "ARXIV_MCP_VERSION=0.6.1\nMCP_PROXY_VERSION=6.5.4\nUV_VERSION=0.12.0",
+    "tag": "0.6.1",
+    "description": "Search and retrieve academic papers from arXiv",
+    "test_commands": [
+      "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.' && python3 -c 'from importlib.metadata import version; assert version(\\\"arxiv-mcp-server\\\") == \\\"0.6.1\\\"; assert version(\\\"mcp\\\").startswith(\\\"1.\\\"); import pymupdf4llm'\""
+    ]
   },
   {
     "name": "mcp-zen",
