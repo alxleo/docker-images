@@ -5,6 +5,7 @@ Manages the Docker Compose stack lifecycle and provides HTTP helpers.
 """
 
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -17,8 +18,8 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 COMPOSE_FILE = "docker-compose.mcp-e2e.yml"
-HTTP_BASE = "http://localhost:8080"
-HTTPS_BASE = "https://localhost:8443"
+HTTP_BASE = f"http://localhost:{os.getenv('MCP_E2E_HTTP_PORT', '8080')}"
+HTTPS_BASE = f"https://localhost:{os.getenv('MCP_E2E_HTTPS_PORT', '8443')}"
 STARTUP_TIMEOUT = 120  # seconds
 
 # Load runtime defaults from manifest (source of truth)
