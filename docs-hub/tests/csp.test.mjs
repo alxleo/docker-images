@@ -37,3 +37,26 @@ test("Vega-Lite uses the CSP-safe expression interpreter path", async () => {
   assert.match(source, /await embed\(surface, spec, \{[\s\S]*ast: true,[\s\S]*renderer: "svg"/u);
   assert.doesNotMatch(source, /unsafe-eval/u);
 });
+
+test("Vega-Lite fixture evaluates without the JavaScript Function constructor", async () => {
+  const spec = JSON.parse(
+    await readFile(new URL("../fixtures/public/visuals/chart.vl.json", import.meta.url), "utf8")
+  );
+  const originalFunction = globalThis.Function;
+  globalThis.Function = function blockedFunction() {
+    throw new Error("Vega attempted runtime JavaScript compilation");
+  };
+  try {
+    const [{ compile }, vega, { expressionInterpreter }] = await Promise.all([
+      import("vega-lite"),
+      import("vega"),
+      import("vega-interpreter")
+    ]);
+    const runtime = vega.parse(compile(spec).spec, {}, { ast: true });
+    const view = new vega.View(runtime, { expr: expressionInterpreter, renderer: "none" });
+    await view.runAsync();
+    assert.equal(view.data("source_0").length, 2);
+  } finally {
+    globalThis.Function = originalFunction;
+  }
+});
