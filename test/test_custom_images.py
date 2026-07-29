@@ -15,7 +15,6 @@ import subprocess
 
 import pytest
 import requests
-from conftest import extract_json_from_sse
 
 REGISTRY = "ghcr.io/alxleo"
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -53,7 +52,6 @@ def _get_image_tag(env_var: str, image_name: str) -> str:
 
 
 @pytest.mark.caddy_cloudflare
-@pytest.mark.git_mcp_server
 @pytest.mark.mcp_auth_proxy
 class TestImageReferenceResolution:
     """Prevent functional tests from silently exercising an older GHCR image."""
@@ -119,61 +117,6 @@ class TestCaddyCloudflare:
 
 
 # =========================================================================
-# git-mcp-server
-# =========================================================================
-
-
-@pytest.mark.git_mcp_server
-class TestGitMCPServer:
-    """Validate git-mcp-server starts and speaks MCP protocol."""
-
-    IMAGE = _get_image_tag("TEST_GIT_MCP_TAG", "mcp-git")
-
-    def test_git_mcp_starts(self, run_container):
-        """git-mcp-server starts with GIT_BASE_DIR and accepts HTTP."""
-        # git-mcp-server uses native HTTP transport (no mcp-proxy), so no /ping.
-        # Poll /mcp with GET — any response (even 405) means HTTP is ready.
-        run_container(
-            self.IMAGE,
-            "test-git-mcp",
-            env={"GIT_BASE_DIR": "/data"},
-            ports={"18082": "8080"},
-            health_url="http://localhost:18082/mcp",
-            health_any_response=True,
-            timeout=30,
-        )
-
-    def test_git_mcp_initialize(self, run_container):
-        """MCP initialize handshake returns capabilities."""
-        run_container(
-            self.IMAGE,
-            "test-git-mcp-init",
-            env={"GIT_BASE_DIR": "/data"},
-            ports={"18083": "8080"},
-            health_url="http://localhost:18083/mcp",
-            health_any_response=True,
-            timeout=30,
-        )
-        resp = requests.post(
-            "http://localhost:18083/mcp",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2025-03-26",
-                    "capabilities": {},
-                    "clientInfo": {"name": "pytest-custom", "version": "1.0"},
-                },
-            },
-            headers={"Accept": "application/json, text/event-stream"},
-            timeout=10,
-        )
-        result = extract_json_from_sse(resp.text)
-        assert result is not None, "No valid JSON response"
-        assert "capabilities" in result.get("result", {}), (
-            f"No capabilities in response: {result}"
-        )
 
 
 # =========================================================================

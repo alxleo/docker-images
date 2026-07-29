@@ -2,7 +2,6 @@
   "registry": "ghcr.io/alxleo",
   "images": [
     "caddy-cloudflare",
-    "mcp-git",
     "mcp-auth-proxy",
     "pr-reviewer",
     "mcp-arxiv",
@@ -26,7 +25,6 @@
     "pihole-exporter",
     "dagu-ops",
     "semaphore",
-    "miniflux-enricher",
     "docs-hub"
   ]
 }

@@ -11,7 +11,7 @@ Usage: scripts/test-image.sh <image-name-or-context>
 
 Examples:
   scripts/test-image.sh mcp-auth-proxy
-  scripts/test-image.sh git-mcp-server
+  scripts/test-image.sh mcp-reddit
 EOF
 }
 
