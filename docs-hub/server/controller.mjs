@@ -280,6 +280,16 @@ export function contentType(file) {
   );
 }
 
+export function inlineScriptHashes(payload) {
+  const html = Buffer.isBuffer(payload) ? payload.toString("utf8") : String(payload);
+  const hashes = [];
+  const inlineScript = /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/giu;
+  for (const match of html.matchAll(inlineScript)) {
+    hashes.push(`'sha256-${createHash("sha256").update(match[1]).digest("base64")}'`);
+  }
+  return [...new Set(hashes)];
+}
+
 async function serveStatic(request, response, requestPath) {
   const root = await currentRoot();
   const decoded = decodeURIComponent(requestPath);
@@ -308,8 +318,10 @@ async function serveStatic(request, response, requestPath) {
     headers["Content-Security-Policy"] =
       "sandbox; default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; media-src 'self'; font-src 'self'";
   } else {
+    const scriptHashes =
+      path.extname(resolved).toLowerCase() === ".html" ? inlineScriptHashes(payload) : [];
     headers["Content-Security-Policy"] =
-      `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src ${ASSET_ORIGIN}; media-src 'self'`;
+      `default-src 'self'; script-src 'self' 'wasm-unsafe-eval' ${scriptHashes.join(" ")}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src ${ASSET_ORIGIN}; media-src 'self'`;
   }
   response.writeHead(200, headers);
   response.end(payload);
