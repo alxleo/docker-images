@@ -131,6 +131,11 @@ export async function rendererBuildChanged(stateDir) {
   }
 }
 
+export async function scheduledRefreshSource(stateDir, dueSources) {
+  if (await rendererBuildChanged(stateDir)) return "";
+  return dueSources[0] ?? null;
+}
+
 function mergedSources(config) {
   const defaults = config.defaults ?? {};
   return (config.sources ?? []).map((source) => ({
