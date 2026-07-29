@@ -9,7 +9,8 @@
 # you need non-root, use Compose long-syntax with `uid:` to chown secrets
 # on materialization.
 
-FROM ghcr.io/alxleo/base-images/golang:1.26-bookworm AS builder
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM ghcr.io/alxleo/base-images/golang:1.26-bookworm AS builder
 
 # CVE-2026-33816 (pgx v5.7.6 → v5.9.2 fixed in upstream v2.10.1): bump to v2.10.2 (latest stable).
 ARG MCP_AUTH_PROXY_VERSION=v2.10.2
@@ -23,8 +24,15 @@ RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/si
 # https://github.com/sigbit/mcp-auth-proxy/issues/103
 COPY quiet-abort-handler.patch /tmp/quiet-abort-handler.patch
 RUN git apply /tmp/quiet-abort-handler.patch \
-    && go test ./pkg/mcp-proxy \
-    && CGO_ENABLED=0 go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
+    && go test ./pkg/mcp-proxy
+
+# Test on the native builder once, then cross-compile the static binary for each
+# requested image platform. Running the test inside an emulated arm64 builder
+# turns this small image's publish step into a 20+ minute QEMU job.
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" \
+    go build -trimpath -ldflags "-w -s" -o /usr/local/bin/mcp-auth-proxy .
 
 # conftest:exempt=healthcheck_required -- proxied behind a reverse proxy
 # conftest:exempt=user_required -- runs as root to read default-mode Compose secrets (see header)
