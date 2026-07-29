@@ -4,7 +4,13 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { searchCorpus } from "./corpus.mjs";
-import { dueSources, GiteaClient, loadConfiguration, refresh } from "./pipeline.mjs";
+import {
+  dueSources,
+  GiteaClient,
+  loadConfiguration,
+  refresh,
+  scheduledRefreshSource
+} from "./pipeline.mjs";
 
 const MODE = process.env.DOCS_HUB_MODE ?? "controller";
 const PORT = Number(process.env.DOCS_HUB_PORT ?? 8080);
@@ -236,15 +242,18 @@ async function startRefresh(sourceId = "") {
 async function schedulerTick() {
   if (MODE !== "controller" || activeRefresh) return;
   const due = await dueSources(STATE_DIR);
-  if (due.length === 0) return;
+  const scheduledSource = await scheduledRefreshSource(STATE_DIR, due);
+  if (scheduledSource === null) return;
   // First run synchronizes all sources so a failed or missing source cannot
   // silently disappear from the aggregate. Later runs update one due source at
-  // a time, retaining each source's independent adaptive schedule.
+  // a time, retaining each source's independent adaptive schedule. A renderer
+  // image change synchronizes all sources once and atomically republishes even
+  // when the source mirrors themselves are unchanged.
   const currentMissing = await currentRoot().then(
     () => false,
     () => true
   );
-  await startRefresh(currentMissing ? "" : due[0]);
+  await startRefresh(currentMissing ? "" : scheduledSource);
 }
 
 export function contentType(file) {

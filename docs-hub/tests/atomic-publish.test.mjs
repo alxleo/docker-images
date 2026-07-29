@@ -7,7 +7,8 @@ import {
   buildAndPublish,
   loadConfiguration,
   rendererBuildChanged,
-  rendererFingerprint
+  rendererFingerprint,
+  scheduledRefreshSource
 } from "../server/pipeline.mjs";
 
 test("a renderer image change invalidates an otherwise-current static release", async () => {
@@ -24,6 +25,11 @@ test("a renderer image change invalidates an otherwise-current static release", 
     JSON.stringify({ rendererFingerprint: await rendererFingerprint() })
   );
   assert.equal(await rendererBuildChanged(stateDir), false);
+  assert.equal(await scheduledRefreshSource(stateDir, []), null);
+  assert.equal(await scheduledRefreshSource(stateDir, ["example-docs"]), "example-docs");
+
+  await writeFile(path.join(release, "build.json"), JSON.stringify({ rendererFingerprint: "stale" }));
+  assert.equal(await scheduledRefreshSource(stateDir, []), "");
 });
 
 test("a deliberately failed rebuild preserves the previous current release", async () => {
