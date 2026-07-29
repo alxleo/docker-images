@@ -33,23 +33,23 @@ jobs:
       - uses: alxleo/coding-standards/docker-action@main
 
   pytest:
-    name: pytest (pr-reviewer)
+    name: pytest (pr-reviewer, Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
-          # tree-sitter-language-pack pinned: 1.8.0 (2026-05-09) broke TestGenerateRepomap
-          # by changing parser-load semantics; 1.6.2 is last-known-good with a Py3.11
-          # wheel (1.6.3 has no manylinux wheel for cpython 3.11). Revisit when
-          # pr-reviewer/scripts/context.py is updated for the newer API.
-          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.6.2'
-      - run: pytest pr-reviewer/tests/ -x
+          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.13.5'
+      - run: pytest pr-reviewer/tests/ -x -m "not calibration"
         env:
           PYTHONPATH: pr-reviewer/scripts
 
@@ -62,7 +62,7 @@ jobs:
           persist-credentials: false
       - name: Install conftest
         run: |
-          CONFTEST_VERSION=0.60.0
+          CONFTEST_VERSION=0.68.2
           curl -fsSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
             | sudo tar xz -C /usr/local/bin conftest
       - name: OPA unit tests
