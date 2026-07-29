@@ -13,6 +13,7 @@ This is the contract test that downstream repos (homelab) depend on:
 """
 
 import json
+import os
 import warnings
 from pathlib import Path
 
@@ -29,7 +30,7 @@ HEALTH_PATH = _MCP_DEFAULTS["health_path"]
 MCP_SERVICES = ["hackernews", "arxiv"]
 
 # Caddy admin API (health probe status)
-CADDY_ADMIN = "http://localhost:2019"
+CADDY_ADMIN = f"http://localhost:{os.getenv('MCP_E2E_ADMIN_PORT', '2019')}"
 
 # Map from Caddy upstream address to service name for readable assertions
 EXPECTED_UPSTREAMS = {
