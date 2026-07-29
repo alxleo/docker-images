@@ -16,7 +16,7 @@
 # Example run:
 #   docker run -p 8080:8080 -e BRAVE_API_KEY=xxx mcp-hackernews
 
-FROM ghcr.io/alxleo/base-images/node:24-alpine
+FROM ghcr.io/alxleo/base-images/node:26-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 
