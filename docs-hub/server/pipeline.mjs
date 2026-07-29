@@ -1,5 +1,6 @@
 import { createGunzip } from "node:zlib";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import {
   access,
@@ -8,6 +9,7 @@ import {
   readFile,
   readdir,
   readlink,
+  realpath,
   rename,
   rm,
   stat,
@@ -32,6 +34,15 @@ const ASSET_ORIGIN = (process.env.DOCS_HUB_ASSET_ORIGIN ?? "http://localhost:808
 const MAX_ARCHIVE_FILE_BYTES = 512 * 1024 * 1024;
 const RETAIN_RELEASES = 3;
 const RETAIN_SOURCE_SNAPSHOTS = 2;
+const RENDERER_INPUTS = [
+  "astro.config.mjs",
+  "package-lock.json",
+  "fixtures",
+  "src",
+  "server/corpus.mjs",
+  "server/pipeline.mjs",
+  "server/sanitize.mjs"
+];
 
 function titleFromPath(relativePath) {
   const base = path.basename(relativePath, path.extname(relativePath));
@@ -87,6 +98,42 @@ async function walk(root, prefix = "") {
     else if (entry.isFile()) output.push(relative);
   }
   return output;
+}
+
+export async function rendererFingerprint() {
+  const files = [];
+  for (const input of RENDERER_INPUTS) {
+    const absolute = path.join(APP_ROOT, input);
+    const inputStat = await stat(absolute);
+    if (inputStat.isDirectory()) {
+      files.push(...(await walk(APP_ROOT, input)));
+    } else {
+      files.push(input);
+    }
+  }
+  const hash = createHash("sha256");
+  for (const relative of files.sort()) {
+    hash.update(relative);
+    hash.update("\0");
+    hash.update(await readFile(path.join(APP_ROOT, relative)));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
+export async function rendererBuildChanged(stateDir) {
+  try {
+    const current = await realpath(path.join(stateDir, "current"));
+    const build = JSON.parse(await readFile(path.join(current, "build.json"), "utf8"));
+    return build.rendererFingerprint !== (await rendererFingerprint());
+  } catch {
+    return true;
+  }
+}
+
+export async function scheduledRefreshSource(stateDir, dueSources) {
+  if (await rendererBuildChanged(stateDir)) return "";
+  return dueSources[0] ?? null;
 }
 
 function mergedSources(config) {
@@ -460,6 +507,7 @@ async function materializeSource({ source, snapshot, contentRoot, publicRoot, co
 
 export async function buildAndPublish({ sources, visuals, stateDir }) {
   const builtAt = new Date().toISOString();
+  const renderer = await rendererFingerprint();
   const buildId = `${builtAt.replace(/[-:.]/gu, "").slice(0, 15)}-${crypto.randomUUID().slice(0, 8)}`;
   const workRoot = path.join(stateDir, "work", buildId);
   const contentRoot = path.join(workRoot, "content");
@@ -512,7 +560,7 @@ export async function buildAndPublish({ sources, visuals, stateDir }) {
     await writeFile(path.join(releaseRoot, "corpus.json"), `${JSON.stringify(corpus)}\n`);
     await writeFile(
       path.join(releaseRoot, "build.json"),
-      `${JSON.stringify({ buildId, builtAt, sources: sourceBuilds }, null, 2)}\n`
+      `${JSON.stringify({ buildId, builtAt, rendererFingerprint: renderer, sources: sourceBuilds }, null, 2)}\n`
     );
     await rm(workRoot, { recursive: true, force: true });
     await atomicallyPoint(path.join(stateDir, "current"), path.join("releases", buildId));
@@ -571,7 +619,8 @@ export async function refresh({ sourceId = "", client, stateDir }) {
   const failed = results.filter((result) => result.error);
   if (failed.length > 0) throw new Error(failed.map((result) => `${result.source}: ${result.error}`).join("; "));
   const currentExists = await exists(path.join(stateDir, "current"));
-  const build = changed || !currentExists ? await buildAndPublish({ sources, visuals, stateDir }) : null;
+  const rendererChanged = !currentExists || (await rendererBuildChanged(stateDir));
+  const build = changed || rendererChanged ? await buildAndPublish({ sources, visuals, stateDir }) : null;
   return { changed, build, results };
 }
 

@@ -4,7 +4,13 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { searchCorpus } from "./corpus.mjs";
-import { dueSources, GiteaClient, loadConfiguration, refresh } from "./pipeline.mjs";
+import {
+  dueSources,
+  GiteaClient,
+  loadConfiguration,
+  refresh,
+  scheduledRefreshSource
+} from "./pipeline.mjs";
 
 const MODE = process.env.DOCS_HUB_MODE ?? "controller";
 const PORT = Number(process.env.DOCS_HUB_PORT ?? 8080);
@@ -236,15 +242,18 @@ async function startRefresh(sourceId = "") {
 async function schedulerTick() {
   if (MODE !== "controller" || activeRefresh) return;
   const due = await dueSources(STATE_DIR);
-  if (due.length === 0) return;
+  const scheduledSource = await scheduledRefreshSource(STATE_DIR, due);
+  if (scheduledSource === null) return;
   // First run synchronizes all sources so a failed or missing source cannot
   // silently disappear from the aggregate. Later runs update one due source at
-  // a time, retaining each source's independent adaptive schedule.
+  // a time, retaining each source's independent adaptive schedule. A renderer
+  // image change synchronizes all sources once and atomically republishes even
+  // when the source mirrors themselves are unchanged.
   const currentMissing = await currentRoot().then(
     () => false,
     () => true
   );
-  await startRefresh(currentMissing ? "" : due[0]);
+  await startRefresh(currentMissing ? "" : scheduledSource);
 }
 
 export function contentType(file) {
@@ -280,6 +289,16 @@ export function contentType(file) {
   );
 }
 
+export function inlineScriptHashes(payload) {
+  const html = Buffer.isBuffer(payload) ? payload.toString("utf8") : String(payload);
+  const hashes = [];
+  const inlineScript = /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/giu;
+  for (const match of html.matchAll(inlineScript)) {
+    hashes.push(`'sha256-${createHash("sha256").update(match[1]).digest("base64")}'`);
+  }
+  return [...new Set(hashes)];
+}
+
 async function serveStatic(request, response, requestPath) {
   const root = await currentRoot();
   const decoded = decodeURIComponent(requestPath);
@@ -308,8 +327,10 @@ async function serveStatic(request, response, requestPath) {
     headers["Content-Security-Policy"] =
       "sandbox; default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; media-src 'self'; font-src 'self'";
   } else {
+    const scriptHashes =
+      path.extname(resolved).toLowerCase() === ".html" ? inlineScriptHashes(payload) : [];
     headers["Content-Security-Policy"] =
-      `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src ${ASSET_ORIGIN}; media-src 'self'`;
+      `default-src 'self'; script-src 'self' 'wasm-unsafe-eval' ${scriptHashes.join(" ")}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src ${ASSET_ORIGIN}; media-src 'self'`;
   }
   response.writeHead(200, headers);
   response.end(payload);

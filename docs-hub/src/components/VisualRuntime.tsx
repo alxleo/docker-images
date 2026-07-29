@@ -203,7 +203,11 @@ async function renderChart(host: VisualElement, src: string, format: string): Pr
   const spec = await fetch(src, { credentials: "same-origin" }).then((response) => response.json());
   if (format === "vega-lite") {
     const { default: embed } = await import("vega-embed");
-    await embed(surface, spec, { actions: true, renderer: "svg" });
+    await embed(surface, spec, {
+      actions: true,
+      ast: true,
+      renderer: "svg"
+    });
   } else {
     const plotlyModule = await import("plotly.js-dist-min");
     const Plotly = "default" in plotlyModule ? plotlyModule.default : plotlyModule;
