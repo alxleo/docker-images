@@ -48,7 +48,7 @@ ENV NODE_ENV=production \
 COPY --chown=1000:1000 --from=dependencies /app/node_modules ./node_modules
 COPY --from=renderers /usr/local/bin/d2 /usr/local/bin/d2
 COPY --from=renderers /opt/plantuml.jar /opt/plantuml.jar
-COPY --chown=1000:1000 astro.config.mjs package.json ./
+COPY --chown=1000:1000 astro.config.mjs package.json package-lock.json ./
 COPY --chown=1000:1000 server ./server
 COPY --chown=1000:1000 scripts ./scripts
 COPY --chown=1000:1000 src ./src
@@ -69,6 +69,7 @@ RUN d2 --layout=elk --theme=0 fixtures/public/visuals/flow.d2 fixtures/public/vi
 RUN ln -s /state/.astro /app/.astro \
     && ln -s /state/.astro-cache /app/node_modules/.astro \
     && test -x node_modules/.bin/astro \
+    && test -r package-lock.json \
     && test -x /usr/local/bin/d2 \
     && test -r /opt/plantuml.jar
 EXPOSE 8080
