@@ -7,7 +7,7 @@
 # third parties; read-only against the internet (fetches nothing itself).
 
 FROM ghcr.io/alxleo/base-images/python:3.13-alpine AS build
-RUN pip install --no-cache-dir uv==0.12.0
+RUN pip install --no-cache-dir uv==0.11.2
 
 FROM ghcr.io/alxleo/base-images/python:3.13-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
