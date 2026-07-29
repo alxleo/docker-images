@@ -3,7 +3,28 @@ import { mkdir, readlink, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { buildAndPublish, loadConfiguration } from "../server/pipeline.mjs";
+import {
+  buildAndPublish,
+  loadConfiguration,
+  rendererBuildChanged,
+  rendererFingerprint
+} from "../server/pipeline.mjs";
+
+test("a renderer image change invalidates an otherwise-current static release", async () => {
+  const stateDir = await import("node:fs/promises").then(({ mkdtemp }) =>
+    mkdtemp(path.join(os.tmpdir(), "docs-hub-renderer-"))
+  );
+  const release = path.join(stateDir, "releases", "current");
+  await mkdir(release, { recursive: true });
+  await symlink(path.join("releases", "current"), path.join(stateDir, "current"));
+
+  assert.equal(await rendererBuildChanged(stateDir), true);
+  await writeFile(
+    path.join(release, "build.json"),
+    JSON.stringify({ rendererFingerprint: await rendererFingerprint() })
+  );
+  assert.equal(await rendererBuildChanged(stateDir), false);
+});
 
 test("a deliberately failed rebuild preserves the previous current release", async () => {
   const stateDir = await import("node:fs/promises").then(({ mkdtemp }) =>
