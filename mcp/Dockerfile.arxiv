@@ -1,0 +1,58 @@
+# arXiv MCP 0.6.1
+#
+# Upstream provides a stdio server and native Streamable HTTP, but 0.6.1 uses
+# the MCP SDK 1.x Server API. Keep that dependency boundary isolated here while
+# preserving the existing /ping and tool-filtering contract through mcp-proxy.
+
+FROM ghcr.io/alxleo/base-images/python:3.14-slim AS build
+ARG UV_VERSION=0.12.0
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
+
+FROM ghcr.io/alxleo/base-images/node:26-slim AS proxy
+ARG MCP_PROXY_VERSION=6.5.4
+RUN npm install -g \
+    "mcp-proxy@${MCP_PROXY_VERSION}" \
+    "mcp-filter@0.6.0"
+
+FROM ghcr.io/alxleo/base-images/python:3.14-slim
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
+
+ARG ARXIV_MCP_VERSION=0.6.1
+COPY --from=build /usr/local/bin/uv /usr/local/bin/uv
+COPY --from=proxy /usr/local/bin/node /usr/local/bin/node
+COPY --from=proxy /usr/local/lib/node_modules/mcp-proxy /usr/local/lib/node_modules/mcp-proxy
+COPY --from=proxy /usr/local/lib/node_modules/mcp-filter /usr/local/lib/node_modules/mcp-filter
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+
+RUN ln -s ../lib/node_modules/mcp-proxy/dist/bin/mcp-proxy.mjs /usr/local/bin/mcp-proxy \
+    && ln -s ../lib/node_modules/mcp-filter/dist/index.js /usr/local/bin/mcp-filter \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends jq libatomic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && uv pip install --system --break-system-packages \
+       "mcp>=1.27,<2" \
+       "arxiv-mcp-server[pdf]==${ARXIV_MCP_VERSION}" \
+    && groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /data/papers \
+    && chown -R 1000:1000 /data/papers
+
+RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
+RUN rm -rf /root/.cache /root/.npm
+
+COPY entrypoint.py /entrypoint.py
+RUN chmod +x /entrypoint.py
+
+ENV HOME=/home/app \
+    MCP_SERVER_COMMAND="arxiv-mcp-server --storage-path /data/papers" \
+    MCP_PORT=8080
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
+
+USER app
+
+ENTRYPOINT ["/entrypoint.py"]
+CMD []
