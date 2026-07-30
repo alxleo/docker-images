@@ -1,0 +1,21 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:33c5358940935b4600d646f73a650243bd6912db331fa1b1dc1dffeda9da7cd5",
+      "name": "get_post"
+    },
+    {
+      "input_schema_sha256": "sha256:eaa108c8d684c89df155a62d531d9f43f991354d56364b75f56ccc984574c136",
+      "name": "list_posts"
+    },
+    {
+      "input_schema_sha256": "sha256:b698bc53bb3cfe3c306cfec208c57b597d1ac998cedbc8ddc3c5149122ee7fa6",
+      "name": "list_subscriptions"
+    },
+    {
+      "input_schema_sha256": "sha256:4df54cfdb528f22792444174a520b85e8f2b11de45cf0e8391c638f45af114ca",
+      "name": "search_posts"
+    }
+  ]
+}

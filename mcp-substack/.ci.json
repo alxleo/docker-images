@@ -1,11 +1,17 @@
 {
-  "tag": "1.0.0",
-  "build_args": "MCP_PROXY_VERSION=6.5.4",
+  "tag": "1.1.0",
   "test_commands": [
-    "docker run --rm --entrypoint sh $IMAGE_REF -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.'\"",
-    "docker run --rm -d --name mcp-substack-test -e SUBSTACK_USERNAME=test -p 18080:8080 $IMAGE_REF && bash test/test-mcp-smoke.sh mcp-substack-test 18080 && docker stop mcp-substack-test || { docker rm -f mcp-substack-test 2>/dev/null || true; false; }"
+    "docker run --rm --entrypoint python \"$IMAGE_REF\" --version | grep -F 'Python 3.14.'",
+    "docker run --rm --entrypoint python \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp') == '2.0.0'; assert version('substack-api') == '1.3.0'; assert version('markdownify') == '1.2.3'\"",
+    "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"! command -v node && ! command -v mcp-proxy && ! command -v mcp-filter\"",
+    "docker run --rm -d --name mcp-substack-test -p 18080:8080 $IMAGE_REF && bash test/test-native-mcp-image-smoke.sh mcp-substack-test 18080 mcp-contracts/mcp-substack.json && test \"$(curl -fsS http://127.0.0.1:18080/ping)\" = pong && docker stop mcp-substack-test || { docker rm -f mcp-substack-test 2>/dev/null || true; false; }",
+    "TOOLHIVE_SUBSTACK_IMAGE=\"$IMAGE_REF\" bash test/test-toolhive-fleet.sh"
   ],
   "watch_paths": [
-    "test/test-mcp-smoke.sh"
+    "mcp-contracts/mcp-substack.json",
+    "scripts/mcp-contract.py",
+    "scripts/toolhive-fleet.py",
+    "test/test-native-mcp-image-smoke.sh",
+    "test/test-toolhive-fleet.sh"
   ]
 }

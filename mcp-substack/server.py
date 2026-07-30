@@ -29,9 +29,27 @@ from typing import Any
 import markdownify
 import requests
 from mcp.server.mcpserver import MCPServer
+from starlette.responses import PlainTextResponse
 from substack_api import Newsletter, Post, User
 
-mcp = MCPServer("substack", version="1.0.0")
+
+def _load_docker_secret(name: str) -> None:
+    """Load one Docker secret when the equivalent environment variable is absent."""
+    if name in os.environ:
+        return
+    path = f"/run/secrets/{name.lower()}"
+    try:
+        with open(path, encoding="utf-8") as secret_file:
+            os.environ[name] = secret_file.read().strip()
+    except FileNotFoundError:
+        pass
+
+
+for _secret_name in ("SUBSTACK_EMAIL", "SUBSTACK_PASSWORD", "SUBSTACK_USERNAME"):
+    _load_docker_secret(_secret_name)
+
+
+mcp = MCPServer("substack", version="1.1.0")
 log = logging.getLogger("substack-mcp")
 
 CHROME_UA = (
@@ -219,6 +237,12 @@ class _Crawl4AISession:
 _crawl4ai_session = _Crawl4AISession()
 
 
+@mcp.custom_route("/ping", methods=["GET"])
+async def ping(_request: object) -> PlainTextResponse:
+    """Lightweight container and reverse-proxy health endpoint."""
+    return PlainTextResponse("pong")
+
+
 def _fetch_via_crawl4ai(post_url: str) -> str | None:
     """Fetch full paid content via crawl4ai browser with persistent session."""
     return _crawl4ai_session.fetch(post_url)
@@ -337,4 +361,10 @@ def search_posts(publication_url: str, query: str, limit: int = 10) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    mcp.run(
+        transport="streamable-http",
+        host="0.0.0.0",
+        port=int(os.environ.get("MCP_PORT", "8080")),
+        json_response=True,
+        stateless_http=True,
+    )

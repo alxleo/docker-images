@@ -218,8 +218,11 @@ class TestCustomImagesManifest:
             return {entry["name"] for entry in json.loads(result.stdout)}
 
         assert selected("mcp-contracts/mcp-hackernews.json") == set()
-        assert selected("test/test-mcp-smoke.sh") == {"mcp-substack"}
-        assert selected("test/test-native-mcp-image-smoke.sh") == {"mcp-reddit"}
+        assert selected("test/test-mcp-smoke.sh") == set()
+        assert selected("test/test-native-mcp-image-smoke.sh") == {
+            "mcp-reddit",
+            "mcp-substack",
+        }
         assert selected("test/test_custom_images.py") == {
             "caddy-cloudflare",
             "mcp-auth-proxy",

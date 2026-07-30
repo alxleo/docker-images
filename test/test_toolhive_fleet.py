@@ -25,8 +25,8 @@ def fleet():
 def test_fleet_covers_every_repository_mcp(fleet):
     assert toolhive_fleet.validate_fleet(fleet) == []
     assert len(fleet["servers"]) == 18
-    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 15
-    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 3
+    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 16
+    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 2
 
 
 def test_runtime_and_package_drift_fail_closed(fleet):
