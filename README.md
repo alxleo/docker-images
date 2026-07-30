@@ -38,12 +38,14 @@ That's it. The CI auto-discovers images from `*/Dockerfile`. Optional `.ci.json`
 ```json
 {
   "platforms": "linux/amd64,linux/arm64",
-  "test_commands": ["docker run --rm $IMAGE_REF sh -c 'tool --version'"]
+  "test_commands": ["docker run --rm $IMAGE_REF sh -c 'tool --version'"],
+  "watch_paths": ["test/shared-tool-smoke.sh"]
 }
 ```
 
 Conventions (no `.ci.json` needed): platforms=linux/amd64+linux/arm64,
-tag=latest, no tests.
+tag=latest, no tests. Use `watch_paths` for files outside the image context
+whose changes require that image's build and tests.
 
 ## CI & Automation
 

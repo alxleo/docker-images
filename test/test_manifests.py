@@ -170,6 +170,61 @@ class TestCustomImagesManifest:
                 f"{entry['name']}: context dir '{entry['context']}' not found"
             )
 
+    def test_watch_paths_are_valid(self):
+        for entry in CUSTOM_IMAGES:
+            assert isinstance(entry["watch_paths"], list), (
+                f"{entry['name']}: watch_paths must be a list"
+            )
+            assert entry["watch_paths"] == sorted(set(entry["watch_paths"])), (
+                f"{entry['name']}: watch_paths must be unique and sorted"
+            )
+            for path in entry["watch_paths"]:
+                assert isinstance(path, str) and path, (
+                    f"{entry['name']}: watch_paths must contain non-empty strings"
+                )
+                assert not Path(path).is_absolute() and ".." not in Path(path).parts, (
+                    f"{entry['name']}: watch_paths must stay within the repository"
+                )
+                assert (REPO_ROOT / path).exists(), (
+                    f"{entry['name']}: watch path does not exist: {path}"
+                )
+
+    def test_changed_image_selection(self):
+        def selected(*paths, ci_changed=False, matrix_data=CUSTOM_IMAGES):
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(REPO_ROOT / "scripts" / "select-custom-images.sh"),
+                    json.dumps(matrix_data),
+                    json.dumps(paths),
+                    str(ci_changed).lower(),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return {entry["name"] for entry in json.loads(result.stdout)}
+
+        assert selected("mcp-contracts/mcp-hackernews.json") == set()
+        assert selected("test/test-mcp-smoke.sh") == {"mcp-reddit", "mcp-substack"}
+        assert selected("test/test_custom_images.py") == {
+            "caddy-cloudflare",
+            "cadvisor",
+            "mcp-auth-proxy",
+            "mcp-git",
+        }
+        assert selected("docs-hub/package.json") == {"docs-hub"}
+        assert selected("README.md", ci_changed=True) == {
+            entry["name"] for entry in CUSTOM_IMAGES
+        }
+
+        reddit = next(entry for entry in CUSTOM_IMAGES if entry["name"] == "mcp-reddit")
+        for watch_path in ("./test/test-mcp-smoke.sh", "test/"):
+            watched_reddit = {**reddit, "watch_paths": [watch_path]}
+            assert selected(
+                "test/test-mcp-smoke.sh", matrix_data=[watched_reddit]
+            ) == {"mcp-reddit"}
+
 
 # =========================================================================
 # images.json (public downstream contract)

@@ -10,6 +10,7 @@
 #   build_args: ""
 #   test_setup: ""
 #   test_commands: []
+#   watch_paths: []
 #
 # Output: JSON array suitable for GitHub Actions matrix.
 
@@ -44,6 +45,7 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     build_args=$(echo "$ci_json" | jq -r '.build_args // ""')
     test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
     test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
+    watch_paths=$(echo "$ci_json" | jq -c '.watch_paths // []')
 
     # Build matrix entry
     entry=$(jq -n \
@@ -54,7 +56,8 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
         --arg build_args "$build_args" \
         --arg test_setup "$test_setup" \
         --argjson test_commands "$test_commands" \
-        '{name: $name, context: $context, tag: $tag, platforms: $platforms, build_args: $build_args, test_setup: $test_setup, test_commands: $test_commands}')
+        --argjson watch_paths "$watch_paths" \
+        '{name: $name, context: $context, tag: $tag, platforms: $platforms, build_args: $build_args, test_setup: $test_setup, test_commands: $test_commands, watch_paths: $watch_paths}')
 
     images=$(echo "$images" | jq --argjson entry "$entry" '. + [$entry]')
 done

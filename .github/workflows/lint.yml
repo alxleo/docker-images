@@ -48,8 +48,8 @@ jobs:
           # by changing parser-load semantics; 1.6.2 is last-known-good with a Py3.11
           # wheel (1.6.3 has no manylinux wheel for cpython 3.11). Revisit when
           # pr-reviewer/scripts/context.py is updated for the newer API.
-          pip install pytest respx httpx pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.6.2'
-      - run: pytest pr-reviewer/tests/ -x
+          pip install pytest respx httpx requests pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.6.2'
+      - run: pytest pr-reviewer/tests/ test/test_manifests.py -x
         env:
           PYTHONPATH: pr-reviewer/scripts
 

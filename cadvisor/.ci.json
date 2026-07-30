@@ -4,5 +4,9 @@
   "test_setup": "pip install -q uv",
   "test_commands": [
     "uv run --with pytest --with requests -- pytest test/test_custom_images.py -m cadvisor -v"
+  ],
+  "watch_paths": [
+    "test/conftest.py",
+    "test/test_custom_images.py"
   ]
 }
