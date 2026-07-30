@@ -15,8 +15,12 @@ e2e=false
 changed_paths=$(jq -er 'if type == "array" then .[] else error("expected an array") end' <<<"$CHANGED_FILES_JSON")
 if [[ -n "$changed_paths" ]]; then
     while IFS= read -r path; do
+        if [[ "$path" == mcp-contracts/*.json ]] &&
+            jq -e --arg path "$path" 'any(.[]; .contract? == $path)' mcp-images.json >/dev/null; then
+            mcp=true
+        fi
         case "$path" in
-        mcp/* | mcp-contracts/* | mcp-images.json | mcp-defaults.json | \
+        mcp/* | mcp-images.json | mcp-defaults.json | \
             scripts/mcp-contract.py | test/run-mcp-image-smoke.sh | \
             test/test-mcp-smoke.sh | test/test_entrypoint.py | \
             test/test_mcp_contract.py | test/test_mcp_stack.py | \

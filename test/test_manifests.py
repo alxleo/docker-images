@@ -252,6 +252,10 @@ class TestMCPPipelineRouting:
 
     def test_toolhive_changes_use_the_focused_workflow(self):
         assert self.selected("mcp-fleet.json") == {"mcp": False, "e2e": False}
+        assert self.selected("mcp-contracts/mcp-jina.json") == {
+            "mcp": False,
+            "e2e": False,
+        }
         assert self.selected("scripts/toolhive-fleet.py") == {
             "mcp": False,
             "e2e": False,
