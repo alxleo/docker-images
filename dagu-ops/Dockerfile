@@ -4,13 +4,13 @@
 # checks, drift detection, cleanup. Tools baked in once, available to
 # all DAG workflows.
 #
-# Base: Ubuntu 24.04 (dagu-org stopped publishing Docker images to GHCR)
+# Base: Ubuntu 26.04 (dagu-org stopped publishing Docker images to GHCR)
 # Added: dagu binary, restic, rclone, openssh-client, docker-cli, curl, jq
 #
 # Remove when: never — ops tooling layer is always needed on top of Dagu
 
 # conftest:exempt=user_required -- Docker socket + backup volume writes
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ARG DAGU_VERSION=2.11.1
