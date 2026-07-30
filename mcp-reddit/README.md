@@ -32,6 +32,8 @@ SEARXNG_URL=http://localhost:8888 uv run --frozen python server.py
 Ships as `ghcr.io/alxleo/mcp-reddit:latest` with native Streamable HTTP at
 `http://localhost:8080/mcp`. Dependencies are locked and the runtime is Python
 3.14; Node.js, `mcp-proxy`, and `mcp-filter` are not present.
+`GET /ping` returns `pong` for compatibility with external load-balancer and
+fleet health checks; Docker health still performs a real MCP initialize.
 `SEARXNG_URL` defaults to `http://searxng:8080` (the homelab SearXNG on `mcp-network`).
 
 ## Search
