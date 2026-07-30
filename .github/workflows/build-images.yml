@@ -6,8 +6,8 @@
 #   - Tags (*/v*): build + push as :vX.Y.Z + :latest
 #   - Manual dispatch: build + push (all images)
 #
-# Bot PRs (Dependabot, etc): Only lint + change detection run.
-# Image builds are skipped -- they're expensive and only matter on merge.
+# Bot PRs (Dependabot, etc): affected custom images are built and tested.
+# The larger shared MCP and E2E matrices remain skipped until merge.
 #
 # Change detection: each image only builds when its own files change.
 # This avoids pushing identical images that cause unnecessary pulls downstream.
@@ -170,8 +170,7 @@ jobs:
     needs: [discover]
     if: >-
       needs.discover.result == 'success' &&
-      needs.discover.outputs.custom_changed == 'true' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
+      needs.discover.outputs.custom_changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write   # push git tags for build versions
