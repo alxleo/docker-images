@@ -47,6 +47,19 @@ def test_normalize_tools_rejects_duplicate_names():
         mcp_contract.normalize_tools([{"name": "same"}, {"name": "same"}])
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "http://user:secret@example.test/mcp",
+        "http://example.test/mcp#fragment",
+    ],
+)
+def test_client_rejects_non_http_or_credential_bearing_urls(url):
+    with pytest.raises(mcp_contract.ContractError):
+        mcp_contract.MCPClient(url)
+
+
 def test_compare_contracts_reports_added_removed_and_changed():
     expected = {
         "lock_version": 1,

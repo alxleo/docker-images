@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import sys
-import urllib.error
-import urllib.request
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +78,21 @@ class MCPClient:
     def __init__(self, url: str, timeout: float = 30) -> None:
         self.url = url
         self.timeout = timeout
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ContractError("MCP URL must use http:// or https://")
+        if parsed.username or parsed.password or parsed.fragment:
+            raise ContractError("MCP URL must not contain credentials or a fragment")
+        self.connection_class = (
+            http.client.HTTPSConnection
+            if parsed.scheme == "https"
+            else http.client.HTTPConnection
+        )
+        self.host = parsed.hostname
+        self.port = parsed.port
+        self.target = urllib.parse.urlunsplit(
+            ("", "", parsed.path or "/", parsed.query, "")
+        )
         self.session_id: str | None = None
         self.protocol_version: str | None = None
         self.request_id = 0
@@ -92,27 +107,27 @@ class MCPClient:
         if self.protocol_version:
             headers["Mcp-Protocol-Version"] = self.protocol_version
 
-        request = urllib.request.Request(
-            self.url,
-            data=_canonical_json(payload).encode(),
-            headers=headers,
-            method="POST",
-        )
+        connection = self.connection_class(self.host, self.port, timeout=self.timeout)
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                if session_id := response.headers.get("Mcp-Session-Id"):
-                    self.session_id = session_id
-                body = response.read()
-                if not body:
-                    return None
-                return _extract_json(response.headers.get_content_type(), body)
-        except urllib.error.HTTPError as error:
-            body = error.read().decode("utf-8", errors="replace")
-            raise ContractError(
-                f"MCP request failed with HTTP {error.code}: {body[:300]}"
-            ) from error
-        except urllib.error.URLError as error:
-            raise ContractError(f"MCP request failed: {error.reason}") from error
+            connection.request(
+                "POST", self.target, body=_canonical_json(payload).encode(), headers=headers
+            )
+            response = connection.getresponse()
+            if session_id := response.getheader("Mcp-Session-Id"):
+                self.session_id = session_id
+            body = response.read()
+            if not 200 <= response.status < 300:
+                detail = body.decode("utf-8", errors="replace")
+                raise ContractError(
+                    f"MCP request failed with HTTP {response.status}: {detail[:300]}"
+                )
+            if not body:
+                return None
+            return _extract_json(response.getheader("Content-Type", ""), body)
+        except (OSError, http.client.HTTPException) as error:
+            raise ContractError(f"MCP request failed: {error}") from error
+        finally:
+            connection.close()
 
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         self.request_id += 1
