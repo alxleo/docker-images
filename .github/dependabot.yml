@@ -12,17 +12,3 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
-
-  # Base image updates — only images using Docker Hub directly.
-  # Images using ghcr.io/alxleo/base-images/ mirrors are managed by
-  # scripts/mirror-base-images.sh + .github/workflows/mirror-base-images.yml
-  - package-ecosystem: docker
-    directory: /semaphore
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    cooldown:
-      default-days: 7

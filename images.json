@@ -24,7 +24,6 @@
     "mcp-substack",
     "pihole-exporter",
     "dagu-ops",
-    "semaphore",
     "docs-hub"
   ]
 }
