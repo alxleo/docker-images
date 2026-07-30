@@ -15,6 +15,7 @@ node_modules/
 __pycache__/
 
 .claude/
+.Codex/
 
 # Megalinter
 megalinter-reports/
