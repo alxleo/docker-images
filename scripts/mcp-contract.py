@@ -57,7 +57,7 @@ def _extract_json(
 ) -> dict[str, Any]:
     text = body.decode("utf-8")
     candidates = []
-    if "text/event-stream" in content_type:
+    if "text/event-stream" in content_type.lower():
         event_data: list[str] = []
         for line in text.splitlines():
             if not line:
@@ -80,11 +80,44 @@ def _extract_json(
             parsed = json.loads(candidate)
         except json.JSONDecodeError:
             continue
-        if isinstance(parsed, dict) and (
-            expected_id is None or parsed.get("id") == expected_id
-        ):
-            return parsed
+        messages = parsed if isinstance(parsed, list) else [parsed]
+        for message in messages:
+            if isinstance(message, dict) and (
+                expected_id is None or message.get("id") == expected_id
+            ):
+                return message
     raise ContractError(f"MCP endpoint returned no JSON object: {text[:300]}")
+
+
+def _read_sse_json(
+    response: http.client.HTTPResponse, expected_id: int | None
+) -> dict[str, Any]:
+    event_lines: list[bytes] = []
+    preview = bytearray()
+
+    while line := response.readline():
+        if len(preview) < 300:
+            preview.extend(line[: 300 - len(preview)])
+        if line in {b"\n", b"\r\n", b"\r"}:
+            if event_lines:
+                try:
+                    return _extract_json(
+                        "text/event-stream", b"".join(event_lines), expected_id
+                    )
+                except ContractError:
+                    event_lines = []
+            continue
+        event_lines.append(line)
+
+    if event_lines:
+        try:
+            return _extract_json(
+                "text/event-stream", b"".join(event_lines), expected_id
+            )
+        except ContractError:
+            pass
+    detail = preview.decode("utf-8", errors="replace")
+    raise ContractError(f"MCP endpoint returned no matching SSE response: {detail}")
 
 
 class MCPClient:
@@ -128,19 +161,25 @@ class MCPClient:
             response = connection.getresponse()
             if session_id := response.getheader("Mcp-Session-Id"):
                 self.session_id = session_id
-            body = response.read()
             if not 200 <= response.status < 300:
+                body = response.read()
                 detail = body.decode("utf-8", errors="replace")
                 raise ContractError(
                     f"MCP request failed with HTTP {response.status}: {detail[:300]}"
                 )
+            content_type = response.getheader("Content-Type", "")
+            expected_id = payload.get("id")
+            expected_id = expected_id if isinstance(expected_id, int) else None
+            if "text/event-stream" in content_type.lower():
+                return _read_sse_json(response, expected_id)
+
+            body = response.read()
             if not body:
                 return None
-            expected_id = payload.get("id")
             return _extract_json(
-                response.getheader("Content-Type", ""),
+                content_type,
                 body,
-                expected_id if isinstance(expected_id, int) else None,
+                expected_id,
             )
         except (OSError, http.client.HTTPException) as error:
             raise ContractError(f"MCP request failed: {error}") from error

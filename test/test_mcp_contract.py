@@ -122,6 +122,63 @@ def test_extract_json_joins_multiline_sse_data_fields():
     }
 
 
+def test_extract_json_selects_response_from_sse_batch():
+    response = {"jsonrpc": "2.0", "id": 7, "result": {"tools": []}}
+    batch = [
+        {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"},
+        response,
+    ]
+
+    assert (
+        mcp_contract._extract_json(
+            "text/event-stream",
+            f"data: {json.dumps(batch)}\n\n".encode(),
+            expected_id=7,
+        )
+        == response
+    )
+
+
+def test_post_stops_reading_open_sse_after_matching_response():
+    response_payload = {"jsonrpc": "2.0", "id": 7, "result": {"tools": []}}
+
+    class OpenSseResponse:
+        status = 200
+
+        def __init__(self):
+            self.lines = iter(
+                [f"data: {json.dumps(response_payload)}\n".encode(), b"\n"]
+            )
+
+        def getheader(self, name, default=None):
+            if name == "Content-Type":
+                return "text/event-stream"
+            return default
+
+        def readline(self):
+            return next(self.lines)
+
+        def read(self):
+            raise AssertionError("open SSE response must not be read to EOF")
+
+    class FakeConnection:
+        def request(self, *args, **kwargs):
+            pass
+
+        def getresponse(self):
+            return OpenSseResponse()
+
+        def close(self):
+            pass
+
+    client = mcp_contract.MCPClient("http://example.test/mcp")
+    client.connection_class = lambda *args, **kwargs: FakeConnection()
+
+    assert client._post(
+        {"jsonrpc": "2.0", "id": 7, "method": "tools/list", "params": {}}
+    ) == response_payload
+
+
 def test_list_tools_follows_pagination(monkeypatch):
     client = mcp_contract.MCPClient("http://example.test/mcp")
     pages = iter(
