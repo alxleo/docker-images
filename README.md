@@ -10,7 +10,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + tailscale plugins | Never (plugins aren't in upstream) |
 | `cadvisor` | Built from source (Docker 29+ compat fix) | Review now: homelab retired cAdvisor in July 2026 |
-| `mcp-git` | Git MCP server with ssh deps + Docker secret injection | Review now: homelab retired the service in July 2026 |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `pr-reviewer` | AI PR reviewer with Claude/Gemini/Codex CLIs | Never (custom multi-model engine) |
 | `semaphore` | Semaphore UI + homelab tools (sops, age, dig, jq, rsync) | Never (tooling layer always needed) |
@@ -18,7 +17,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `mcp-substack` | Custom MCP server for authenticated Substack content | Never (custom server) |
-| `miniflux-enricher` | Custom translation and de-SEO webhook worker | Review now: homelab decommissioned it in July 2026 |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 
 ## MCP Service Images
