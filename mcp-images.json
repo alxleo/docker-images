@@ -133,6 +133,10 @@
     "test_commands": [
       "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('1.'); from mcp.server import Server; assert hasattr(Server, 'list_tools')\""
     ],
+    "smoke_env": [
+      "GOOGLE_API_KEY=test-not-a-real-key",
+      "OPENAI_API_KEY=test-not-a-real-key"
+    ],
     "secrets": [
       "GOOGLE_API_KEY",
       "OPENAI_API_KEY"

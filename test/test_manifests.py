@@ -71,6 +71,30 @@ class TestMCPImagesManifest:
                     assert isinstance(secret, str) and secret, (
                         f"{entry['name']}: each secret must be a non-empty string"
                     )
+            if "test_commands" in entry:
+                assert isinstance(entry["test_commands"], list), (
+                    f"{entry['name']}: test_commands must be a list"
+                )
+                assert all(
+                    isinstance(command, str) and command
+                    for command in entry["test_commands"]
+                ), f"{entry['name']}: test_commands must contain non-empty strings"
+            if "smoke_env" in entry:
+                assert isinstance(entry["smoke_env"], list) and entry["smoke_env"], (
+                    f"{entry['name']}: smoke_env must be a non-empty list"
+                )
+                declared_secrets = set(entry.get("secrets", []))
+                for assignment in entry["smoke_env"]:
+                    assert isinstance(assignment, str) and "=" in assignment, (
+                        f"{entry['name']}: invalid smoke_env assignment"
+                    )
+                    name, value = assignment.split("=", 1)
+                    assert name in declared_secrets, (
+                        f"{entry['name']}: smoke_env {name} is not a declared secret"
+                    )
+                    assert value.startswith("test-"), (
+                        f"{entry['name']}: smoke_env values must be obvious test fixtures"
+                    )
 
 
 # =========================================================================

@@ -378,7 +378,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # PRs: build amd64 only (verify Dockerfile compiles)
+      # PRs: build amd64, load it, then run image and MCP protocol contracts.
       # Push: multi-platform build + push
       - name: Build & push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -394,6 +394,46 @@ jobs:
           tags: |
             ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
             ghcr.io/alxleo/${{ matrix.name }}:latest
+      - name: Run image contract tests
+        if: >-
+          github.event_name == 'pull_request' &&
+          toJson(matrix.test_commands) != 'null' &&
+          toJson(matrix.test_commands) != '[]'
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_REF: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
+          TEST_COMMANDS: ${{ toJson(matrix.test_commands) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t cmds < <(jq -r '.[]' <<< "$TEST_COMMANDS")
+          for cmd in "${cmds[@]}"; do
+            echo "::group::${cmd}"
+            bash -euo pipefail -c "$cmd"
+            echo "::endgroup::"
+          done
+      - name: Run MCP protocol smoke
+        if: >-
+          github.event_name == 'pull_request' &&
+          (
+            toJson(matrix.secrets) == 'null' ||
+            toJson(matrix.secrets) == '[]' ||
+            (
+              toJson(matrix.smoke_env) != 'null' &&
+              toJson(matrix.smoke_env) != '[]'
+            )
+          )
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_REF: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
+          SMOKE_ENV: ${{ toJson(matrix.smoke_env) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t smoke_env < <(jq -r '.[]?' <<< "${SMOKE_ENV:-null}")
+          bash test/run-mcp-image-smoke.sh \
+            "$IMAGE_NAME" "$IMAGE_REF" 18080 "${smoke_env[@]}"
 
   # Smoke test: validates entrypoint.py -> mcp-proxy -> MCP server chain
   # Runs 2 canary images (1 npm, 1 Python) through the full MCP handshake.
