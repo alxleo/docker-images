@@ -58,11 +58,20 @@ def _extract_json(
     text = body.decode("utf-8")
     candidates = []
     if "text/event-stream" in content_type:
-        candidates.extend(
-            line.removeprefix("data:").strip()
-            for line in text.splitlines()
-            if line.startswith("data:")
-        )
+        event_data: list[str] = []
+        for line in text.splitlines():
+            if not line:
+                if event_data:
+                    candidates.append("\n".join(event_data))
+                    event_data = []
+                continue
+            if line == "data":
+                event_data.append("")
+            elif line.startswith("data:"):
+                value = line[5:]
+                event_data.append(value[1:] if value.startswith(" ") else value)
+        if event_data:
+            candidates.append("\n".join(event_data))
     else:
         candidates.append(text)
 

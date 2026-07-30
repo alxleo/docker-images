@@ -109,6 +109,19 @@ def test_extract_json_skips_sse_notifications_before_response():
     assert mcp_contract._extract_json("text/event-stream", body, expected_id=7) == response
 
 
+def test_extract_json_joins_multiline_sse_data_fields():
+    body = (
+        b'event: message\ndata: {"jsonrpc":"2.0",\n'
+        b'data: "id":7,"result":{"tools":[]}}\n\n'
+    )
+
+    assert mcp_contract._extract_json("text/event-stream", body, expected_id=7) == {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "result": {"tools": []},
+    }
+
+
 def test_list_tools_follows_pagination(monkeypatch):
     client = mcp_contract.MCPClient("http://example.test/mcp")
     pages = iter(

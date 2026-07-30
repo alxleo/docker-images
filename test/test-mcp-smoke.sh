@@ -118,12 +118,6 @@ else
         if [[ -n "$TOOLS_JSON" ]]; then
             TOOL_COUNT=$(echo "$TOOLS_JSON" | jq -r '.result.tools | length' 2>/dev/null)
             check "tools/list returns tools (count: ${TOOL_COUNT:-0})" test "${TOOL_COUNT:-0}" -gt 0
-            if [[ -n "$CONTRACT_LOCK" ]]; then
-                check "MCP tool contract matches lock" \
-                    python3 "$(dirname "$0")/../scripts/mcp-contract.py" \
-                    --url "${BASE}/mcp" \
-                    --verify "$CONTRACT_LOCK"
-            fi
         else
             echo "FAIL: tools/list — no response"
             FAIL=1
@@ -131,6 +125,13 @@ else
     else
         echo "WARN: No Mcp-Session-Id header — skipping stateful tests (tools/list)"
         echo "  (Server may be running in stateless mode)"
+    fi
+
+    if [[ -n "$CONTRACT_LOCK" ]]; then
+        check "MCP tool contract matches lock" \
+            python3 "$(dirname "$0")/../scripts/mcp-contract.py" \
+            --url "${BASE}/mcp" \
+            --verify "$CONTRACT_LOCK"
     fi
 fi
 
