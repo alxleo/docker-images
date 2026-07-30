@@ -9,7 +9,7 @@ check:
     uv run --with pytest --with pyyaml --with requests -- \
         pytest test/test_manifests.py test/test_entrypoint.py \
         test/test_custom_images.py::TestImageReferenceResolution \
-        test/test_mcp_contract.py -q
+        test/test_mcp_contract.py test/test_toolhive_fleet.py -q
     conftest verify -p policy/
     conftest test --parser dockerfile -p policy/ -- */Dockerfile mcp/Dockerfile.*
     conftest test --parser yaml -p policy/ -- test/docker-compose*.yml examples/docker-compose.yml
@@ -17,3 +17,7 @@ check:
 # Build one custom or shared MCP image locally and run its configured tests.
 test-image image:
     bash scripts/test-image.sh "{{ image }}"
+
+# Run the live ToolHive replacement oracle with Docker (not Colima).
+test-toolhive-fleet:
+    bash test/test-toolhive-fleet.sh

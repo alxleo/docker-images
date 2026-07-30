@@ -28,6 +28,57 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
 - Health: `GET /ping` on port `8080` (from `mcp-proxy`, validated by CI)
 
+## ToolHive MCP Fleet
+
+[`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 18
+repository MCPs. It pins ToolHive, MCPJam, Node 26, Python 3.14, packages,
+ports, secret references, networks, mounts, and removal criteria for the five
+workloads that still depend on a legacy wrapper. Homelab can consume this
+catalog without inheriting image-generation or tool-filter logic; it remains
+responsible for secret values, host paths, Docker networks, supervision, and
+gateway exposure.
+
+Secret-bearing plans use ToolHive's read-only environment provider. Consumers
+set `TOOLHIVE_SECRETS_PROVIDER=environment` and expose only the named
+`TOOLHIVE_SECRET_*` variables to the ToolHive process; the catalog and rendered
+plan contain references, never values.
+
+Where a reviewed contract lock exists, its tool names are also the fleet's
+explicit ToolHive allow-list. Changing the exposed surface therefore requires
+one reviewable change to both the lock and catalog instead of an opaque
+`FILTER_INCLUDE` or `FILTER_EXCLUDE` value inside a container.
+
+Validate the catalog and render a consumer-neutral execution plan:
+
+```bash
+python3 scripts/toolhive-fleet.py validate
+python3 scripts/toolhive-fleet.py plan
+python3 scripts/toolhive-fleet.py endpoints
+```
+
+Local plans bind to loopback. A containerized gateway can render the same
+fleet for its Docker bridge address with `--host`; non-loopback plans fail
+closed unless at least one `--allowed-origin` is supplied.
+
+Run the live Docker oracle with the exact pinned ToolHive binary:
+
+```bash
+just test-toolhive-fleet
+```
+
+The live test builds the pinned Hacker News package on Node 26 and Arxiv on
+Python 3.14 through ToolHive, verifies their complete 11- and 14-tool
+contracts, and checks both handshakes independently with MCPJam. The Hacker
+News lane also proves that an allow-list hides and rejects a blocked tool. It
+uses an isolated temporary ToolHive state directory and removes only its
+uniquely named test workloads.
+
+MCPJam 3.16.0's `server probe` passes this endpoint. Its higher-level
+`server doctor` and `tools list` currently time out during version negotiation
+against ToolHive 0.41.0 even though the initialize probe and deterministic
+contract succeed. Treat that client-compatibility gap as a cutover blocker,
+not as permission to remove the legacy wrappers.
+
 ## Adding a New Image
 
 1. Create a directory with a `Dockerfile`

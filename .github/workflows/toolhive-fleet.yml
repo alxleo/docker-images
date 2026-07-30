@@ -1,0 +1,46 @@
+name: ToolHive fleet
+
+on:
+  pull_request:
+    paths:
+      - mcp-fleet.json
+      - mcp-contracts/mcp-arxiv.json
+      - mcp-contracts/mcp-hackernews.json
+      - scripts/mcp-contract.py
+      - scripts/toolhive-fleet.py
+      - test/test-toolhive-fleet.sh
+      - test/test_toolhive_fleet.py
+      - .github/workflows/toolhive-fleet.yml
+  push:
+    branches: [main]
+    paths:
+      - mcp-fleet.json
+      - mcp-contracts/mcp-arxiv.json
+      - mcp-contracts/mcp-hackernews.json
+      - scripts/mcp-contract.py
+      - scripts/toolhive-fleet.py
+      - test/test-toolhive-fleet.sh
+      - test/test_toolhive_fleet.py
+      - .github/workflows/toolhive-fleet.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  live-contract:
+    name: ToolHive contract and filtering
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - name: Validate fleet
+        run: python3 scripts/toolhive-fleet.py validate
+      - name: Run live Docker oracle
+        run: bash test/test-toolhive-fleet.sh
