@@ -100,15 +100,35 @@
     {
       "name": "mcp-jina",
       "port": 19108,
-      "state": "legacy-wrapper",
-      "remove_when": "ToolHive direct-remote header injection matches the reviewed Jina contract",
-      "source": {"type": "npx", "package": "mcp-remote", "version": "0.1.38"},
-      "args": [
-        "https://mcp.jina.ai/v1",
-        "--header",
-        "Authorization: Bearer ${JINA_API_KEY}"
+      "state": "ready",
+      "source": {"type": "remote", "url": "https://mcp.jina.ai/v1"},
+      "header_secrets": [
+        {"header": "Authorization", "secret": "JINA_AUTHORIZATION"}
       ],
-      "secrets": [{"name": "JINA_API_KEY", "target": "JINA_API_KEY"}]
+      "contract": "mcp-contracts/mcp-jina.json",
+      "allow_tools": [
+        "capture_screenshot_url",
+        "classify_text",
+        "deduplicate_images",
+        "deduplicate_strings",
+        "expand_query",
+        "extract_pdf",
+        "guess_datetime_url",
+        "parallel_read_url",
+        "parallel_search_arxiv",
+        "parallel_search_ssrn",
+        "parallel_search_web",
+        "primer",
+        "read_url",
+        "search_arxiv",
+        "search_bibtex",
+        "search_images",
+        "search_jina_blog",
+        "search_ssrn",
+        "search_web",
+        "show_api_key",
+        "sort_by_relevance"
+      ]
     },
     {
       "name": "mcp-confluence",

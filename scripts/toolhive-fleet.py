@@ -167,6 +167,17 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
             if not ENV_PATTERN.fullmatch(secret.get("target", "")):
                 errors.append(f"{where}: invalid secret target {secret.get('target')!r}")
 
+        header_secrets = server.get("header_secrets", [])
+        if header_secrets and source_type != "remote":
+            errors.append(f"{where}: header_secrets are supported only for remote sources")
+        for header_secret in header_secrets:
+            if (
+                not isinstance(header_secret, dict)
+                or not re.fullmatch(r"[A-Za-z0-9-]+", header_secret.get("header", ""))
+                or not ENV_PATTERN.fullmatch(header_secret.get("secret", ""))
+            ):
+                errors.append(f"{where}: invalid header secret entry")
+
         for env_var in server.get("environment", []):
             if (
                 not isinstance(env_var, dict)
@@ -232,12 +243,13 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"{where}: OCI tag {image_tag!r} differs from image tag {shared['tag']!r}"
                     )
-            targets = {secret["target"] for secret in server.get("secrets", [])}
-            if targets != set(shared.get("secrets", [])):
-                errors.append(
-                    f"{where}: secret targets {sorted(targets)} differ from image manifest "
-                    f"{sorted(shared.get('secrets', []))}"
-                )
+            if source_type != "remote":
+                targets = {secret["target"] for secret in server.get("secrets", [])}
+                if targets != set(shared.get("secrets", [])):
+                    errors.append(
+                        f"{where}: secret targets {sorted(targets)} differ from image manifest "
+                        f"{sorted(shared.get('secrets', []))}"
+                    )
 
     duplicate_names = sorted({name for name in actual_names if actual_names.count(name) > 1})
     duplicate_ports = sorted({port for port in ports if ports.count(port) > 1})
@@ -334,6 +346,13 @@ def workload_argv(
         argv.append("--allow-docker-gateway")
     for secret in server.get("secrets", []):
         argv.extend(["--secret", f"{secret['name']},target={secret['target']}"])
+    for header_secret in server.get("header_secrets", []):
+        argv.extend(
+            [
+                "--remote-forward-headers-secret",
+                f"{header_secret['header']}={header_secret['secret']}",
+            ]
+        )
     for env_var in server.get("environment", []):
         env_name = env_var["name"]
         value = os.environ.get(env_name)
@@ -380,9 +399,12 @@ def render_plan(
     endpoint_host = host or fleet["defaults"]["host"]
     secret_environment = sorted(
         {
-            f"TOOLHIVE_SECRET_{secret['name']}"
+            f"TOOLHIVE_SECRET_{secret_name}"
             for server in servers
-            for secret in server.get("secrets", [])
+            for secret_name in [
+                *(secret["name"] for secret in server.get("secrets", [])),
+                *(header["secret"] for header in server.get("header_secrets", [])),
+            ]
         }
     )
     return {
@@ -489,9 +511,12 @@ def main() -> int:
             execution_env = os.environ.copy()
             execution_env.setdefault("TOOLHIVE_SECRETS_PROVIDER", fleet["secrets_provider"])
             missing_secrets = [
-                f"TOOLHIVE_SECRET_{secret['name']}"
-                for secret in server.get("secrets", [])
-                if not execution_env.get(f"TOOLHIVE_SECRET_{secret['name']}")
+                f"TOOLHIVE_SECRET_{secret_name}"
+                for secret_name in [
+                    *(secret["name"] for secret in server.get("secrets", [])),
+                    *(header["secret"] for header in server.get("header_secrets", [])),
+                ]
+                if not execution_env.get(f"TOOLHIVE_SECRET_{secret_name}")
             ]
             if missing_secrets:
                 raise FleetError(

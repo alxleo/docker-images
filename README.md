@@ -32,7 +32,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 
 [`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 18
 repository MCPs. It pins ToolHive, MCPJam, Node 26, Python 3.14, packages,
-ports, secret references, networks, mounts, and removal criteria for the five
+ports, secret references, networks, mounts, and removal criteria for the four
 workloads that still depend on a legacy wrapper. Homelab can consume this
 catalog without inheriting image-generation or tool-filter logic; it remains
 responsible for secret values, host paths, Docker networks, supervision, and
@@ -67,17 +67,25 @@ just test-toolhive-fleet
 ```
 
 The live test builds the pinned Hacker News package on Node 26 and Arxiv on
-Python 3.14 through ToolHive, verifies their complete 11- and 14-tool
-contracts, and checks both handshakes independently with MCPJam. The Hacker
-News lane also proves that an allow-list hides and rejects a blocked tool. It
-uses an isolated temporary ToolHive state directory and removes only its
-uniquely named test workloads.
+Python 3.14 through ToolHive, then connects Jina through ToolHive's native
+remote transport. It verifies their complete 11-, 14-, and 21-tool contracts
+and checks every handshake independently with MCPJam. The Hacker News lane also
+proves that an allow-list hides and rejects a blocked tool. It uses an isolated
+temporary ToolHive state directory and removes only its uniquely named test
+workloads.
 
 MCPJam 3.16.0's `server probe` passes this endpoint. Its higher-level
 `server doctor` and `tools list` currently time out during version negotiation
 against ToolHive 0.41.0 even though the initialize probe and deterministic
-contract succeed. Treat that client-compatibility gap as a cutover blocker,
-not as permission to remove the legacy wrappers.
+contract succeed. The client sends the draft `server/discover` request before
+legacy initialization; older servers can leave it unanswered. Keep the
+deterministic contract plus `server probe` as the fleet oracle until that
+upstream negotiation gap is fixed; do not add a compatibility proxy.
+
+Jina is direct-remote and no longer uses `mcp-remote`. Its ToolHive secret
+`JINA_AUTHORIZATION` must contain the complete header value
+(`Bearer <JINA_API_KEY>`), allowing ToolHive to inject it without putting the
+credential in the catalog, command line, or persisted workload configuration.
 
 ## Adding a New Image
 
