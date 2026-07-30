@@ -22,10 +22,11 @@ images=(
     "golang:1.25-alpine"
     "golang:1.25-bookworm"
     "golang:1.26-bookworm"
-    "node:24-alpine"
-    "node:24-slim"
+    "node:26-alpine"
+    "node:26-slim"
     "python:3.13-alpine"
-    "python:3.13-slim"
+    "python:3.14-alpine"
+    "python:3.14-slim"
 )
 
 # Ensure GHCR login — CI uses GITHUB_TOKEN, local uses gh CLI
