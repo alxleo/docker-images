@@ -5,5 +5,8 @@
     "uv run --with pytest --with 'mcp>=2,<3' --with httpx -- pytest mcp-reddit/tests/ -v",
     "docker run --rm -d --name mcp-reddit-test -p 18081:8080 $IMAGE_REF && bash test/test-mcp-smoke.sh mcp-reddit-test 18081 && docker stop mcp-reddit-test || { docker rm -f mcp-reddit-test 2>/dev/null || true; false; }"
   ],
-  "test_setup": "pip install -q uv"
+  "test_setup": "pip install -q uv",
+  "watch_paths": [
+    "test/test-mcp-smoke.sh"
+  ]
 }

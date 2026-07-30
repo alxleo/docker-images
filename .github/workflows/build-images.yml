@@ -50,8 +50,9 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      matrix: ${{ steps.matrix.outputs.result }}
+      matrix: ${{ steps.changes.outputs.matrix }}
       changed: ${{ steps.changes.outputs.changed }}
+      custom_changed: ${{ steps.changes.outputs.custom_changed }}
       ci_changed: ${{ steps.changes.outputs.ci_changed }}
       mcp_changed: ${{ steps.changes.outputs.mcp_changed }}
       e2e_changed: ${{ steps.changes.outputs.e2e_changed }}
@@ -72,10 +73,14 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          FULL_MATRIX: ${{ steps.matrix.outputs.result }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             {
+              echo "matrix=${FULL_MATRIX}"
               echo "changed=[]"
+              echo "custom_changed=true"
+              echo "ci_changed=true"
               echo "mcp_changed=true"
               echo "e2e_changed=true"
             } >> "$GITHUB_OUTPUT"
@@ -88,7 +93,10 @@ jobs:
           else
             # First push or missing base — build everything
             {
+              echo "matrix=${FULL_MATRIX}"
               echo "changed=[]"
+              echo "custom_changed=true"
+              echo "ci_changed=true"
               echo "mcp_changed=true"
               echo "e2e_changed=true"
             } >> "$GITHUB_OUTPUT"
@@ -97,12 +105,15 @@ jobs:
 
           # Build JSON array of changed top-level directories
           changed_dirs=$(echo "$changed_files" | cut -d/ -f1 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          changed_files_json=$(echo "$changed_files" | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
           # CI infra changed if build action, discover script, or build workflow changed
           ci_changed="false"
           if echo "$changed_files" | grep -qE '^(\.github/actions/|scripts/discover-images\.sh|\.github/workflows/build-images\.yml)'; then
             ci_changed="true"
           fi
+          custom_matrix=$(bash scripts/select-custom-images.sh "$FULL_MATRIX" "$changed_files_json" "$ci_changed")
+          custom_changed=$(jq -r 'length > 0' <<<"$custom_matrix")
 
           # MCP changed if runtime, manifest, locks, verifier, or tests changed
           mcp_changed="false"
@@ -117,7 +128,9 @@ jobs:
           fi
 
           {
+            echo "matrix=${custom_matrix}"
             echo "changed=${changed_dirs}"
+            echo "custom_changed=${custom_changed}"
             echo "ci_changed=${ci_changed}"
             echo "mcp_changed=${mcp_changed}"
             echo "e2e_changed=${e2e_changed}"
@@ -145,7 +158,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # Custom images — single matrix job replacing 7+ individual jobs
   #
-  # Flow per image: discover -> should-build? -> build -> test -> push
+  # Flow per selected image: discover dependencies -> build -> test -> push
   # The composite action handles build with GHA cache.
   # Push is handled inline after tests pass.
   # ---------------------------------------------------------------------------
@@ -154,6 +167,7 @@ jobs:
     needs: [discover]
     if: >-
       needs.discover.result == 'success' &&
+      needs.discover.outputs.custom_changed == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
@@ -164,30 +178,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
-      # --- Skip unchanged images (workflow_dispatch builds all) ---
-      - name: Check if image changed
-        id: should-build
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          CHANGED_DIRS: ${{ needs.discover.outputs.changed }}
-          CI_CHANGED: ${{ needs.discover.outputs.ci_changed }}
-          IMAGE_CONTEXT: ${{ matrix.context }}
-        run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Build if image dir, test/, or CI infra changed; empty changed=[] means build all
-          if [ "$CHANGED_DIRS" = "[]" ] || [ "$CI_CHANGED" = "true" ] || echo "$CHANGED_DIRS" | jq -e --arg dir "$IMAGE_CONTEXT" \
-            '. as $d | ($dir | IN($d[])) or ("test" | IN($d[]))' > /dev/null 2>&1; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Skipping ${{ matrix.name }} — no changes detected"
-          fi
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
-        if: steps.should-build.outputs.build == 'true'
         with:
           fetch-depth: 0
           persist-credentials: true
@@ -195,7 +186,7 @@ jobs:
       # --- Compute build version: {base}-build.{N} ---
       # Base version from .ci.json tag. Build counter from git tags.
       - name: Compute version
-        if: steps.should-build.outputs.build == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         id: version
         env:
           IMAGE_NAME: ${{ matrix.name }}
@@ -215,7 +206,6 @@ jobs:
 
       # --- Resolve tag (pr-reviewer uses github.sha, others use .ci.json tag) ---
       - name: Resolve image tag
-        if: steps.should-build.outputs.build == 'true'
         id: tag
         env:
           CI_TAG: ${{ matrix.tag }}
@@ -230,7 +220,6 @@ jobs:
 
       # --- Build (no push — tests run first) ---
       - name: Build
-        if: steps.should-build.outputs.build == 'true'
         id: build
         uses: ./.github/actions/build-image
         with:
@@ -243,14 +232,14 @@ jobs:
 
       # --- Test setup (install uv, ripgrep, etc.) ---
       - name: Test setup
-        if: steps.should-build.outputs.build == 'true' && matrix.test_setup != ''
+        if: matrix.test_setup != ''
         env:
           TEST_SETUP: ${{ matrix.test_setup }}
         run: bash -c "$TEST_SETUP"
 
       # --- Run test commands ---
       - name: Run tests
-        if: steps.should-build.outputs.build == 'true' && toJson(matrix.test_commands) != '[]'
+        if: toJson(matrix.test_commands) != '[]'
         env:
           IMAGE_NAME: ${{ matrix.name }}
           IMAGE_REF: ${{ steps.build.outputs.image-ref }}
@@ -268,7 +257,7 @@ jobs:
 
       # --- GHCR login (non-PR only, before push) ---
       - name: Login to GHCR
-        if: steps.should-build.outputs.build == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
@@ -278,7 +267,6 @@ jobs:
       # --- Push image(s) to GHCR via buildx ---
       - name: Push to GHCR
         if: >-
-          steps.should-build.outputs.build == 'true' &&
           github.event_name != 'pull_request'
         env:
           IMAGE_NAME: ${{ matrix.name }}
@@ -314,7 +302,6 @@ jobs:
       # --- Create git tag for build version ---
       - name: Tag build version
         if: >-
-          steps.should-build.outputs.build == 'true' &&
           github.event_name != 'pull_request' &&
           steps.version.outputs.tag_name
         env:
