@@ -73,7 +73,7 @@ DEFAULT_SCORING_EXEMPT = 9
 CLAUDE_REVIEW_TOOLS = ",".join([
     "Read", "Glob", "Grep",
     "Bash(git log:*)", "Bash(git blame:*)", "Bash(git diff:*)", "Bash(git show:*)",
-    "Bash(sg:*)",
+    "Bash(ast-grep:*)",
     "WebSearch", "WebFetch",
     "Agent",
 ])

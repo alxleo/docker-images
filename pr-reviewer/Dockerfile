@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && apt-get install -y --no-install-recommends --only-upgrade libgnutls30 \
     && pip3 install --no-cache-dir --break-system-packages \
-       "PyJWT[crypto]==2.11.0" "httpx==0.28.1" "grep-ast==0.9.0" \
+       "PyJWT[crypto]==2.13.0" "httpx==0.28.1" "grep-ast==0.9.0" \
     && rm -rf /var/lib/apt/lists/* \
     # fd-find installs as fdfind on Debian — symlink to fd for Claude Code
     && ln -sf /usr/bin/fdfind /usr/bin/fd
@@ -54,9 +54,9 @@ RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # Install Codex CLI (Rust binary from GitHub releases)
 # Pinned version + SHA256 — update both when bumping
-ARG CODEX_VERSION=0.106.0
-ARG CODEX_SHA256_AMD64=157a19dc3b4dffd55f8217e307e067acd588083bcb91177c0d12aa0288d6b9d2
-ARG CODEX_SHA256_ARM64=c204fc78805264130fdd630df3fb38a92b9676284b82642510374c363d4679f4
+ARG CODEX_VERSION=0.146.0
+ARG CODEX_SHA256_AMD64=5ba3b9405543953081f661d0854d266f76e2abbe51d41349355a36de7673776a
+ARG CODEX_SHA256_ARM64=975bac91562abeedeb8f79636d51a86649b31f34a9de6a3bcb059565b6cf1f87
 RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "amd64" ]; then CODEX_ARCH="x86_64-unknown-linux-musl"; EXPECTED="$CODEX_SHA256_AMD64"; \
        elif [ "$ARCH" = "arm64" ]; then CODEX_ARCH="aarch64-unknown-linux-musl"; EXPECTED="$CODEX_SHA256_ARM64"; \
@@ -77,7 +77,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install glab CLI (GitLab)
-ARG GLAB_VERSION=1.89.0
+ARG GLAB_VERSION=1.110.0
 RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${ARCH}.deb" \
        -o /tmp/glab.deb \
@@ -86,20 +86,20 @@ RUN ARCH=$(dpkg --print-architecture) \
 
 # Install ast-grep (structural code search via AST patterns)
 # Pinned version + SHA256 — update both when bumping
-ARG AST_GREP_VERSION=0.42.0
-ARG SG_SHA256_AMD64=e825a05603f0bcc4cd9076c4cc8c9abd6d008b7cd07d9aa3cc323ba4b8606651
-ARG SG_SHA256_ARM64=5c830eae8456569e2f7212434ed9c238f58dca412d76045418ed6d394a755836
+ARG AST_GREP_VERSION=0.45.0
+ARG AST_GREP_SHA256_AMD64=78931ae35ebac33d9a72b3aecea3e3d62d6e5b0b718ac8bbedfbe69d68421e41
+ARG AST_GREP_SHA256_ARM64=62b60892dafacfa76d6de87157659f880bbf85ff38bdab52db12f1f14ec60f94
 RUN ARCH=$(dpkg --print-architecture) \
-    && if [ "$ARCH" = "amd64" ]; then SG_ARCH="x86_64-unknown-linux-gnu"; EXPECTED="$SG_SHA256_AMD64"; \
-       elif [ "$ARCH" = "arm64" ]; then SG_ARCH="aarch64-unknown-linux-gnu"; EXPECTED="$SG_SHA256_ARM64"; \
+    && if [ "$ARCH" = "amd64" ]; then AST_GREP_ARCH="x86_64-unknown-linux-gnu"; EXPECTED="$AST_GREP_SHA256_AMD64"; \
+       elif [ "$ARCH" = "arm64" ]; then AST_GREP_ARCH="aarch64-unknown-linux-gnu"; EXPECTED="$AST_GREP_SHA256_ARM64"; \
        else echo "Unsupported: ${ARCH}" >&2; exit 1; fi \
-    && curl -fsSL "https://github.com/ast-grep/ast-grep/releases/download/${AST_GREP_VERSION}/app-${SG_ARCH}.zip" \
-       -o /tmp/sg.zip \
-    && echo "${EXPECTED}  /tmp/sg.zip" | sha256sum -c - \
+    && curl -fsSL "https://github.com/ast-grep/ast-grep/releases/download/${AST_GREP_VERSION}/app-${AST_GREP_ARCH}.zip" \
+       -o /tmp/ast-grep.zip \
+    && echo "${EXPECTED}  /tmp/ast-grep.zip" | sha256sum -c - \
     && apt-get update && apt-get install -y --no-install-recommends unzip \
-    && unzip -j /tmp/sg.zip -d /usr/local/bin/ \
-    && chmod +x /usr/local/bin/sg \
-    && rm /tmp/sg.zip \
+    && unzip -j /tmp/ast-grep.zip ast-grep -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/ast-grep \
+    && rm /tmp/ast-grep.zip \
     && apt-get purge -y unzip && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

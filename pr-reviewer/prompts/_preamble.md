@@ -37,9 +37,9 @@ Context lines in a diff show the base branch state and may be stale. Do NOT reas
 - If you claim a function exists or doesn't exist — search for it.
 - Do not post findings based on assumptions you could verify in one tool call.
 
-You also have `sg` (ast-grep) for structural code search:
-- `sg --pattern 'try: $$$ except: $$$' --lang python` — find bare except blocks
-- `sg --pattern '$FUNC($$$)' --lang js` — find call sites of a function
+You also have `ast-grep` for structural code search:
+- `ast-grep --pattern 'try: $$$ except: $$$' --lang python` — find bare except blocks
+- `ast-grep --pattern '$FUNC($$$)' --lang js` — find call sites of a function
 
 ## Deep Analysis
 
