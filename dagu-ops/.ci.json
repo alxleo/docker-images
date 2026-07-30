@@ -1,6 +1,6 @@
 {
-  "tag": "latest",
+  "tag": "2.11.1",
   "test_commands": [
-    "docker run --rm $IMAGE_REF sh -c \"dagu version && restic version && rclone version | head -1 && docker --version && ssh -V 2>&1 && curl --version | head -1\""
+    "docker run --rm $IMAGE_REF sh -eu -c \"dagu version | grep -Fx 2.11.1; restic version | grep -F 'restic 0.19.1 '; rclone version | head -1 | grep -Fx 'rclone v1.74.4'; docker --version | grep -F 'Docker version 29.6.2,'; ssh -V 2>&1; curl --version | head -1\""
   ]
 }
