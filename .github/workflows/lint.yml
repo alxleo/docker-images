@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
       - uses: alxleo/coding-standards/docker-action@main
 
-  pytest:
+  pytest-matrix:
     name: pytest (pr-reviewer, Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
@@ -52,6 +52,17 @@ jobs:
       - run: pytest pr-reviewer/tests/ test/test_manifests.py -x -m "not calibration"
         env:
           PYTHONPATH: pr-reviewer/scripts
+
+  pytest:
+    name: pytest (pr-reviewer)
+    needs: pytest-matrix
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every Python version
+        env:
+          MATRIX_RESULT: ${{ needs.pytest-matrix.result }}
+        run: test "$MATRIX_RESULT" = "success"
 
   conftest:
     name: conftest (Dockerfile + Compose policies)
