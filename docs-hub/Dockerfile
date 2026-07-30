@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM ghcr.io/alxleo/base-images/node:24-alpine AS dependencies
+FROM ghcr.io/alxleo/base-images/node:26-alpine AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts && npm cache clean --force
@@ -28,7 +28,7 @@ RUN apk add --no-cache ca-certificates curl \
     && echo "${PLANTUML_SHA256}  /opt/plantuml.jar" | sha256sum -c - \
     && rm -rf /tmp/d2*
 
-FROM ghcr.io/alxleo/base-images/node:24-alpine
+FROM ghcr.io/alxleo/base-images/node:26-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 RUN apk add --no-cache ca-certificates ffmpeg graphviz openjdk17-jre su-exec
 RUN deluser node
