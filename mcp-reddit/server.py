@@ -27,6 +27,8 @@ from urllib.parse import urlparse
 
 import httpx  # dependency of the mcp SDK — no extra install
 from mcp.server.mcpserver import MCPServer
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 API = "https://arctic-shift.photon-reddit.com/api"
 USER_AGENT = "homelab-reddit-arctic-mcp/1.0"
@@ -65,7 +67,13 @@ SHARE_LINK_ERROR = (
 
 _client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
 
-mcp = MCPServer("reddit", version="1.3.0")
+mcp = MCPServer("reddit", version="1.3.1")
+
+
+@mcp.custom_route("/ping", methods=["GET"], include_in_schema=False)
+async def ping(_request: Request) -> PlainTextResponse:
+    """Compatibility health route for the homelab Caddy and Gatus contract."""
+    return PlainTextResponse("pong")
 
 
 def _text(value: object) -> str:

@@ -5,10 +5,12 @@ the homelab repo test pattern) so an import-time failure skips cleanly
 instead of aborting collection. Skips if the mcp SDK isn't installed.
 """
 
+import asyncio
 import importlib.util
 from pathlib import Path
 
 import pytest
+from starlette.requests import Request
 
 pytest.importorskip("mcp", reason="mcp SDK not installed")
 pytest.importorskip("httpx", reason="httpx not installed")
@@ -23,6 +25,15 @@ def server():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_ping_compatibility_route(server):
+    request = Request({"type": "http", "method": "GET", "path": "/ping", "headers": []})
+    response = asyncio.run(server.ping(request))
+
+    assert response.status_code == 200
+    assert response.body == b"pong"
+    assert any(route.path == "/ping" for route in server.mcp.streamable_http_app().routes)
 
 
 @pytest.mark.parametrize(
