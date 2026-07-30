@@ -1,0 +1,77 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:b6557fcbc4fa9ff439b2a8efb6f8a9331fc0b305d938c6dee5cc1af1768a280d",
+      "name": "analyze"
+    },
+    {
+      "input_schema_sha256": "sha256:d246a87e4a8bb126b08ebba5b3e271cd2c8438f1d0ff3082f515672bc608e4be",
+      "name": "apilookup"
+    },
+    {
+      "input_schema_sha256": "sha256:a959ac0746c686628f93a546d5c9c680c901f718aceb78af35bdefbef52187ad",
+      "name": "challenge"
+    },
+    {
+      "input_schema_sha256": "sha256:b7cb960ae5e01566f2963971d1dc5099ffe760ae8af5a82e46acc9e859f80637",
+      "name": "chat"
+    },
+    {
+      "input_schema_sha256": "sha256:b1d4c42be9a5fd28b5398f7d64d11a431bc12a999ed467e9b3db6852767b2732",
+      "name": "clink"
+    },
+    {
+      "input_schema_sha256": "sha256:a27278023c183701e8411f8fbcf9f9fd31f5a856f8dde1b089931694da0b40cd",
+      "name": "codereview"
+    },
+    {
+      "input_schema_sha256": "sha256:8698c9066b734aa46decd85493c352f8871efa1edd29cac5d0aca1c44eeb285d",
+      "name": "consensus"
+    },
+    {
+      "input_schema_sha256": "sha256:0adbf1075993cb42c4d399d55ecad6b63200f814136974928af442d631ba2ece",
+      "name": "debug"
+    },
+    {
+      "input_schema_sha256": "sha256:e05963aa1221e65dad2b2aa759a016ef7fa4d0007bd13f661a598e0ace63ebe5",
+      "name": "docgen"
+    },
+    {
+      "input_schema_sha256": "sha256:d746974fa9afd5e951f76f9af38954b0ad7f436f2120dc974da65e5ee39f856f",
+      "name": "listmodels"
+    },
+    {
+      "input_schema_sha256": "sha256:f617ec5917384785d554bba4290a4ba47855c7528e1eaa4df673d39db23097df",
+      "name": "planner"
+    },
+    {
+      "input_schema_sha256": "sha256:10b7f5591e40943955854df86ef132a9918a5e67aa9a29de6794a2d6196c4cc4",
+      "name": "precommit"
+    },
+    {
+      "input_schema_sha256": "sha256:26ca95409a0d43cfe657cc95174308195611b40d79c5c51f3e932c3b8c89d9a1",
+      "name": "refactor"
+    },
+    {
+      "input_schema_sha256": "sha256:bf0dcc14e60d353a389f9c6d7469e7b4df19b6ce0b0e6da7ceac5e9a7bebec37",
+      "name": "secaudit"
+    },
+    {
+      "input_schema_sha256": "sha256:f7755faea7039227e5ccf5c05c52d6fc053f447382820b30a530386170f7dd19",
+      "name": "testgen"
+    },
+    {
+      "input_schema_sha256": "sha256:967e0fbf91885420182aaf83f276fe648a3dbee2a641e3609e97ac80b2d84371",
+      "name": "thinkdeep"
+    },
+    {
+      "input_schema_sha256": "sha256:d9f5b2f4f4ab5ab6c35ebfe64f476e4c96892b70a79d543d95b17d28768b99d1",
+      "name": "tracer"
+    },
+    {
+      "input_schema_sha256": "sha256:d746974fa9afd5e951f76f9af38954b0ad7f436f2120dc974da65e5ee39f856f",
+      "name": "version"
+    }
+  ]
+}

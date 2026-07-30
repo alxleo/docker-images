@@ -46,6 +46,7 @@ generic_mcp_matrix="$(
                     [
                         (
                             "bash test/run-mcp-image-smoke.sh \"$IMAGE_NAME\" \"$IMAGE_REF\" 18080" +
+                            (if .contract then (" --contract " + (.contract | @sh)) else "" end) +
                             ((.smoke_env // []) | map(" " + @sh) | join(""))
                         )
                     ]

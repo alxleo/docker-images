@@ -1,0 +1,21 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:91ab10442738130c4924f565f62ac00fd86a743ff6e85e3fb8109f5644c4c1c1",
+      "name": "searxng_instance_info"
+    },
+    {
+      "input_schema_sha256": "sha256:c0fdb85a216c247caf4103fbed0601c55d01e80a9ce064efb0c568044056276e",
+      "name": "searxng_search_suggestions"
+    },
+    {
+      "input_schema_sha256": "sha256:2c7acde6f978058bd3c1b7cea66e9501756c86e910b78909cd6769fc9b336f10",
+      "name": "searxng_web_search"
+    },
+    {
+      "input_schema_sha256": "sha256:bf1d54f89eae04762ef4047538b86ee603aee354a110aadaaf942d6b373e4ae4",
+      "name": "web_url_read"
+    }
+  ]
+}

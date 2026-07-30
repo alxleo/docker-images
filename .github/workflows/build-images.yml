@@ -104,9 +104,9 @@ jobs:
             ci_changed="true"
           fi
 
-          # MCP changed if mcp/ dir, mcp-images.json, or test/ changed
+          # MCP changed if runtime, manifest, locks, verifier, or tests changed
           mcp_changed="false"
-          if echo "$changed_files" | grep -qE '^(mcp/|mcp-images\.json|test/)'; then
+          if echo "$changed_files" | grep -qE '^(mcp/|mcp-contracts/|mcp-images\.json|scripts/mcp-contract\.py|test/)'; then
             mcp_changed="true"
           fi
 
@@ -425,15 +425,21 @@ jobs:
             )
           )
         env:
+          CONTRACT: ${{ matrix.contract }}
           IMAGE_NAME: ${{ matrix.name }}
           IMAGE_REF: ghcr.io/alxleo/${{ matrix.name }}:${{ matrix.tag }}
           SMOKE_ENV: ${{ toJson(matrix.smoke_env) }}
         shell: bash
         run: |
           set -euo pipefail
+          contract_args=()
+          if [ -n "${CONTRACT:-}" ]; then
+            contract_args=(--contract "$CONTRACT")
+          fi
           mapfile -t smoke_env < <(jq -r '.[]?' <<< "${SMOKE_ENV:-null}")
           bash test/run-mcp-image-smoke.sh \
-            "$IMAGE_NAME" "$IMAGE_REF" 18080 "${smoke_env[@]}"
+            "$IMAGE_NAME" "$IMAGE_REF" 18080 \
+            "${contract_args[@]}" "${smoke_env[@]}"
 
   # Smoke test: validates entrypoint.py -> mcp-proxy -> MCP server chain
   # Runs 2 canary images (1 npm, 1 Python) through the full MCP handshake.

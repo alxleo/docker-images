@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP image smoke test — validates entrypoint.py → mcp-proxy → MCP server chain
 #
-# Usage: ./test-mcp-smoke.sh <container-name> <port>
+# Usage: ./test-mcp-smoke.sh <container-name> <port> [contract-lock]
 #
 # Checks:
 #   1. Container is running
@@ -15,6 +15,7 @@ set -euo pipefail
 
 CONTAINER="${1:?Usage: $0 <container-name> <port>}"
 PORT="${2:?Usage: $0 <container-name> <port>}"
+CONTRACT_LOCK="${3:-}"
 BASE="http://localhost:${PORT}"
 FAIL=0
 
@@ -124,6 +125,13 @@ else
     else
         echo "WARN: No Mcp-Session-Id header — skipping stateful tests (tools/list)"
         echo "  (Server may be running in stateless mode)"
+    fi
+
+    if [[ -n "$CONTRACT_LOCK" ]]; then
+        check "MCP tool contract matches lock" \
+            python3 "$(dirname "$0")/../scripts/mcp-contract.py" \
+            --url "${BASE}/mcp" \
+            --verify "$CONTRACT_LOCK"
     fi
 fi
 

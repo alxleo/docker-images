@@ -1,0 +1,61 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:6dd890d1a96900f6179ab70c0ecf2528f73b150af3aaac87216440bda6796d56",
+      "name": "check_alerts"
+    },
+    {
+      "input_schema_sha256": "sha256:ea0aba73863cc0d9a0977fe236f0a8cce0a47d51e00daad432725bb8602e147f",
+      "name": "citation_graph"
+    },
+    {
+      "input_schema_sha256": "sha256:d9e3ec17636edb8b7014441b1490d8914c8d386327814b1f180306c6d638d2fa",
+      "name": "download_paper"
+    },
+    {
+      "input_schema_sha256": "sha256:0881885d6e4a68f59ffa3e2e23431b8e255781a5051a1dbbc7f0928fbad14cff",
+      "name": "export_citations"
+    },
+    {
+      "input_schema_sha256": "sha256:ef2980a2c7456b21f465516135f6cb6e64c79e51c337d34a2411d631b3d0d7d8",
+      "name": "get_abstract"
+    },
+    {
+      "input_schema_sha256": "sha256:f497abf8842904628abf4d83003a908935b074d4a1bc7c98e4f38cccea9bd575",
+      "name": "get_paper_latex"
+    },
+    {
+      "input_schema_sha256": "sha256:3485484ae14d5f11f7a96ea018626b59aa4af5bf03275a3fddece0ecfbd3f44e",
+      "name": "get_paper_latex_section"
+    },
+    {
+      "input_schema_sha256": "sha256:e864597fd2def47991b20bcf37cce3fca08c96ce6f156228bae17557844a4d05",
+      "name": "list_paper_latex_sections"
+    },
+    {
+      "input_schema_sha256": "sha256:d746974fa9afd5e951f76f9af38954b0ad7f436f2120dc974da65e5ee39f856f",
+      "name": "list_papers"
+    },
+    {
+      "input_schema_sha256": "sha256:c9f06a0951c19738eb23b93f3ce86c8bec348709de1c62f3509a1f8c5fb6c07d",
+      "name": "read_paper"
+    },
+    {
+      "input_schema_sha256": "sha256:94e4fd0549f8275eec18402827736954616d3a11dfbfdfc5395ee3a423cd02d2",
+      "name": "reindex"
+    },
+    {
+      "input_schema_sha256": "sha256:346607f2d86733412e07c700fb657137970aee7675401da5ec67868d8ffada9e",
+      "name": "search_papers"
+    },
+    {
+      "input_schema_sha256": "sha256:19541fb23f5c510b345576397ce9cb3dc71f3bd28030bd774fc356c340ab47c1",
+      "name": "semantic_search"
+    },
+    {
+      "input_schema_sha256": "sha256:ef3c9f227d1873ee72c82221a318d835444530fc4d2580852073fe2d9610836e",
+      "name": "watch_topic"
+    }
+  ]
+}

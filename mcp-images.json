@@ -4,7 +4,8 @@
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=mcp-hacker-news@1.0.3",
     "tag": "1.0.3",
-    "description": "Hacker News stories, comments, and discussions"
+    "description": "Hacker News stories, comments, and discussions",
+    "contract": "mcp-contracts/mcp-hackernews.json"
   },
   {
     "name": "mcp-brave",
@@ -51,14 +52,16 @@
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=mcp-searxng@1.12.0",
     "tag": "1.12.0",
-    "description": "Self-hosted metasearch via SearXNG"
+    "description": "Self-hosted metasearch via SearXNG",
+    "contract": "mcp-contracts/mcp-searxng.json"
   },
   {
     "name": "mcp-sequential-thinking",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2026.7.4",
     "tag": "2026.7.4",
-    "description": "Structured reasoning and chain-of-thought enhancement"
+    "description": "Structured reasoning and chain-of-thought enhancement",
+    "contract": "mcp-contracts/mcp-sequential-thinking.json"
   },
   {
     "name": "mcp-firecrawl",
@@ -110,6 +113,7 @@
     "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.14\nMCP_ENTRYPOINT=mcp-youtube-transcript",
     "tag": "0.5.14",
     "description": "YouTube transcript and video metadata extraction",
+    "contract": "mcp-contracts/mcp-youtube.json",
     "test_commands": [
       "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('1.'); from mcp.server import FastMCP\""
     ]
@@ -120,6 +124,7 @@
     "build_args": "ARXIV_MCP_VERSION=0.6.1\nMCP_PROXY_VERSION=6.5.4\nUV_VERSION=0.12.0",
     "tag": "0.6.1",
     "description": "Search and retrieve academic papers from arXiv",
+    "contract": "mcp-contracts/mcp-arxiv.json",
     "test_commands": [
       "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.' && python3 -c 'from importlib.metadata import version; assert version(\\\"arxiv-mcp-server\\\") == \\\"0.6.1\\\"; assert version(\\\"mcp\\\").startswith(\\\"1.\\\"); import pymupdf4llm'\""
     ]
@@ -130,6 +135,7 @@
     "build_args": "MCP_PACKAGE=git+https://github.com/BeehiveInnovations/zen-mcp-server.git@v9.8.2\nMCP_ENTRYPOINT=pal-mcp-server",
     "tag": "9.8.2",
     "description": "Multi-model AI orchestrator (Gemini, OpenAI)",
+    "contract": "mcp-contracts/mcp-zen.json",
     "test_commands": [
       "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('1.'); from mcp.server import Server; assert hasattr(Server, 'list_tools')\""
     ],

@@ -1,0 +1,49 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:312e70e6950cf6dccf88500059a0ab75c5c0843d04f7aa63bd9a34ea41bdaa24",
+      "name": "getAskHNStories"
+    },
+    {
+      "input_schema_sha256": "sha256:f2e8feb76cbd2fec8680f58164f95dea6cfc9eb83ba25f9b775aca939d70ecbd",
+      "name": "getBestStories"
+    },
+    {
+      "input_schema_sha256": "sha256:65e1ae8b6a78bdb77f8a84c67950c888252c4ca295e149a551c70ff1f22358b0",
+      "name": "getComments"
+    },
+    {
+      "input_schema_sha256": "sha256:a43f9b6bade3c0552af2f38c2825147d638039e295792cd5e9731ed9a2aef16c",
+      "name": "getItem"
+    },
+    {
+      "input_schema_sha256": "sha256:34e4c3c3e00fb1ad1cf51b2b50d59c355eb5691de919ca9a8929aa4338a9cabf",
+      "name": "getJobStories"
+    },
+    {
+      "input_schema_sha256": "sha256:efddc7bd8bbcef73a14eb1ace1ffdaec81e518ef1e13c1e9271d0b8acb694a49",
+      "name": "getMaxItemId"
+    },
+    {
+      "input_schema_sha256": "sha256:f2e8feb76cbd2fec8680f58164f95dea6cfc9eb83ba25f9b775aca939d70ecbd",
+      "name": "getNewStories"
+    },
+    {
+      "input_schema_sha256": "sha256:312e70e6950cf6dccf88500059a0ab75c5c0843d04f7aa63bd9a34ea41bdaa24",
+      "name": "getShowHNStories"
+    },
+    {
+      "input_schema_sha256": "sha256:f2e8feb76cbd2fec8680f58164f95dea6cfc9eb83ba25f9b775aca939d70ecbd",
+      "name": "getTopStories"
+    },
+    {
+      "input_schema_sha256": "sha256:efddc7bd8bbcef73a14eb1ace1ffdaec81e518ef1e13c1e9271d0b8acb694a49",
+      "name": "getUpdates"
+    },
+    {
+      "input_schema_sha256": "sha256:9a8ded419897e4e205eaf2597f3e96dce5d8bcbb43352b4bfae65c2f53031fd0",
+      "name": "getUser"
+    }
+  ]
+}
