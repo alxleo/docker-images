@@ -39,9 +39,15 @@ generic_mcp_matrix="$(
             platforms: "linux/amd64,linux/arm64",
             test_commands: (
                 (.test_commands // []) +
-                (if ((.secrets // []) | length) == 0 then
+                (if (
+                    ((.secrets // []) | length) == 0 or
+                    ((.smoke_env // []) | length) > 0
+                ) then
                     [
-                        "docker run -d --name \"${IMAGE_NAME}-test\" -e MCP_STARTUP_JITTER=0 -p 18080:8080 \"$IMAGE_REF\" && bash test/test-mcp-smoke.sh \"${IMAGE_NAME}-test\" 18080 && docker rm -f \"${IMAGE_NAME}-test\" || { docker logs \"${IMAGE_NAME}-test\" 2>/dev/null || true; docker rm -f \"${IMAGE_NAME}-test\" 2>/dev/null || true; false; }"
+                        (
+                            "bash test/run-mcp-image-smoke.sh \"$IMAGE_NAME\" \"$IMAGE_REF\" 18080" +
+                            ((.smoke_env // []) | map(" " + @sh) | join(""))
+                        )
                     ]
                 else
                     []

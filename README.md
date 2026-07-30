@@ -80,7 +80,12 @@ just test-image mcp-hackernews
 ```
 
 Credential-free shared MCP images get a live initialize + `tools/list` smoke
-test. Images that declare secrets are built without starting them.
+test. Secret-bearing images are built without starting by default; a manifest
+may declare obvious non-secret `smoke_env` fixtures when the server can safely
+initialize without contacting its upstream provider. Pull-request CI runs the
+same declared image checks and protocol smoke tests against the exact image it
+just built. MCPJam remains useful as an independent local or deployed protocol
+doctor when a server needs interactive inspection.
 
 Local prerequisites are Docker, `just`, `jq`, `uv`, and `conftest`. Targeted
 image tests may require additional tools named by their test commands (for
