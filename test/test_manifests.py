@@ -196,7 +196,12 @@ class TestCustomImagesManifest:
                 )
 
     def test_changed_image_selection(self):
-        def selected(*paths, ci_changed=False, matrix_data=CUSTOM_IMAGES):
+        def selected(
+            *paths,
+            ci_changed=False,
+            include_watch_paths=True,
+            matrix_data=CUSTOM_IMAGES,
+        ):
             result = subprocess.run(
                 [
                     "bash",
@@ -204,6 +209,7 @@ class TestCustomImagesManifest:
                     json.dumps(matrix_data),
                     json.dumps(paths),
                     str(ci_changed).lower(),
+                    str(include_watch_paths).lower(),
                 ],
                 check=True,
                 capture_output=True,
@@ -218,6 +224,12 @@ class TestCustomImagesManifest:
             "caddy-cloudflare",
             "mcp-auth-proxy",
         }
+        assert selected(
+            "test/test_custom_images.py", include_watch_paths=False
+        ) == set()
+        assert selected(
+            "caddy-cloudflare/Dockerfile", include_watch_paths=False
+        ) == {"caddy-cloudflare"}
         assert selected("docs-hub/package.json") == {"docs-hub"}
         assert selected("README.md", ci_changed=True) == {
             entry["name"] for entry in CUSTOM_IMAGES
