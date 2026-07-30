@@ -89,7 +89,18 @@ jobs:
 
           # Get changed files between base and head
           if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
-            changed_files=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null || echo "")
+            if ! changed_files=$(git diff --name-only "$BASE_SHA" HEAD); then
+              echo "::warning::Unable to diff $BASE_SHA; rebuilding every image"
+              {
+                echo "matrix=${FULL_MATRIX}"
+                echo "changed=[]"
+                echo "custom_changed=true"
+                echo "ci_changed=true"
+                echo "mcp_changed=true"
+                echo "e2e_changed=true"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           else
             # First push or missing base — build everything
             {
@@ -109,7 +120,7 @@ jobs:
 
           # CI infra changed if build action, discover script, or build workflow changed
           ci_changed="false"
-          if echo "$changed_files" | grep -qE '^(\.github/actions/|scripts/discover-images\.sh|\.github/workflows/build-images\.yml)'; then
+          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images)\.sh|\.github/workflows/build-images\.yml)' <<<"$changed_files"; then
             ci_changed="true"
           fi
           custom_matrix=$(bash scripts/select-custom-images.sh "$FULL_MATRIX" "$changed_files_json" "$ci_changed")
@@ -117,13 +128,13 @@ jobs:
 
           # MCP changed if runtime, manifest, locks, verifier, or tests changed
           mcp_changed="false"
-          if echo "$changed_files" | grep -qE '^(mcp/|mcp-contracts/|mcp-images\.json|scripts/mcp-contract\.py|test/)'; then
+          if grep -qE '^(mcp/|mcp-contracts/|mcp-(images|defaults)\.json|scripts/mcp-contract\.py|test/)' <<<"$changed_files"; then
             mcp_changed="true"
           fi
 
           # E2E changed if mcp or caddy-cloudflare changed (E2E tests the full stack)
           e2e_changed="false"
-          if echo "$changed_files" | grep -qE '^(mcp/|mcp-images\.json|caddy-cloudflare/|test/)'; then
+          if grep -qE '^(mcp/|mcp-(images|defaults)\.json|caddy-cloudflare/|test/)' <<<"$changed_files"; then
             e2e_changed="true"
           fi
 
