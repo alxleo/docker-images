@@ -123,7 +123,12 @@ jobs:
           if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-images\.yml)' <<<"$changed_files"; then
             ci_changed="true"
           fi
-          custom_matrix=$(bash scripts/select-custom-images.sh "$FULL_MATRIX" "$changed_files_json" "$ci_changed")
+          include_watch_paths="false"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            include_watch_paths="true"
+          fi
+          custom_matrix=$(bash scripts/select-custom-images.sh \
+            "$FULL_MATRIX" "$changed_files_json" "$ci_changed" "$include_watch_paths")
           custom_changed=$(jq -r 'length > 0' <<<"$custom_matrix")
 
           mcp_routing=$(bash scripts/select-mcp-pipelines.sh "$changed_files_json" "$ci_changed")
