@@ -46,12 +46,12 @@ download_toolhive() {
     os=$(uname -s | tr '[:upper:]' '[:lower:]')
     arch=$(uname -m)
     case "$arch" in
-        arm64 | aarch64) arch=arm64 ;;
-        x86_64 | amd64) arch=amd64 ;;
-        *)
-            echo "ERROR: unsupported architecture: ${arch}" >&2
-            exit 1
-            ;;
+    arm64 | aarch64) arch=arm64 ;;
+    x86_64 | amd64) arch=amd64 ;;
+    *)
+        echo "ERROR: unsupported architecture: ${arch}" >&2
+        exit 1
+        ;;
     esac
     asset="toolhive_${TOOLHIVE_VERSION}_${os}_${arch}.tar.gz"
     curl -fsSLo "${TEMP_DIR}/${asset}" \
@@ -82,10 +82,11 @@ wait_for_workload() {
         fi
         status=$("$JQ_BIN" -r '.status // empty' "$status_file" 2>/dev/null || true)
         case "$status" in
-            error)
-                "$JQ_BIN" . "$status_file" >&2
-                return 1
-                ;;
+        error)
+            "$JQ_BIN" . "$status_file" >&2
+            return 1
+            ;;
+        *) ;;
         esac
         sleep 1
     done

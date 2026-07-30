@@ -12,8 +12,10 @@ fi
 
 mcp=false
 e2e=false
-while IFS= read -r path; do
-    case "$path" in
+changed_paths=$(jq -er 'if type == "array" then .[] else error("expected an array") end' <<<"$CHANGED_FILES_JSON")
+if [[ -n "$changed_paths" ]]; then
+    while IFS= read -r path; do
+        case "$path" in
         mcp/* | mcp-contracts/* | mcp-images.json | mcp-defaults.json | \
             scripts/mcp-contract.py | test/run-mcp-image-smoke.sh | \
             test/test-mcp-smoke.sh | test/test_entrypoint.py | \
@@ -21,14 +23,17 @@ while IFS= read -r path; do
             test/test_tool_filtering.py)
             mcp=true
             ;;
-    esac
-    case "$path" in
+        *) ;;
+        esac
+        case "$path" in
         mcp/* | mcp-images.json | mcp-defaults.json | caddy-cloudflare/* | \
             test/Caddyfile.mcp-e2e | test/docker-compose.mcp-e2e.yml | \
             test/test-mcp-e2e.sh)
             e2e=true
             ;;
-    esac
-done < <(jq -er '.[]' <<<"$CHANGED_FILES_JSON")
+        *) ;;
+        esac
+    done <<<"$changed_paths"
+fi
 
 jq -cn --argjson mcp "$mcp" --argjson e2e "$e2e" '{mcp:$mcp,e2e:$e2e}'
