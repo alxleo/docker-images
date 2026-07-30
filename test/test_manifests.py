@@ -218,7 +218,6 @@ class TestCustomImagesManifest:
             "caddy-cloudflare",
             "cadvisor",
             "mcp-auth-proxy",
-            "mcp-git",
         }
         assert selected("docs-hub/package.json") == {"docs-hub"}
         assert selected("README.md", ci_changed=True) == {

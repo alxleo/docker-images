@@ -15,7 +15,7 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 
 | Field | Default | Override via `.ci.json` |
 |-------|---------|----------------------|
-| name | directory name | `"name": "mcp-git"` |
+| name | directory name | `"name": "published-image-name"` |
 | platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
 | tests | none | `"test_commands": [...]` |
@@ -39,7 +39,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 | Base | Used by | Why |
 |------|---------|-----|
-| `node:26-alpine` | Dockerfile.npm (16 MCP images), git-mcp-server | Smallest viable Node base, no setuid binaries |
+| `node:26-alpine` | Dockerfile.npm (16 MCP images) | Smallest viable Node base, no setuid binaries |
 | `node:26-slim` | Dockerfile.python (3 MCP images), pr-reviewer | Python C extensions (pymupdf) need glibc |
 | `python:3.13-alpine` | mcp-substack | Pure Python deps, Alpine viable |
 | `alpine:3.23` | pihole-exporter, cadvisor (runtime), mcp-auth-proxy (runtime) | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |

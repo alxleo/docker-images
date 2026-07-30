@@ -3,7 +3,6 @@
   "images": [
     "caddy-cloudflare",
     "cadvisor",
-    "mcp-git",
     "mcp-auth-proxy",
     "pr-reviewer",
     "mcp-arxiv",
@@ -27,7 +26,6 @@
     "pihole-exporter",
     "dagu-ops",
     "semaphore",
-    "miniflux-enricher",
     "docs-hub"
   ]
 }

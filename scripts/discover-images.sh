@@ -38,7 +38,7 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     fi
 
     # Apply conventions + overrides from .ci.json
-    # name override: allows image name to differ from directory (e.g. mcp-git in git-mcp-server/)
+    # name override: allows the published image name to differ from its directory.
     image_name=$(echo "$ci_json" | jq -r --arg default "$name" '.name // $default')
     tag=$(echo "$ci_json" | jq -r '.tag // "latest"')
     platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64,linux/arm64"')
