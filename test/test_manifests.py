@@ -15,6 +15,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MCP_DIR = REPO_ROOT / "mcp"
 MCP_IMAGES = json.loads((REPO_ROOT / "mcp-images.json").read_text())
+MCP_FLEET = json.loads((REPO_ROOT / "mcp-fleet.json").read_text())
 MCP_DEFAULTS = json.loads((REPO_ROOT / "mcp-defaults.json").read_text())
 PUBLISHED_IMAGES = json.loads((REPO_ROOT / "images.json").read_text())
 CUSTOM_IMAGES = json.loads(
@@ -59,6 +60,11 @@ class TestMCPImagesManifest:
 
     def test_contract_files_are_all_referenced(self):
         declared = {entry["contract"] for entry in MCP_IMAGES if entry.get("contract")}
+        declared.update(
+            server["contract"]
+            for server in MCP_FLEET["servers"]
+            if server.get("contract")
+        )
         present = {
             str(path.relative_to(REPO_ROOT))
             for path in (REPO_ROOT / "mcp-contracts").glob("*.json")
@@ -246,6 +252,10 @@ class TestMCPPipelineRouting:
 
     def test_toolhive_changes_use_the_focused_workflow(self):
         assert self.selected("mcp-fleet.json") == {"mcp": False, "e2e": False}
+        assert self.selected("mcp-contracts/mcp-jina.json") == {
+            "mcp": False,
+            "e2e": False,
+        }
         assert self.selected("scripts/toolhive-fleet.py") == {
             "mcp": False,
             "e2e": False,

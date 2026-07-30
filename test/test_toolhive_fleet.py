@@ -25,8 +25,8 @@ def fleet():
 def test_fleet_covers_every_repository_mcp(fleet):
     assert toolhive_fleet.validate_fleet(fleet) == []
     assert len(fleet["servers"]) == 18
-    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 13
-    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 5
+    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 14
+    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 4
 
 
 def test_runtime_and_package_drift_fail_closed(fleet):
@@ -80,6 +80,21 @@ def test_arxiv_plan_pins_python_constraint_and_mount_placeholder(fleet):
     assert argv[argv.index("--build-with") + 1] == "mcp>=1.27,<2"
     assert argv[argv.index("--volume") + 1] == "${ARXIV_DATA_DIR}:/data/papers"
     assert argv[-3:] == ["--", "--storage-path", "/data/papers"]
+
+
+def test_jina_uses_direct_remote_with_secret_backed_authorization(fleet):
+    jina = next(server for server in fleet["servers"] if server["name"] == "mcp-jina")
+
+    argv = toolhive_fleet.workload_argv(fleet, jina)
+
+    assert "mcp-remote" not in " ".join(argv)
+    assert argv[-1] == "https://mcp.jina.ai/v1"
+    flag = argv.index("--remote-forward-headers-secret")
+    assert argv[flag + 1] == "Authorization=JINA_AUTHORIZATION"
+    assert "--secret" not in argv
+    assert toolhive_fleet.render_plan(fleet, [jina])["environment"][
+        "required_secret_variables"
+    ] == ["TOOLHIVE_SECRET_JINA_AUTHORIZATION"]
 
 
 def test_exec_requires_runtime_environment(fleet, monkeypatch):

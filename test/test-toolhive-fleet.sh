@@ -170,4 +170,28 @@ npx --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
     --quiet --format json --no-telemetry |
     "$JQ_BIN" -e '.status == "ready"' >/dev/null
 
-echo "PASS: ToolHive ${TOOLHIVE_VERSION} Node 26/Python 3.14 contracts, MCPJam probes, and filtering"
+"$THV_BIN" rm "$WORKLOAD"
+WORKLOAD="${WORKLOAD}-jina"
+PORT="${TOOLHIVE_JINA_TEST_PORT:-19192}"
+export TOOLHIVE_SECRET_JINA_AUTHORIZATION="Bearer test-not-a-real-key"
+python3 "${ROOT}/scripts/toolhive-fleet.py" \
+    --fleet "$FLEET" exec \
+    --server mcp-jina \
+    --thv-bin "$THV_BIN" \
+    --name "$WORKLOAD" \
+    --port "$PORT"
+wait_for_workload
+python3 "${ROOT}/scripts/mcp-contract.py" \
+    --url "http://127.0.0.1:${PORT}/mcp" \
+    --verify "${ROOT}/mcp-contracts/mcp-jina.json"
+npx --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+    --url "http://127.0.0.1:${PORT}/mcp" \
+    --quiet --format json --no-telemetry |
+    "$JQ_BIN" -e '.status == "ready"' >/dev/null
+if rg -F "test-not-a-real-key" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" 2>/dev/null; then
+    echo "ERROR: ToolHive persisted or logged a remote header secret value" >&2
+    exit 1
+fi
+unset TOOLHIVE_SECRET_JINA_AUTHORIZATION
+
+echo "PASS: ToolHive ${TOOLHIVE_VERSION} Node 26/Python 3.14/direct-remote contracts, MCPJam probes, and filtering"
