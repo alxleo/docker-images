@@ -158,6 +158,43 @@ if [[ -n "${TOOLHIVE_REDDIT_IMAGE:-}" ]]; then
     exit 0
 fi
 
+if [[ -n "${TOOLHIVE_SUBSTACK_IMAGE:-}" ]]; then
+    WORKLOAD="${WORKLOAD}-substack"
+    PORT="${TOOLHIVE_SUBSTACK_TEST_PORT:-19194}"
+    export SUBSTACK_USERNAME=""
+    export TOOLHIVE_SECRET_SUBSTACK_EMAIL="test@example.invalid"
+    export TOOLHIVE_SECRET_SUBSTACK_PASSWORD="not-a-real-password"
+    if ! docker network inspect crawl4ai-net >/dev/null 2>&1; then
+        docker network create crawl4ai-net >/dev/null
+        CREATED_NETWORK=crawl4ai-net
+    fi
+    python3 "${ROOT}/scripts/toolhive-fleet.py" \
+        --fleet "$FLEET" exec \
+        --server mcp-substack \
+        --thv-bin "$THV_BIN" \
+        --name "$WORKLOAD" \
+        --port "$PORT" \
+        --source-reference "$TOOLHIVE_SUBSTACK_IMAGE"
+    wait_for_workload
+    python3 "${ROOT}/scripts/mcp-contract.py" \
+        --url "http://127.0.0.1:${PORT}/mcp" \
+        --verify "${ROOT}/mcp-contracts/mcp-substack.json"
+    "$NPX_BIN" --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+        --url "http://127.0.0.1:${PORT}/mcp" \
+        --quiet --format json --no-telemetry |
+        "$JQ_BIN" -e '.status == "ready"' >/dev/null
+    curl -fsS -X POST "http://127.0.0.1:${PORT}/mcp" \
+        -H 'Content-Type: application/json' \
+        -H 'Accept: application/json, text/event-stream' \
+        --data '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"list_subscriptions","arguments":{}}}' |
+        "$JQ_BIN" -e '
+            .result.isError == false and
+            any(.result.content[]; .text == "Error: SUBSTACK_USERNAME not set")
+        ' >/dev/null
+    echo "PASS: exact Substack image through ToolHive ${TOOLHIVE_VERSION}, MCPJam ${MCPJAM_VERSION}, and tools/call"
+    exit 0
+fi
+
 run_hackernews
 python3 "${ROOT}/scripts/mcp-contract.py" \
     --url "http://127.0.0.1:${PORT}/mcp" \

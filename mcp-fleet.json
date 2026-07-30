@@ -265,9 +265,10 @@
     {
       "name": "mcp-substack",
       "port": 19117,
-      "state": "legacy-wrapper",
-      "remove_when": "mcp-substack has a locked Python project and ToolHive runs its stdio entrypoint",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-substack:1.0.0", "target_port": 29117},
+      "state": "ready",
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-substack:1.1.0", "target_port": 29117},
+      "contract": "mcp-contracts/mcp-substack.json",
+      "allow_tools": ["get_post", "list_posts", "list_subscriptions", "search_posts"],
       "environment": [
         {"name": "MCP_PORT", "value": "29117"},
         {"name": "SUBSTACK_USERNAME", "required": true}

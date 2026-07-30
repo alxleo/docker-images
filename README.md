@@ -25,9 +25,9 @@ The shared legacy images follow this pattern:
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
 - Health: `GET /ping` on port `8080` (from `mcp-proxy`, validated by CI)
 
-Custom servers can instead expose native Streamable HTTP. `mcp-reddit` does so
-on `/mcp`, with a protocol-aware container healthcheck and no Node.js proxy or
-filter packages.
+Custom servers can instead expose native Streamable HTTP. `mcp-reddit` and
+`mcp-substack` do so on `/mcp`, with protocol-aware image tests and no Node.js
+proxy or filter packages.
 
 ## ToolHive MCP Fleet
 
