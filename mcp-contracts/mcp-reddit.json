@@ -1,0 +1,17 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:af9e9291fe89e92e86316ed2475006223c38f1ab3840d5dcbaabb6b7b5f4c69c",
+      "name": "browse_subreddit"
+    },
+    {
+      "input_schema_sha256": "sha256:dc92212d11ccf7de43487eca56735bba30f736e06eb3accf6cd7a1bfe891edf3",
+      "name": "read_thread"
+    },
+    {
+      "input_schema_sha256": "sha256:70a5eeeb6c2a4452292ba3f4cb8f878715440ff7178fb6462a3cd01c44eb6562",
+      "name": "search_reddit"
+    }
+  ]
+}

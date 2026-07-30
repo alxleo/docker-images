@@ -8,11 +8,19 @@ JQ_BIN="${JQ_BIN:-/usr/bin/jq}"
 if [[ ! -x "$JQ_BIN" ]]; then
     JQ_BIN=$(command -v jq)
 fi
+if [[ -z "${NPX_BIN:-}" ]]; then
+    if command -v mise >/dev/null 2>&1; then
+        NPX_BIN=$(mise which npx)
+    else
+        NPX_BIN=$(command -v npx)
+    fi
+fi
 TOOLHIVE_VERSION=$("$JQ_BIN" -er '.toolhive_version' "$FLEET")
 MCPJAM_VERSION=$("$JQ_BIN" -er '.mcpjam_version' "$FLEET")
 WORKLOAD="docker-images-toolhive-test-$$"
 PORT="${TOOLHIVE_TEST_PORT:-19190}"
 TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/docker-images-toolhive.XXXXXX")
+CREATED_NETWORK=""
 export XDG_CONFIG_HOME="${TEMP_DIR}/config"
 export XDG_DATA_HOME="${TEMP_DIR}/data"
 export XDG_STATE_HOME="${TEMP_DIR}/state"
@@ -26,6 +34,9 @@ cleanup() {
             docker container rm --force "$container" >/dev/null
         fi
     done
+    if [[ -n "$CREATED_NETWORK" ]]; then
+        docker network remove "$CREATED_NETWORK" >/dev/null 2>&1 || true
+    fi
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
@@ -120,11 +131,38 @@ if ! "$THV_BIN" version | grep -Fq "ToolHive v${TOOLHIVE_VERSION}"; then
 fi
 "$THV_BIN" group create homelab >/dev/null
 
+if [[ -n "${TOOLHIVE_REDDIT_IMAGE:-}" ]]; then
+    WORKLOAD="${WORKLOAD}-reddit"
+    PORT="${TOOLHIVE_REDDIT_TEST_PORT:-19193}"
+    export SEARXNG_URL="${SEARXNG_URL:-http://127.0.0.1:9}"
+    if ! docker network inspect mcp-network >/dev/null 2>&1; then
+        docker network create mcp-network >/dev/null
+        CREATED_NETWORK=mcp-network
+    fi
+    python3 "${ROOT}/scripts/toolhive-fleet.py" \
+        --fleet "$FLEET" exec \
+        --server mcp-reddit \
+        --thv-bin "$THV_BIN" \
+        --name "$WORKLOAD" \
+        --port "$PORT" \
+        --source-reference "$TOOLHIVE_REDDIT_IMAGE"
+    wait_for_workload
+    python3 "${ROOT}/scripts/mcp-contract.py" \
+        --url "http://127.0.0.1:${PORT}/mcp" \
+        --verify "${ROOT}/mcp-contracts/mcp-reddit.json"
+    "$NPX_BIN" --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+        --url "http://127.0.0.1:${PORT}/mcp" \
+        --quiet --format json --no-telemetry |
+        "$JQ_BIN" -e '.status == "ready"' >/dev/null
+    echo "PASS: exact Reddit image through ToolHive ${TOOLHIVE_VERSION} and MCPJam ${MCPJAM_VERSION}"
+    exit 0
+fi
+
 run_hackernews
 python3 "${ROOT}/scripts/mcp-contract.py" \
     --url "http://127.0.0.1:${PORT}/mcp" \
     --verify "${ROOT}/mcp-contracts/mcp-hackernews.json"
-npx --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+"$NPX_BIN" --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
     --url "http://127.0.0.1:${PORT}/mcp" \
     --quiet --format json --no-telemetry |
     "$JQ_BIN" -e '.status == "ready"' >/dev/null
@@ -165,7 +203,7 @@ wait_for_workload
 python3 "${ROOT}/scripts/mcp-contract.py" \
     --url "http://127.0.0.1:${PORT}/mcp" \
     --verify "${ROOT}/mcp-contracts/mcp-arxiv.json"
-npx --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+"$NPX_BIN" --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
     --url "http://127.0.0.1:${PORT}/mcp" \
     --quiet --format json --no-telemetry |
     "$JQ_BIN" -e '.status == "ready"' >/dev/null
@@ -184,7 +222,7 @@ wait_for_workload
 python3 "${ROOT}/scripts/mcp-contract.py" \
     --url "http://127.0.0.1:${PORT}/mcp" \
     --verify "${ROOT}/mcp-contracts/mcp-jina.json"
-npx --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+"$NPX_BIN" --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
     --url "http://127.0.0.1:${PORT}/mcp" \
     --quiet --format json --no-telemetry |
     "$JQ_BIN" -e '.status == "ready"' >/dev/null

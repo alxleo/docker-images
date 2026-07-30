@@ -26,10 +26,12 @@ Two credential-free backends replace it, each doing what it's best at:
 ## Run
 
 ```bash
-SEARXNG_URL=http://localhost:8888 uv run --no-project --with mcp --with httpx python server.py
+SEARXNG_URL=http://localhost:8888 uv run --frozen python server.py
 ```
 
-Ships as `ghcr.io/alxleo/mcp-reddit:latest` — mcp-proxy HTTP bridge on :8080 with `/ping`.
+Ships as `ghcr.io/alxleo/mcp-reddit:latest` with native Streamable HTTP at
+`http://localhost:8080/mcp`. Dependencies are locked and the runtime is Python
+3.14; Node.js, `mcp-proxy`, and `mcp-filter` are not present.
 `SEARXNG_URL` defaults to `http://searxng:8080` (the homelab SearXNG on `mcp-network`).
 
 ## Search

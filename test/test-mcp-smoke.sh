@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# MCP image smoke test — validates entrypoint.py → mcp-proxy → MCP server chain
+# MCP image smoke test — validates an image's Streamable HTTP endpoint
 #
 # Usage: ./test-mcp-smoke.sh <container-name> <port> [contract-lock]
 #
 # Checks:
 #   1. Container is running
-#   2. GET /ping → 200 "pong" (mcp-proxy health)
+#   2. POST /mcp initialize becomes reachable
 #   3. POST /mcp initialize → JSON-RPC response with capabilities
 #   4. POST /mcp tools/list → response with tools array
 #
@@ -34,28 +34,38 @@ check() {
 RUNNING=$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null) || true
 check "Container is running" test "$RUNNING" = "true"
 
-# --- Check 2: Health endpoint ---
-echo "Waiting for mcp-proxy to be ready..."
+# --- Check 2: Protocol readiness ---
+echo "Waiting for MCP initialize to become ready..."
 READY=false
 for _ in $(seq 1 60); do
-    if curl -sf "${BASE}/ping" >/dev/null 2>&1; then
+    if curl -sf --max-time 2 -X POST "${BASE}/mcp" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json, text/event-stream" \
+        -d '{
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "smoke-readiness", "version": "1.0"}
+            }
+        }' >/dev/null 2>&1; then
         READY=true
         break
     fi
     sleep 1
 done
 if [[ "$READY" != "true" ]]; then
-    echo "FAIL: mcp-proxy never became ready (60s timeout)"
+    echo "FAIL: MCP initialize never became ready (60s timeout)"
     echo "Container logs:"
     docker logs "$CONTAINER" 2>&1 | tail -30
     exit 1
 fi
-
-PING_BODY=$(curl -sf "${BASE}/ping")
-check "GET /ping returns pong" test "$PING_BODY" = "pong"
+check "MCP endpoint accepts initialize" test "$READY" = "true"
 
 # Extract JSON from MCP response (handles both SSE and plain JSON)
-# mcp-proxy returns text/event-stream with data: {json} lines
+# MCP servers may return text/event-stream with data: {json} lines
 extract_json() {
     local raw="$1"
     local sse_json
