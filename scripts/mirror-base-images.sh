@@ -24,7 +24,6 @@ images=(
     "golang:1.26-bookworm"
     "node:26-alpine"
     "node:26-slim"
-    "python:3.13-alpine"
     "python:3.14-alpine"
     "python:3.14-slim"
 )

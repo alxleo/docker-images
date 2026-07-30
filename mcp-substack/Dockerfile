@@ -10,11 +10,11 @@
 # Paid content: delegates to crawl4ai (same Docker network) for JS rendering.
 
 # Stage 1: Install uv
-FROM ghcr.io/alxleo/base-images/python:3.13-alpine AS build
+FROM ghcr.io/alxleo/base-images/python:3.14-alpine AS build
 RUN pip install --no-cache-dir uv==0.12.0
 
 # Stage 2: Runtime
-FROM ghcr.io/alxleo/base-images/python:3.13-alpine
+FROM ghcr.io/alxleo/base-images/python:3.14-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 # Healthcheck binary: 75KB static C/musl, localhost-only by design
@@ -22,7 +22,7 @@ COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install Node.js for mcp-proxy (HTTP bridge)
 ARG MCP_PROXY_VERSION=6.5.4
-RUN apk add --no-cache nodejs npm \
+RUN apk add --no-cache nodejs-current npm \
     && npm install -g mcp-proxy@${MCP_PROXY_VERSION} \
     && apk del npm
 
@@ -47,8 +47,8 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
 
 # Create a matching uid=1000/gid=1000 app user. The base image here,
-# ghcr.io/alxleo/base-images/python:3.13-alpine (derived from upstream
-# python:3.13-alpine), doesn't ship one (unlike node:24-alpine), so
+# ghcr.io/alxleo/base-images/python:3.14-alpine (derived from upstream
+# python:3.14-alpine), doesn't ship one (unlike node:26-alpine), so
 # USER 1000 was running with gid=0 (root) and couldn't read Docker secrets
 # group-owned by gid=1000. Addresses
 # "cat: can't open /run/secrets/substack_*: Permission denied".
