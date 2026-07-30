@@ -1,0 +1,17 @@
+{
+  "lock_version": 1,
+  "tools": [
+    {
+      "input_schema_sha256": "sha256:3a41d1a483a8c75a6f0d2e15cd1952238043cd1a93117f65c78c5497bfd5d8ff",
+      "name": "get_timed_transcript"
+    },
+    {
+      "input_schema_sha256": "sha256:b7d5f758640f1806161a1d6811d40cbad057f539421a8600a14b5a26974f73ba",
+      "name": "get_transcript"
+    },
+    {
+      "input_schema_sha256": "sha256:fb74825cad9ac601ff0d0063fce98a82bc5527ac88b3de49098a41e31edbe1ae",
+      "name": "get_video_info"
+    }
+  ]
+}

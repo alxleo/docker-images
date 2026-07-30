@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP image smoke test — validates entrypoint.py → mcp-proxy → MCP server chain
 #
-# Usage: ./test-mcp-smoke.sh <container-name> <port>
+# Usage: ./test-mcp-smoke.sh <container-name> <port> [contract-lock]
 #
 # Checks:
 #   1. Container is running
@@ -15,6 +15,7 @@ set -euo pipefail
 
 CONTAINER="${1:?Usage: $0 <container-name> <port>}"
 PORT="${2:?Usage: $0 <container-name> <port>}"
+CONTRACT_LOCK="${3:-}"
 BASE="http://localhost:${PORT}"
 FAIL=0
 
@@ -117,6 +118,12 @@ else
         if [[ -n "$TOOLS_JSON" ]]; then
             TOOL_COUNT=$(echo "$TOOLS_JSON" | jq -r '.result.tools | length' 2>/dev/null)
             check "tools/list returns tools (count: ${TOOL_COUNT:-0})" test "${TOOL_COUNT:-0}" -gt 0
+            if [[ -n "$CONTRACT_LOCK" ]]; then
+                check "MCP tool contract matches lock" \
+                    python3 "$(dirname "$0")/../scripts/mcp-contract.py" \
+                    --url "${BASE}/mcp" \
+                    --verify "$CONTRACT_LOCK"
+            fi
         else
             echo "FAIL: tools/list — no response"
             FAIL=1

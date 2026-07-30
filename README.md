@@ -87,6 +87,22 @@ same declared image checks and protocol smoke tests against the exact image it
 just built. MCPJam remains useful as an independent local or deployed protocol
 doctor when a server needs interactive inspection.
 
+Smokeable MCP images may also declare a checked-in `contract`. The exact-image
+test then requires the normalized tool names and input-schema hashes to match.
+Verify the same lock against any Streamable HTTP endpoint, including a ToolHive
+replacement:
+
+```bash
+python3 scripts/mcp-contract.py \
+  --url http://127.0.0.1:8080/mcp \
+  --verify mcp-contracts/mcp-hackernews.json
+```
+
+Capture a reviewed baseline with `--capture <path>`. MCPJam's CLI is the
+independent protocol oracle (`server doctor`, `tools list`, and harmless
+`tools call`); the checked-in normalizer remains deterministic and dependency
+free.
+
 Local prerequisites are Docker, `just`, `jq`, `uv`, and `conftest`. Targeted
 image tests may require additional tools named by their test commands (for
 example npm or ripgrep). CI-only `test_setup` commands are not run locally.

@@ -1,0 +1,104 @@
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SPEC = importlib.util.spec_from_file_location(
+    "mcp_contract", REPO_ROOT / "scripts" / "mcp-contract.py"
+)
+assert SPEC and SPEC.loader
+mcp_contract = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(mcp_contract)
+
+
+def test_normalize_tools_is_order_and_key_order_independent():
+    first = [
+        {
+            "name": "zeta",
+            "description": "ignored",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "minLength": 1}},
+            },
+        },
+        {"name": "alpha", "inputSchema": {"type": "object"}},
+    ]
+    second = [
+        {"inputSchema": {"type": "object"}, "name": "alpha"},
+        {
+            "inputSchema": {
+                "properties": {"query": {"minLength": 1, "type": "string"}},
+                "type": "object",
+            },
+            "name": "zeta",
+        },
+    ]
+
+    assert mcp_contract.normalize_tools(first) == mcp_contract.normalize_tools(second)
+    assert [
+        tool["name"] for tool in mcp_contract.normalize_tools(first)["tools"]
+    ] == ["alpha", "zeta"]
+
+
+def test_normalize_tools_rejects_duplicate_names():
+    with pytest.raises(mcp_contract.ContractError, match="duplicate tool name"):
+        mcp_contract.normalize_tools([{"name": "same"}, {"name": "same"}])
+
+
+def test_compare_contracts_reports_added_removed_and_changed():
+    expected = {
+        "lock_version": 1,
+        "tools": [
+            {"name": "changed", "input_schema_sha256": "sha256:old"},
+            {"name": "removed", "input_schema_sha256": "sha256:same"},
+        ],
+    }
+    actual = {
+        "lock_version": 1,
+        "tools": [
+            {"name": "added", "input_schema_sha256": "sha256:new"},
+            {"name": "changed", "input_schema_sha256": "sha256:new"},
+        ],
+    }
+
+    assert mcp_contract.compare_contracts(expected, actual) == [
+        "missing tool: removed",
+        "unexpected tool: added",
+        "schema changed: changed (sha256:old -> sha256:new)",
+    ]
+
+
+def test_extract_json_accepts_plain_json_and_sse():
+    payload = {"jsonrpc": "2.0", "id": 1, "result": {"tools": []}}
+    encoded = json.dumps(payload).encode()
+
+    assert mcp_contract._extract_json("application/json", encoded) == payload
+    assert (
+        mcp_contract._extract_json("text/event-stream", b"event: message\ndata: " + encoded)
+        == payload
+    )
+
+
+def test_list_tools_follows_pagination(monkeypatch):
+    client = mcp_contract.MCPClient("http://example.test/mcp")
+    pages = iter(
+        [
+            {"tools": [{"name": "first"}], "nextCursor": "page-2"},
+            {"tools": [{"name": "second"}]},
+        ]
+    )
+    requests = []
+
+    def fake_request(method, params):
+        requests.append((method, params))
+        return next(pages)
+
+    monkeypatch.setattr(client, "_request", fake_request)
+
+    assert client.list_tools() == [{"name": "first"}, {"name": "second"}]
+    assert requests == [
+        ("tools/list", {}),
+        ("tools/list", {"cursor": "page-2"}),
+    ]

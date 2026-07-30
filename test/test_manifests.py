@@ -95,6 +95,35 @@ class TestMCPImagesManifest:
                     assert value.startswith("test-"), (
                         f"{entry['name']}: smoke_env values must be obvious test fixtures"
                     )
+            if "contract" in entry:
+                assert isinstance(entry["contract"], str) and entry["contract"], (
+                    f"{entry['name']}: contract must be a non-empty path"
+                )
+                assert (
+                    not entry.get("secrets") or entry.get("smoke_env")
+                ), f"{entry['name']}: contract requires a credential-safe smoke path"
+                contract_path = REPO_ROOT / entry["contract"]
+                assert contract_path.is_file(), (
+                    f"{entry['name']}: contract does not exist: {entry['contract']}"
+                )
+                contract = json.loads(contract_path.read_text())
+                assert contract.get("lock_version") == 1, (
+                    f"{entry['name']}: unsupported MCP contract lock version"
+                )
+                assert contract.get("tools"), (
+                    f"{entry['name']}: MCP contract must contain tools"
+                )
+                assert all(isinstance(tool, dict) for tool in contract["tools"]), (
+                    f"{entry['name']}: MCP contract tools must be objects"
+                )
+                names = [tool.get("name") for tool in contract["tools"]]
+                assert names == sorted(names) and len(names) == len(set(names)), (
+                    f"{entry['name']}: MCP contract tool names must be unique and sorted"
+                )
+                assert all(
+                    re.fullmatch(r"sha256:[0-9a-f]{64}", tool.get("input_schema_sha256", ""))
+                    for tool in contract["tools"]
+                ), f"{entry['name']}: MCP contract schema hashes must be SHA-256"
 
 
 # =========================================================================
