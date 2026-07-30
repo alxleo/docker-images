@@ -9,7 +9,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | Image | Why | Remove when |
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + tailscale plugins | Never (plugins aren't in upstream) |
-| `cadvisor` | Built from source (Docker 29+ compat fix) | Review now: homelab retired cAdvisor in July 2026 |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `pr-reviewer` | AI PR reviewer with Claude/Gemini/Codex CLIs | Never (custom multi-model engine) |
 | `semaphore` | Semaphore UI + homelab tools (sops, age, dig, jq, rsync) | Never (tooling layer always needed) |

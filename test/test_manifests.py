@@ -216,7 +216,6 @@ class TestCustomImagesManifest:
         assert selected("test/test-native-mcp-image-smoke.sh") == {"mcp-reddit"}
         assert selected("test/test_custom_images.py") == {
             "caddy-cloudflare",
-            "cadvisor",
             "mcp-auth-proxy",
         }
         assert selected("docs-hub/package.json") == {"docs-hub"}

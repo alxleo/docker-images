@@ -2,7 +2,7 @@
 Functional tests for custom-built Docker images.
 
 Each image gets validation beyond build + Trivy scan. Tests use pytest
-marks so CI jobs run only the relevant subset (e.g., pytest -m cadvisor).
+marks so CI jobs run only the relevant subset.
 
 The generic IMAGE_NAME/IMAGE_REF pair targets the image built by the current
 CI or local test job. Image-specific environment variables remain available
@@ -14,7 +14,6 @@ import os
 import subprocess
 
 import pytest
-import requests
 
 REGISTRY = "ghcr.io/alxleo"
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -52,7 +51,6 @@ def _get_image_tag(env_var: str, image_name: str) -> str:
 
 
 @pytest.mark.caddy_cloudflare
-@pytest.mark.cadvisor
 @pytest.mark.mcp_auth_proxy
 class TestImageReferenceResolution:
     """Prevent functional tests from silently exercising an older GHCR image."""
@@ -115,44 +113,6 @@ class TestCaddyCloudflare:
         )
         assert result.returncode == 0
         assert result.stdout.strip().startswith("v2.")
-
-
-# =========================================================================
-# cadvisor
-# =========================================================================
-
-
-@pytest.mark.cadvisor
-class TestCadvisor:
-    """Validate cAdvisor starts and serves metrics API."""
-
-    IMAGE = _get_image_tag("TEST_CADVISOR_TAG", "cadvisor")
-
-    def test_cadvisor_starts(self, run_container):
-        """cAdvisor container starts and becomes healthy."""
-        run_container(
-            self.IMAGE,
-            "test-cadvisor",
-            ports={"18080": "8080"},
-            volumes=["/var/run/docker.sock:/var/run/docker.sock:ro"],
-            health_url="http://localhost:18080/healthz",
-            timeout=30,
-        )
-
-    def test_cadvisor_machine_api(self, run_container):
-        """cAdvisor /api/v1.3/machine returns machine info."""
-        run_container(
-            self.IMAGE,
-            "test-cadvisor-api",
-            ports={"18081": "8080"},
-            volumes=["/var/run/docker.sock:/var/run/docker.sock:ro"],
-            health_url="http://localhost:18081/healthz",
-            timeout=30,
-        )
-        r = requests.get("http://localhost:18081/api/v1.3/machine", timeout=5)
-        assert r.status_code == 200
-        data = r.json()
-        assert "num_cores" in data
 
 
 # =========================================================================
