@@ -22,7 +22,10 @@ jq -c \
                     ) or
                     any(
                         ($image.watch_paths // [])[];
-                        . as $watch |
+                        (
+                            sub("^\\./"; "") |
+                            sub("/+$"; "")
+                        ) as $watch |
                             any(
                                 $changed[];
                                 . == $watch or startswith($watch + "/")

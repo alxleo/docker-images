@@ -190,14 +190,12 @@ class TestCustomImagesManifest:
                 )
 
     def test_changed_image_selection(self):
-        matrix = json.dumps(CUSTOM_IMAGES)
-
-        def selected(*paths, ci_changed=False):
+        def selected(*paths, ci_changed=False, matrix_data=CUSTOM_IMAGES):
             result = subprocess.run(
                 [
                     "bash",
                     str(REPO_ROOT / "scripts" / "select-custom-images.sh"),
-                    matrix,
+                    json.dumps(matrix_data),
                     json.dumps(paths),
                     str(ci_changed).lower(),
                 ],
@@ -219,6 +217,13 @@ class TestCustomImagesManifest:
         assert selected("README.md", ci_changed=True) == {
             entry["name"] for entry in CUSTOM_IMAGES
         }
+
+        reddit = next(entry for entry in CUSTOM_IMAGES if entry["name"] == "mcp-reddit")
+        for watch_path in ("./test/test-mcp-smoke.sh", "test/"):
+            watched_reddit = {**reddit, "watch_paths": [watch_path]}
+            assert selected(
+                "test/test-mcp-smoke.sh", matrix_data=[watched_reddit]
+            ) == {"mcp-reddit"}
 
 
 # =========================================================================
