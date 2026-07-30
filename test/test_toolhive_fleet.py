@@ -25,8 +25,8 @@ def fleet():
 def test_fleet_covers_every_repository_mcp(fleet):
     assert toolhive_fleet.validate_fleet(fleet) == []
     assert len(fleet["servers"]) == 18
-    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 14
-    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 4
+    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 15
+    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 3
 
 
 def test_runtime_and_package_drift_fail_closed(fleet):
@@ -103,6 +103,31 @@ def test_exec_requires_runtime_environment(fleet, monkeypatch):
 
     with pytest.raises(toolhive_fleet.FleetError, match="SEARXNG_URL is unset"):
         toolhive_fleet.workload_argv(fleet, searxng, resolve_environment=True)
+
+
+def test_oci_workloads_use_distinct_target_ports(fleet):
+    oci_servers = [server for server in fleet["servers"] if server["source"]["type"] == "oci"]
+    target_ports = [server["source"]["target_port"] for server in oci_servers]
+
+    assert len(target_ports) == len(set(target_ports))
+    assert not set(target_ports) & {server["port"] for server in fleet["servers"]}
+    for server in oci_servers:
+        argv = toolhive_fleet.workload_argv(fleet, server)
+        target_port = str(server["source"]["target_port"])
+        assert argv[argv.index("--target-port") + 1] == target_port
+        assert f"MCP_PORT={target_port}" in argv
+
+
+def test_oci_source_can_be_overridden_for_exact_local_image_testing(fleet):
+    reddit = next(server for server in fleet["servers"] if server["name"] == "mcp-reddit")
+
+    argv = toolhive_fleet.workload_argv(
+        fleet,
+        reddit,
+        source_override="docker-images-local/mcp-reddit:test",
+    )
+
+    assert argv[-1] == "docker-images-local/mcp-reddit:test"
 
 
 def test_tool_override_is_rendered_as_repeated_filter_flags(fleet):

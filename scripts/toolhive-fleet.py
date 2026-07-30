@@ -100,6 +100,7 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
     expected_names = set(shared_entries) | {"mcp-reddit", "mcp-substack"}
     actual_names: list[str] = []
     ports: list[int] = []
+    target_ports: list[int] = []
 
     for index, server in enumerate(servers):
         where = f"servers[{index}]"
@@ -146,6 +147,8 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
             target_port = source.get("target_port")
             if not isinstance(target_port, int) or not 1 <= target_port <= 65535:
                 errors.append(f"{where}: OCI source requires target_port")
+            else:
+                target_ports.append(target_port)
         elif source_type == "remote":
             url = source.get("url")
             if not isinstance(url, str) or not url.startswith("https://"):
@@ -182,7 +185,11 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
             if (
                 not isinstance(env_var, dict)
                 or not ENV_PATTERN.fullmatch(env_var.get("name", ""))
-                or not isinstance(env_var.get("required"), bool)
+                or (
+                    not isinstance(env_var.get("required"), bool)
+                    and not isinstance(env_var.get("value"), str)
+                )
+                or ("required" in env_var and "value" in env_var)
             ):
                 errors.append(f"{where}: invalid environment entry")
 
@@ -257,6 +264,14 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
         errors.append(f"duplicate server names: {duplicate_names}")
     if duplicate_ports:
         errors.append(f"duplicate ports: {duplicate_ports}")
+    duplicate_target_ports = sorted(
+        {port for port in target_ports if target_ports.count(port) > 1}
+    )
+    if duplicate_target_ports:
+        errors.append(f"duplicate OCI target ports: {duplicate_target_ports}")
+    overlapping_ports = sorted(set(ports) & set(target_ports))
+    if overlapping_ports:
+        errors.append(f"OCI target ports overlap fleet proxy ports: {overlapping_ports}")
     if set(actual_names) != expected_names:
         errors.append(
             "fleet coverage differs from repository MCPs: "
@@ -286,6 +301,7 @@ def workload_argv(
     host: str | None = None,
     allowed_origins: list[str] | None = None,
     resolve_environment: bool = False,
+    source_override: str | None = None,
 ) -> list[str]:
     source = server["source"]
     source_type = source["type"]
@@ -355,6 +371,9 @@ def workload_argv(
         )
     for env_var in server.get("environment", []):
         env_name = env_var["name"]
+        if "value" in env_var:
+            argv.extend(["--env", f"{env_name}={env_var['value']}"])
+            continue
         value = os.environ.get(env_name)
         if resolve_environment and env_var.get("required") and value is None:
             raise FleetError(f"{server['name']}: required environment variable {env_name} is unset")
@@ -371,7 +390,9 @@ def workload_argv(
     for tool in tools if tools is not None else server.get("allow_tools", []):
         argv.extend(["--tools", tool])
 
-    argv.append(source_reference(source))
+    if source_override and source_type != "oci":
+        raise FleetError("source overrides are supported only for OCI workloads")
+    argv.append(source_override or source_reference(source))
     if server.get("args"):
         argv.append("--")
         argv.extend(server["args"])
@@ -458,6 +479,7 @@ def build_parser() -> argparse.ArgumentParser:
     execute.add_argument("--tool", action="append")
     execute.add_argument("--host")
     execute.add_argument("--allowed-origin", action="append", default=[])
+    execute.add_argument("--source-reference")
     return parser
 
 
@@ -533,6 +555,7 @@ def main() -> int:
                 host=args.host,
                 allowed_origins=args.allowed_origin,
                 resolve_environment=True,
+                source_override=args.source_reference,
             )
             return subprocess.run(argv, check=False, env=execution_env).returncode
     except FleetError as exc:

@@ -165,7 +165,8 @@
       "port": 19111,
       "state": "legacy-wrapper",
       "remove_when": "the Git dependency is represented by a locked Python project",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.5.14", "target_port": 8080},
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.5.14", "target_port": 29111},
+      "environment": [{"name": "MCP_PORT", "value": "29111"}],
       "contract": "mcp-contracts/mcp-youtube.json",
       "allow_tools": ["get_timed_transcript", "get_transcript", "get_video_info"]
     },
@@ -202,7 +203,8 @@
       "port": 19113,
       "state": "legacy-wrapper",
       "remove_when": "the Git dependency is represented by a locked Python project",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-zen:9.8.2", "target_port": 8080},
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-zen:9.8.2", "target_port": 29113},
+      "environment": [{"name": "MCP_PORT", "value": "29113"}],
       "secrets": [
         {"name": "GOOGLE_API_KEY", "target": "GOOGLE_API_KEY"},
         {"name": "OPENAI_API_KEY", "target": "OPENAI_API_KEY"}
@@ -249,10 +251,14 @@
     {
       "name": "mcp-reddit",
       "port": 19116,
-      "state": "legacy-wrapper",
-      "remove_when": "mcp-reddit has a locked Python project and ToolHive runs its stdio entrypoint",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-reddit:1.3.0", "target_port": 8080},
-      "environment": [{"name": "SEARXNG_URL", "required": true}],
+      "state": "ready",
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-reddit:1.3.0", "target_port": 29116},
+      "contract": "mcp-contracts/mcp-reddit.json",
+      "allow_tools": ["browse_subreddit", "read_thread", "search_reddit"],
+      "environment": [
+        {"name": "MCP_PORT", "value": "29116"},
+        {"name": "SEARXNG_URL", "required": true}
+      ],
       "network": "mcp-network",
       "isolate_network": false
     },
@@ -261,8 +267,11 @@
       "port": 19117,
       "state": "legacy-wrapper",
       "remove_when": "mcp-substack has a locked Python project and ToolHive runs its stdio entrypoint",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-substack:1.0.0", "target_port": 8080},
-      "environment": [{"name": "SUBSTACK_USERNAME", "required": true}],
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-substack:1.0.0", "target_port": 29117},
+      "environment": [
+        {"name": "MCP_PORT", "value": "29117"},
+        {"name": "SUBSTACK_USERNAME", "required": true}
+      ],
       "secrets": [
         {"name": "SUBSTACK_EMAIL", "target": "SUBSTACK_EMAIL"},
         {"name": "SUBSTACK_PASSWORD", "target": "SUBSTACK_PASSWORD"}

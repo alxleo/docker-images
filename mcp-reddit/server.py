@@ -14,7 +14,7 @@ Two credential-free backends, each doing what it's best at:
     own full-text index is under maintenance, so global keyword search runs through
     SearXNG (site:reddit.com) and enriches hits with live post data via Arctic-Shift.
 
-Run (stdio): SEARXNG_URL=http://localhost:8888 uv run --with mcp --with httpx python server.py
+Run (HTTP): SEARXNG_URL=http://localhost:8888 uv run python server.py
 """
 
 from __future__ import annotations
@@ -341,4 +341,10 @@ def browse_subreddit(subreddit: str, limit: int = 25, sort: str = "new") -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(
+        transport="streamable-http",
+        host="0.0.0.0",
+        port=int(os.environ.get("MCP_PORT", "8080")),
+        json_response=True,
+        stateless_http=True,
+    )

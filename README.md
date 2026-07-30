@@ -23,16 +23,21 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 
 ## MCP Service Images
 
-16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json). All follow the same pattern:
+16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
+The shared legacy images follow this pattern:
 - npm-based: `mcp/Dockerfile.npm` | Python-based: `mcp/Dockerfile.python`
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
 - Health: `GET /ping` on port `8080` (from `mcp-proxy`, validated by CI)
+
+Custom servers can instead expose native Streamable HTTP. `mcp-reddit` does so
+on `/mcp`, with a protocol-aware container healthcheck and no Node.js proxy or
+filter packages.
 
 ## ToolHive MCP Fleet
 
 [`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 18
 repository MCPs. It pins ToolHive, MCPJam, Node 26, Python 3.14, packages,
-ports, secret references, networks, mounts, and removal criteria for the four
+ports, secret references, networks, mounts, and removal criteria for the three
 workloads that still depend on a legacy wrapper. Homelab can consume this
 catalog without inheriting image-generation or tool-filter logic; it remains
 responsible for secret values, host paths, Docker networks, supervision, and
