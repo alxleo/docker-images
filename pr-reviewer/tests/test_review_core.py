@@ -449,7 +449,7 @@ class TestRunLensClaude:
         assert "Grep" in tools
         assert "Bash(git log:*)" in tools
         assert "Bash(git blame:*)" in tools
-        assert "Bash(sg:*)" in tools
+        assert "Bash(ast-grep:*)" in tools
         assert "Agent" in tools
         # MUST NOT have unrestricted git access (no commit/push/checkout)
         assert "Bash(git:*)" not in tools

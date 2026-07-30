@@ -1,9 +1,9 @@
 {
   "test_setup": "pip install -q uv && sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep",
   "test_commands": [
-    "docker run --rm $IMAGE_REF sh -c \"claude --version && gh --version && gemini --version && codex --version\"",
-    "docker run --rm $IMAGE_REF python3 -c \"import yaml, json, subprocess, pathlib; print('imports OK')\"",
-    "uv run --with pytest --with pyyaml --with httpx --with grep-ast --with 'tree-sitter-language-pack==1.6.2' -- pytest pr-reviewer/tests/ -v",
+    "docker run --rm $IMAGE_REF sh -c \"claude --version && gh --version && gemini --version && codex --version | grep -F '0.146.0' && glab --version | grep -F '1.110.0' && ast-grep --version | grep -F '0.45.0' && test ! -e /usr/local/bin/sg\"",
+    "docker run --rm $IMAGE_REF python3 -c \"import yaml, json, subprocess, pathlib, jwt; assert jwt.__version__ == '2.13.0'; print('imports OK')\"",
+    "uv run --with pytest --with pyyaml --with httpx --with grep-ast --with 'tree-sitter-language-pack==1.13.7' -- pytest pr-reviewer/tests/ -v -m 'not calibration'",
     "docker run --rm $IMAGE_REF id | grep -q 'uid=1000'",
     "docker volume create test-reviewer-state && docker run --rm --user 0 -v test-reviewer-state:/app/state alpine sh -c 'mkdir -p /app/state && echo root > /app/state/root-owned.json && chown -R 0:0 /app/state' && docker run --rm -v test-reviewer-state:/app/state $IMAGE_REF sh -c 'stat -c %u /app/state/root-owned.json | grep -q 1000 && touch /app/state/new.json && rm /app/state/root-owned.json /app/state/new.json' && docker volume rm test-reviewer-state"
   ]

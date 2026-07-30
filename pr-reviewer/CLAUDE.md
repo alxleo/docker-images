@@ -97,7 +97,7 @@ Prompts are `.md` files — text, not Python. They change independently of logic
 Every `claude -p` call is fully deterministic:
 ```
 claude -p --model sonnet --output-format json \
-  --allowedTools "Read,Glob,Grep,Bash(git log:*),Bash(git blame:*),Bash(git diff:*),Bash(git show:*),Bash(sg:*),WebSearch,WebFetch,Agent" \
+  --allowedTools "Read,Glob,Grep,Bash(git log:*),Bash(git blame:*),Bash(git diff:*),Bash(git show:*),Bash(ast-grep:*),WebSearch,WebFetch,Agent" \
   --max-turns 10 --plugin-dir /app/plugin
 ```
 
