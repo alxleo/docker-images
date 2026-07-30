@@ -52,7 +52,9 @@ def normalize_tools(tools: list[dict[str, Any]]) -> dict[str, Any]:
     return {"lock_version": LOCK_VERSION, "tools": normalized}
 
 
-def _extract_json(content_type: str, body: bytes) -> dict[str, Any]:
+def _extract_json(
+    content_type: str, body: bytes, expected_id: int | None = None
+) -> dict[str, Any]:
     text = body.decode("utf-8")
     candidates = []
     if "text/event-stream" in content_type:
@@ -69,7 +71,9 @@ def _extract_json(content_type: str, body: bytes) -> dict[str, Any]:
             parsed = json.loads(candidate)
         except json.JSONDecodeError:
             continue
-        if isinstance(parsed, dict):
+        if isinstance(parsed, dict) and (
+            expected_id is None or parsed.get("id") == expected_id
+        ):
             return parsed
     raise ContractError(f"MCP endpoint returned no JSON object: {text[:300]}")
 
@@ -123,7 +127,12 @@ class MCPClient:
                 )
             if not body:
                 return None
-            return _extract_json(response.getheader("Content-Type", ""), body)
+            expected_id = payload.get("id")
+            return _extract_json(
+                response.getheader("Content-Type", ""),
+                body,
+                expected_id if isinstance(expected_id, int) else None,
+            )
         except (OSError, http.client.HTTPException) as error:
             raise ContractError(f"MCP request failed: {error}") from error
         finally:

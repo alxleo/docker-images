@@ -104,9 +104,9 @@ jobs:
             ci_changed="true"
           fi
 
-          # MCP changed if mcp/ dir, mcp-images.json, or test/ changed
+          # MCP changed if runtime, manifest, locks, verifier, or tests changed
           mcp_changed="false"
-          if echo "$changed_files" | grep -qE '^(mcp/|mcp-images\.json|test/)'; then
+          if echo "$changed_files" | grep -qE '^(mcp/|mcp-contracts/|mcp-images\.json|scripts/mcp-contract\.py|test/)'; then
             mcp_changed="true"
           fi
 

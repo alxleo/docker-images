@@ -94,6 +94,21 @@ def test_extract_json_accepts_plain_json_and_sse():
     )
 
 
+def test_extract_json_skips_sse_notifications_before_response():
+    response = {"jsonrpc": "2.0", "id": 7, "result": {"tools": []}}
+    body = (
+        b"data: "
+        + json.dumps(
+            {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"}
+        ).encode()
+        + b"\n\ndata: "
+        + json.dumps(response).encode()
+        + b"\n\n"
+    )
+
+    assert mcp_contract._extract_json("text/event-stream", body, expected_id=7) == response
+
+
 def test_list_tools_follows_pagination(monkeypatch):
     client = mcp_contract.MCPClient("http://example.test/mcp")
     pages = iter(

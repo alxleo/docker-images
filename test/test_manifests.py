@@ -57,6 +57,17 @@ class TestMCPImagesManifest:
                 f"{entry['name']}: {entry['dockerfile']} not found in mcp/"
             )
 
+    def test_contract_files_are_all_referenced(self):
+        declared = {entry["contract"] for entry in MCP_IMAGES if entry.get("contract")}
+        present = {
+            str(path.relative_to(REPO_ROOT))
+            for path in (REPO_ROOT / "mcp-contracts").glob("*.json")
+        }
+        assert declared == present, (
+            f"MCP contract drift: missing={sorted(declared - present)}, "
+            f"orphaned={sorted(present - declared)}"
+        )
+
     def test_optional_fields_types(self):
         for entry in MCP_IMAGES:
             if "description" in entry:
