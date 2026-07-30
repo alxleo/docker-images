@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
-import urllib.request
 
 payload = json.dumps(
     {
@@ -19,15 +19,19 @@ payload = json.dumps(
         },
     }
 ).encode()
-request = urllib.request.Request(
-    f"http://127.0.0.1:{os.environ.get('MCP_PORT', '8080')}/mcp",
-    data=payload,
+connection = http.client.HTTPConnection(
+    "127.0.0.1", port=int(os.environ.get("MCP_PORT", "8080")), timeout=4
+)
+connection.request(
+    "POST",
+    "/mcp",
+    body=payload,
     headers={
         "Accept": "application/json, text/event-stream",
         "Content-Type": "application/json",
     },
 )
-with urllib.request.urlopen(request, timeout=4) as response:
+with connection.getresponse() as response:
     result = json.load(response).get("result", {})
 if not isinstance(result.get("capabilities"), dict):
     raise SystemExit("MCP initialize returned no capabilities")
