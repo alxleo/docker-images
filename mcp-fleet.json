@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "toolhive_version": "0.41.0",
+  "mcpjam_version": "3.16.0",
+  "secrets_provider": "environment",
+  "group": "homelab",
+  "defaults": {
+    "host": "127.0.0.1",
+    "proxy_mode": "streamable-http",
+    "isolate_network": true
+  },
+  "runtimes": {
+    "npx": "node:26-alpine",
+    "uvx": "python:3.14-slim"
+  },
+  "servers": [
+    {
+      "name": "mcp-hackernews",
+      "port": 19100,
+      "state": "ready",
+      "source": {"type": "npx", "package": "mcp-hacker-news", "version": "1.0.3"},
+      "contract": "mcp-contracts/mcp-hackernews.json",
+      "allow_tools": [
+        "getAskHNStories",
+        "getBestStories",
+        "getComments",
+        "getItem",
+        "getJobStories",
+        "getMaxItemId",
+        "getNewStories",
+        "getShowHNStories",
+        "getTopStories",
+        "getUpdates",
+        "getUser"
+      ]
+    },
+    {
+      "name": "mcp-brave",
+      "port": 19101,
+      "state": "ready",
+      "source": {"type": "npx", "package": "@brave/brave-search-mcp-server", "version": "2.1.0"},
+      "secrets": [{"name": "BRAVE_API_KEY", "target": "BRAVE_API_KEY"}]
+    },
+    {
+      "name": "mcp-slack",
+      "port": 19102,
+      "state": "ready",
+      "source": {"type": "npx", "package": "slack-mcp-server", "version": "1.3.0"},
+      "secrets": [{"name": "SLACK_MCP_XOXP_TOKEN", "target": "SLACK_MCP_XOXP_TOKEN"}]
+    },
+    {
+      "name": "mcp-tavily",
+      "port": 19103,
+      "state": "ready",
+      "source": {"type": "npx", "package": "tavily-mcp", "version": "0.2.21"},
+      "secrets": [{"name": "TAVILY_API_KEY", "target": "TAVILY_API_KEY"}]
+    },
+    {
+      "name": "mcp-context7",
+      "port": 19104,
+      "state": "ready",
+      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "3.2.5"},
+      "secrets": [{"name": "CONTEXT7_API_KEY", "target": "CONTEXT7_API_KEY"}]
+    },
+    {
+      "name": "mcp-searxng",
+      "port": 19105,
+      "state": "ready",
+      "source": {"type": "npx", "package": "mcp-searxng", "version": "1.12.0"},
+      "environment": [{"name": "SEARXNG_URL", "required": true}],
+      "network": "mcp-network",
+      "isolate_network": false,
+      "contract": "mcp-contracts/mcp-searxng.json",
+      "allow_tools": [
+        "searxng_instance_info",
+        "searxng_search_suggestions",
+        "searxng_web_search",
+        "web_url_read"
+      ]
+    },
+    {
+      "name": "mcp-sequential-thinking",
+      "port": 19106,
+      "state": "ready",
+      "source": {
+        "type": "npx",
+        "package": "@modelcontextprotocol/server-sequential-thinking",
+        "version": "2026.7.4"
+      },
+      "contract": "mcp-contracts/mcp-sequential-thinking.json",
+      "allow_tools": ["sequentialthinking"]
+    },
+    {
+      "name": "mcp-firecrawl",
+      "port": 19107,
+      "state": "ready",
+      "source": {"type": "npx", "package": "firecrawl-mcp", "version": "3.22.4"},
+      "secrets": [{"name": "FIRECRAWL_API_KEY", "target": "FIRECRAWL_API_KEY"}]
+    },
+    {
+      "name": "mcp-jina",
+      "port": 19108,
+      "state": "legacy-wrapper",
+      "remove_when": "ToolHive direct-remote header injection matches the reviewed Jina contract",
+      "source": {"type": "npx", "package": "mcp-remote", "version": "0.1.38"},
+      "args": [
+        "https://mcp.jina.ai/v1",
+        "--header",
+        "Authorization: Bearer ${JINA_API_KEY}"
+      ],
+      "secrets": [{"name": "JINA_API_KEY", "target": "JINA_API_KEY"}]
+    },
+    {
+      "name": "mcp-confluence",
+      "port": 19109,
+      "state": "ready",
+      "source": {
+        "type": "npx",
+        "package": "@aashari/mcp-server-atlassian-confluence",
+        "version": "3.3.0"
+      },
+      "secrets": [
+        {"name": "ATLASSIAN_API_TOKEN", "target": "ATLASSIAN_API_TOKEN"},
+        {"name": "ATLASSIAN_SITE_NAME", "target": "ATLASSIAN_SITE_NAME"},
+        {"name": "ATLASSIAN_USER_EMAIL", "target": "ATLASSIAN_USER_EMAIL"}
+      ]
+    },
+    {
+      "name": "mcp-jira",
+      "port": 19110,
+      "state": "ready",
+      "source": {
+        "type": "npx",
+        "package": "@aashari/mcp-server-atlassian-jira",
+        "version": "3.3.0"
+      },
+      "secrets": [
+        {"name": "ATLASSIAN_API_TOKEN", "target": "ATLASSIAN_API_TOKEN"},
+        {"name": "ATLASSIAN_SITE_NAME", "target": "ATLASSIAN_SITE_NAME"},
+        {"name": "ATLASSIAN_USER_EMAIL", "target": "ATLASSIAN_USER_EMAIL"}
+      ]
+    },
+    {
+      "name": "mcp-youtube",
+      "port": 19111,
+      "state": "legacy-wrapper",
+      "remove_when": "the Git dependency is represented by a locked Python project",
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.5.14", "target_port": 8080},
+      "contract": "mcp-contracts/mcp-youtube.json",
+      "allow_tools": ["get_timed_transcript", "get_transcript", "get_video_info"]
+    },
+    {
+      "name": "mcp-arxiv",
+      "port": 19112,
+      "state": "ready",
+      "source": {"type": "uvx", "package": "arxiv-mcp-server", "version": "0.6.1"},
+      "build_with": ["mcp>=1.27,<2"],
+      "args": ["--storage-path", "/data/papers"],
+      "volumes": [
+        {"host_env": "ARXIV_DATA_DIR", "container": "/data/papers", "read_only": false}
+      ],
+      "contract": "mcp-contracts/mcp-arxiv.json",
+      "allow_tools": [
+        "check_alerts",
+        "citation_graph",
+        "download_paper",
+        "export_citations",
+        "get_abstract",
+        "get_paper_latex",
+        "get_paper_latex_section",
+        "list_paper_latex_sections",
+        "list_papers",
+        "read_paper",
+        "reindex",
+        "search_papers",
+        "semantic_search",
+        "watch_topic"
+      ]
+    },
+    {
+      "name": "mcp-zen",
+      "port": 19113,
+      "state": "legacy-wrapper",
+      "remove_when": "the Git dependency is represented by a locked Python project",
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-zen:9.8.2", "target_port": 8080},
+      "secrets": [
+        {"name": "GOOGLE_API_KEY", "target": "GOOGLE_API_KEY"},
+        {"name": "OPENAI_API_KEY", "target": "OPENAI_API_KEY"}
+      ],
+      "contract": "mcp-contracts/mcp-zen.json",
+      "allow_tools": [
+        "analyze",
+        "apilookup",
+        "challenge",
+        "chat",
+        "clink",
+        "codereview",
+        "consensus",
+        "debug",
+        "docgen",
+        "listmodels",
+        "planner",
+        "precommit",
+        "refactor",
+        "secaudit",
+        "testgen",
+        "thinkdeep",
+        "tracer",
+        "version"
+      ]
+    },
+    {
+      "name": "mcp-exa",
+      "port": 19114,
+      "state": "ready",
+      "source": {"type": "npx", "package": "exa-mcp-server", "version": "3.2.1"},
+      "secrets": [{"name": "EXA_API_KEY", "target": "EXA_API_KEY"}]
+    },
+    {
+      "name": "mcp-karakeep",
+      "port": 19115,
+      "state": "ready",
+      "source": {"type": "npx", "package": "@karakeep/mcp", "version": "0.32.1"},
+      "secrets": [
+        {"name": "KARAKEEP_API_KEY", "target": "KARAKEEP_API_KEY"},
+        {"name": "KARAKEEP_ADDR", "target": "KARAKEEP_ADDR"}
+      ]
+    },
+    {
+      "name": "mcp-reddit",
+      "port": 19116,
+      "state": "legacy-wrapper",
+      "remove_when": "mcp-reddit has a locked Python project and ToolHive runs its stdio entrypoint",
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-reddit:1.3.0", "target_port": 8080},
+      "environment": [{"name": "SEARXNG_URL", "required": true}],
+      "network": "mcp-network",
+      "isolate_network": false
+    },
+    {
+      "name": "mcp-substack",
+      "port": 19117,
+      "state": "legacy-wrapper",
+      "remove_when": "mcp-substack has a locked Python project and ToolHive runs its stdio entrypoint",
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-substack:1.0.0", "target_port": 8080},
+      "environment": [{"name": "SUBSTACK_USERNAME", "required": true}],
+      "secrets": [
+        {"name": "SUBSTACK_EMAIL", "target": "SUBSTACK_EMAIL"},
+        {"name": "SUBSTACK_PASSWORD", "target": "SUBSTACK_PASSWORD"}
+      ],
+      "network": "crawl4ai-net",
+      "isolate_network": false
+    }
+  ]
+}

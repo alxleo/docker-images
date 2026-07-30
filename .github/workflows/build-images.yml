@@ -120,23 +120,15 @@ jobs:
 
           # CI infra changed if build action, discover script, or build workflow changed
           ci_changed="false"
-          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images)\.sh|\.github/workflows/build-images\.yml)' <<<"$changed_files"; then
+          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-images\.yml)' <<<"$changed_files"; then
             ci_changed="true"
           fi
           custom_matrix=$(bash scripts/select-custom-images.sh "$FULL_MATRIX" "$changed_files_json" "$ci_changed")
           custom_changed=$(jq -r 'length > 0' <<<"$custom_matrix")
 
-          # MCP changed if runtime, manifest, locks, verifier, or tests changed
-          mcp_changed="false"
-          if grep -qE '^(mcp/|mcp-contracts/|mcp-(images|defaults)\.json|scripts/mcp-contract\.py|test/)' <<<"$changed_files"; then
-            mcp_changed="true"
-          fi
-
-          # E2E changed if mcp or caddy-cloudflare changed (E2E tests the full stack)
-          e2e_changed="false"
-          if grep -qE '^(mcp/|mcp-(images|defaults)\.json|caddy-cloudflare/|test/)' <<<"$changed_files"; then
-            e2e_changed="true"
-          fi
+          mcp_routing=$(bash scripts/select-mcp-pipelines.sh "$changed_files_json" "$ci_changed")
+          mcp_changed=$(jq -r '.mcp' <<<"$mcp_routing")
+          e2e_changed=$(jq -r '.e2e' <<<"$mcp_routing")
 
           {
             echo "matrix=${custom_matrix}"

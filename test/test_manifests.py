@@ -226,6 +226,57 @@ class TestCustomImagesManifest:
             ) == {"mcp-reddit"}
 
 
+class TestMCPPipelineRouting:
+    """Keep fleet-only work out of the legacy image and full-stack pipelines."""
+
+    @staticmethod
+    def selected(*paths, ci_changed=False):
+        result = subprocess.run(
+            [
+                "bash",
+                str(REPO_ROOT / "scripts" / "select-mcp-pipelines.sh"),
+                json.dumps(paths),
+                str(ci_changed).lower(),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
+
+    def test_toolhive_changes_use_the_focused_workflow(self):
+        assert self.selected("mcp-fleet.json") == {"mcp": False, "e2e": False}
+        assert self.selected("scripts/toolhive-fleet.py") == {
+            "mcp": False,
+            "e2e": False,
+        }
+        assert self.selected("test/test_toolhive_fleet.py") == {
+            "mcp": False,
+            "e2e": False,
+        }
+
+    def test_legacy_runtime_changes_select_only_required_pipelines(self):
+        assert self.selected("mcp-contracts/mcp-hackernews.json") == {
+            "mcp": True,
+            "e2e": False,
+        }
+        assert self.selected("test/test-mcp-smoke.sh") == {
+            "mcp": True,
+            "e2e": False,
+        }
+        assert self.selected("mcp/entrypoint.py") == {"mcp": True, "e2e": True}
+        assert self.selected("caddy-cloudflare/Dockerfile") == {
+            "mcp": False,
+            "e2e": True,
+        }
+
+    def test_ci_uncertainty_fails_closed(self):
+        assert self.selected("README.md", ci_changed=True) == {
+            "mcp": True,
+            "e2e": True,
+        }
+
+
 # =========================================================================
 # images.json (public downstream contract)
 # =========================================================================
