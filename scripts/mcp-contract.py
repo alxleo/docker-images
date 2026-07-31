@@ -247,6 +247,14 @@ class MCPClient:
             seen_cursors.add(next_cursor)
             cursor = next_cursor
 
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> None:
+        result = self._request("tools/call", {"name": name, "arguments": arguments})
+        is_error = result.get("isError", False)
+        if not isinstance(is_error, bool):
+            raise ContractError("tools/call returned a non-boolean isError value")
+        if is_error:
+            raise ContractError(f"tools/call reported an error for {name!r}")
+
 
 def capture(url: str, timeout: float) -> dict[str, Any]:
     client = MCPClient(url, timeout)
@@ -294,9 +302,24 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--capture", type=Path, metavar="PATH")
     mode.add_argument("--verify", type=Path, metavar="PATH")
+    mode.add_argument("--call", metavar="TOOL")
+    parser.add_argument("--args-json", default="{}", help="JSON object passed to --call")
     args = parser.parse_args()
 
     try:
+        if args.call is not None:
+            arguments = json.loads(args.args_json)
+            if not isinstance(arguments, dict):
+                raise ContractError("--args-json must decode to an object")
+            client = MCPClient(args.url, args.timeout)
+            client.initialize()
+            listed_tools = {tool.get("name") for tool in client.list_tools()}
+            if args.call not in listed_tools:
+                raise ContractError(f"tool {args.call!r} is absent from tools/list")
+            client.call_tool(args.call, arguments)
+            print(f"PASS: MCP tool call succeeded ({args.call})")
+            return 0
+
         actual = capture(args.url, args.timeout)
         if args.capture is not None:
             _write_json(args.capture, actual)

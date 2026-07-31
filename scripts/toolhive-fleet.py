@@ -272,11 +272,11 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
     overlapping_ports = sorted(set(ports) & set(target_ports))
     if overlapping_ports:
         errors.append(f"OCI target ports overlap fleet proxy ports: {overlapping_ports}")
-    if set(actual_names) != expected_names:
+    missing_names = expected_names - set(actual_names)
+    if missing_names:
         errors.append(
-            "fleet coverage differs from repository MCPs: "
-            f"missing={sorted(expected_names - set(actual_names))}, "
-            f"extra={sorted(set(actual_names) - expected_names)}"
+            "fleet is missing published repository MCPs: "
+            f"missing={sorted(missing_names)}"
         )
     return errors
 

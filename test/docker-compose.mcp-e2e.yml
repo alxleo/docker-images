@@ -14,7 +14,7 @@ services:
       mcp-arxiv:
         condition: service_started
 
-  # npm-based canary
+  # Test-only npm canary; this wrapper is not part of the published image fleet.
   mcp-hackernews:
     build:
       context: ../mcp

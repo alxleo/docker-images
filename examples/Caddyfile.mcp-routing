@@ -14,11 +14,11 @@
 # --- 1. Basic MCP route with health check ---
 #
 # handle_path strips the prefix before forwarding:
-#   GET /hackernews/ping → GET /ping on backend
-#   POST /hackernews/mcp → POST /mcp on backend
+#   GET /context7/ping → GET /ping on backend
+#   POST /context7/mcp → POST /mcp on backend
 
-handle_path /hackernews/* {
-	reverse_proxy mcp-hackernews:8080 {
+handle_path /context7/* {
+	reverse_proxy mcp-context7:8080 {
 		health_uri /ping
 		health_interval 60s
 		health_timeout 2s
@@ -75,7 +75,7 @@ request_header @mcp_post Accept "application/json, text/event-stream"
 
 handle /.well-known/mcp.json {
 	header Content-Type "application/json"
-	respond `{"services":{"hackernews":"/hackernews/","brave":"/brave/"}}` 200
+	respond `{"services":{"context7":"/context7/","brave":"/brave/"}}` 200
 }
 
 # --- 6. Health endpoint ---

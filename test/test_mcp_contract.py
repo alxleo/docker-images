@@ -200,3 +200,25 @@ def test_list_tools_follows_pagination(monkeypatch):
         ("tools/list", {}),
         ("tools/list", {"cursor": "page-2"}),
     ]
+
+
+def test_call_tool_fails_on_application_error(monkeypatch):
+    client = mcp_contract.MCPClient("http://example.test/mcp")
+    monkeypatch.setattr(client, "_request", lambda method, params: {"isError": True})
+
+    with pytest.raises(mcp_contract.ContractError, match="reported an error"):
+        client.call_tool("example", {"limit": 1})
+
+
+def test_call_tool_accepts_success_without_explicit_is_error(monkeypatch):
+    client = mcp_contract.MCPClient("http://example.test/mcp")
+    requests = []
+
+    def fake_request(method, params):
+        requests.append((method, params))
+        return {"content": [{"type": "text", "text": "ok"}]}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+
+    client.call_tool("example", {"limit": 1})
+    assert requests == [("tools/call", {"name": "example", "arguments": {"limit": 1}})]

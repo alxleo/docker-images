@@ -22,7 +22,7 @@ def fleet():
     return toolhive_fleet.load_fleet(ROOT / "mcp-fleet.json")
 
 
-def test_fleet_covers_every_repository_mcp(fleet):
+def test_fleet_covers_published_and_direct_repository_mcps(fleet):
     assert toolhive_fleet.validate_fleet(fleet) == []
     assert len(fleet["servers"]) == 18
     assert sum(server["state"] == "ready" for server in fleet["servers"]) == 16
@@ -32,13 +32,22 @@ def test_fleet_covers_every_repository_mcp(fleet):
 def test_runtime_and_package_drift_fail_closed(fleet):
     changed = copy.deepcopy(fleet)
     changed["runtimes"]["npx"] = "node:26-slim"
-    hackernews = next(server for server in changed["servers"] if server["name"] == "mcp-hackernews")
-    hackernews["source"]["version"] = "1.0.4"
+    context7 = next(server for server in changed["servers"] if server["name"] == "mcp-context7")
+    context7["source"]["version"] = "3.2.6"
 
     errors = toolhive_fleet.validate_fleet(changed)
 
     assert any("requires apk" in error for error in errors)
     assert any("differs from image manifest" in error for error in errors)
+
+
+def test_published_mcp_cannot_disappear_from_forward_fleet(fleet):
+    changed = copy.deepcopy(fleet)
+    changed["servers"] = [server for server in changed["servers"] if server["name"] != "mcp-context7"]
+
+    errors = toolhive_fleet.validate_fleet(changed)
+
+    assert any("missing published repository MCPs" in error and "mcp-context7" in error for error in errors)
 
 
 def test_duplicate_ports_and_unsafe_custom_network_are_rejected(fleet):

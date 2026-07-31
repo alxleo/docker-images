@@ -35,10 +35,10 @@ x-common: &common
 
 services:
   # Simple service — no API key needed
-  mcp-hackernews:
+  mcp-context7:
     <<: *common
-    image: ghcr.io/alxleo/mcp-hackernews:latest
-    container_name: mcp-hackernews
+    image: ghcr.io/alxleo/mcp-context7:latest
+    container_name: mcp-context7
     ports: ["127.0.0.1:8080:8080"]
 
   # Service with API key via Docker secret
