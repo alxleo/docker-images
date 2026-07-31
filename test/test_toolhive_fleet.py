@@ -41,13 +41,14 @@ def test_runtime_and_package_drift_fail_closed(fleet):
     assert any("differs from image manifest" in error for error in errors)
 
 
-def test_published_mcp_cannot_disappear_from_forward_fleet(fleet):
+@pytest.mark.parametrize("name", ["mcp-context7", "mcp-hackernews", "mcp-sequential-thinking"])
+def test_published_or_contracted_mcp_cannot_disappear_from_forward_fleet(fleet, name):
     changed = copy.deepcopy(fleet)
-    changed["servers"] = [server for server in changed["servers"] if server["name"] != "mcp-context7"]
+    changed["servers"] = [server for server in changed["servers"] if server["name"] != name]
 
     errors = toolhive_fleet.validate_fleet(changed)
 
-    assert any("missing published repository MCPs" in error and "mcp-context7" in error for error in errors)
+    assert any("coverage differs" in error and name in error for error in errors)
 
 
 def test_duplicate_ports_and_unsafe_custom_network_are_rejected(fleet):

@@ -16,6 +16,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_FLEET = ROOT / "mcp-fleet.json"
 SHARED_IMAGES = ROOT / "mcp-images.json"
+MCP_CONTRACTS = ROOT / "mcp-contracts"
 SOURCE_TYPES = {"npx", "uvx", "oci", "remote"}
 STATES = {"ready", "legacy-wrapper"}
 NAME_PATTERN = re.compile(r"^mcp-[a-z0-9-]+$")
@@ -97,7 +98,8 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
         return errors + ["servers must be a non-empty array"]
 
     shared_entries = {entry["name"]: entry for entry in load_json(SHARED_IMAGES)}
-    expected_names = set(shared_entries) | {"mcp-reddit", "mcp-substack"}
+    contracted_names = {path.stem for path in MCP_CONTRACTS.glob("mcp-*.json")}
+    expected_names = set(shared_entries) | contracted_names | {"mcp-reddit", "mcp-substack"}
     actual_names: list[str] = []
     ports: list[int] = []
     target_ports: list[int] = []
@@ -272,11 +274,11 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
     overlapping_ports = sorted(set(ports) & set(target_ports))
     if overlapping_ports:
         errors.append(f"OCI target ports overlap fleet proxy ports: {overlapping_ports}")
-    missing_names = expected_names - set(actual_names)
-    if missing_names:
+    if set(actual_names) != expected_names:
         errors.append(
-            "fleet is missing published repository MCPs: "
-            f"missing={sorted(missing_names)}"
+            "fleet coverage differs from published and contracted repository MCPs: "
+            f"missing={sorted(expected_names - set(actual_names))}, "
+            f"extra={sorted(set(actual_names) - expected_names)}"
         )
     return errors
 
