@@ -19,7 +19,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 
 ## MCP Service Images
 
-16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
+14 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
 The shared legacy images follow this pattern:
 - npm-based: `mcp/Dockerfile.npm` | Python-based: `mcp/Dockerfile.python`
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
@@ -33,11 +33,15 @@ proxy or filter packages.
 
 [`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 18
 repository MCPs. It pins ToolHive, MCPJam, Node 26, Python 3.14, packages,
-ports, secret references, networks, mounts, and removal criteria for the three
+ports, secret references, networks, mounts, and removal criteria for the two
 workloads that still depend on a legacy wrapper. Homelab can consume this
 catalog without inheriting image-generation or tool-filter logic; it remains
 responsible for secret values, host paths, Docker networks, supervision, and
 gateway exposure.
+
+Hacker News and Sequential Thinking run directly from their pinned upstream
+packages through ToolHive. Their contracts remain here as runtime acceptance
+oracles, but this repository no longer publishes wrapper images for them.
 
 Secret-bearing plans use ToolHive's read-only environment provider. Consumers
 set `TOOLHIVE_SECRETS_PROVIDER=environment` and expose only the named
@@ -65,15 +69,17 @@ Run the live Docker oracle with the exact pinned ToolHive binary:
 
 ```bash
 just test-toolhive-fleet
+just test-toolhive-fleet replacements  # Hacker News + Sequential Thinking only
 ```
 
-The live test builds the pinned Hacker News package on Node 26 and Arxiv on
-Python 3.14 through ToolHive, then connects Jina through ToolHive's native
-remote transport. It verifies their complete 11-, 14-, and 21-tool contracts
-and checks every handshake independently with MCPJam. The Hacker News lane also
-proves that an allow-list hides and rejects a blocked tool. It uses an isolated
-temporary ToolHive state directory and removes only its uniquely named test
-workloads.
+The live test runs the pinned Hacker News and Sequential Thinking packages on
+Node 26 and Arxiv on Python 3.14 through ToolHive, then connects Jina through
+ToolHive's native remote transport. It verifies their complete 11-, 1-, 14-,
+and 21-tool contracts, makes harmless calls against both retired-image
+replacements, and checks every handshake independently with MCPJam. The Hacker
+News lane also proves that an allow-list hides and rejects a blocked tool. It
+uses an isolated temporary ToolHive state directory and removes only its
+uniquely named test workloads.
 
 MCPJam 3.16.0's `server probe` passes this endpoint. Its higher-level
 `server doctor` and `tools list` currently time out during version negotiation
@@ -138,7 +144,7 @@ uses, or one shared MCP image from `mcp-images.json`:
 
 ```bash
 just test-image mcp-auth-proxy
-just test-image mcp-hackernews
+just test-image mcp-context7
 ```
 
 Credential-free shared MCP images get a live initialize + `tools/list` smoke

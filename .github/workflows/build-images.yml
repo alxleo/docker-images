@@ -449,6 +449,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Test-only canary for the shared npm proxy/filter layer. This image
+          # is intentionally absent from mcp-images.json and is never pushed.
           - name: mcp-hackernews
             dockerfile: Dockerfile.npm
             build_args: "MCP_PACKAGE=mcp-hacker-news@1.0.3"
@@ -516,7 +518,7 @@ jobs:
           done
 
   # E2E stack test: full Caddy -> mcp-proxy -> MCP server contract validation
-  # Spins up Caddy + both canaries (npm: hackernews, Python: arxiv).
+  # Spins up Caddy + both test-only canaries (npm: hackernews, Python: arxiv).
   # Tests: health endpoint contract (/ping), prefix stripping, MCP protocol
   # handshake, session headers, TLS with internal certs, service discovery.
   # This is the contract test that downstream repos (homelab) depend on.

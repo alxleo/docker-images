@@ -7,6 +7,7 @@ on:
       - mcp-contracts/mcp-arxiv.json
       - mcp-contracts/mcp-hackernews.json
       - mcp-contracts/mcp-jina.json
+      - mcp-contracts/mcp-sequential-thinking.json
       - scripts/mcp-contract.py
       - scripts/toolhive-fleet.py
       - test/test-toolhive-fleet.sh
@@ -19,6 +20,7 @@ on:
       - mcp-contracts/mcp-arxiv.json
       - mcp-contracts/mcp-hackernews.json
       - mcp-contracts/mcp-jina.json
+      - mcp-contracts/mcp-sequential-thinking.json
       - scripts/mcp-contract.py
       - scripts/toolhive-fleet.py
       - test/test-toolhive-fleet.sh

@@ -266,7 +266,15 @@ class TestMCPPipelineRouting:
 
     def test_toolhive_changes_use_the_focused_workflow(self):
         assert self.selected("mcp-fleet.json") == {"mcp": False, "e2e": False}
+        assert self.selected("mcp-contracts/mcp-hackernews.json") == {
+            "mcp": False,
+            "e2e": False,
+        }
         assert self.selected("mcp-contracts/mcp-jina.json") == {
+            "mcp": False,
+            "e2e": False,
+        }
+        assert self.selected("mcp-contracts/mcp-sequential-thinking.json") == {
             "mcp": False,
             "e2e": False,
         }
@@ -280,10 +288,6 @@ class TestMCPPipelineRouting:
         }
 
     def test_legacy_runtime_changes_select_only_required_pipelines(self):
-        assert self.selected("mcp-contracts/mcp-hackernews.json") == {
-            "mcp": True,
-            "e2e": False,
-        }
         assert self.selected("test/test-mcp-smoke.sh") == {
             "mcp": True,
             "e2e": False,

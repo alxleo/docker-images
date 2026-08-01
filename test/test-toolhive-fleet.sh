@@ -4,6 +4,14 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 FLEET="${ROOT}/mcp-fleet.json"
+MODE="${1:-full}"
+case "$MODE" in
+full | replacements) ;;
+*)
+    echo "ERROR: mode must be 'full' or 'replacements'" >&2
+    exit 2
+    ;;
+esac
 JQ_BIN="${JQ_BIN:-/usr/bin/jq}"
 if [[ ! -x "$JQ_BIN" ]]; then
     JQ_BIN=$(command -v jq)
@@ -204,6 +212,10 @@ python3 "${ROOT}/scripts/mcp-contract.py" \
     --quiet --format json --no-telemetry |
     "$JQ_BIN" -e '.status == "ready"' >/dev/null
 
+python3 "${ROOT}/scripts/mcp-contract.py" \
+    --url "http://127.0.0.1:${PORT}/mcp" \
+    --call getTopStories --args-json '{"limit":1}'
+
 "$THV_BIN" rm "$WORKLOAD"
 run_hackernews getTopStories getNewStories
 FILTERED_LOCK="${TEMP_DIR}/filtered.json"
@@ -226,6 +238,32 @@ test "$HTTP_STATUS" = 200
 ' "${TEMP_DIR}/denied.json" >/dev/null
 
 "$THV_BIN" rm "$WORKLOAD"
+WORKLOAD="${WORKLOAD}-sequential"
+PORT="${TOOLHIVE_SEQUENTIAL_TEST_PORT:-19193}"
+python3 "${ROOT}/scripts/toolhive-fleet.py" \
+    --fleet "$FLEET" exec \
+    --server mcp-sequential-thinking \
+    --thv-bin "$THV_BIN" \
+    --name "$WORKLOAD" \
+    --port "$PORT"
+wait_for_workload
+python3 "${ROOT}/scripts/mcp-contract.py" \
+    --url "http://127.0.0.1:${PORT}/mcp" \
+    --verify "${ROOT}/mcp-contracts/mcp-sequential-thinking.json"
+"$NPX_BIN" --yes "@mcpjam/cli@${MCPJAM_VERSION}" server probe \
+    --url "http://127.0.0.1:${PORT}/mcp" \
+    --quiet --format json --no-telemetry |
+    "$JQ_BIN" -e '.status == "ready"' >/dev/null
+python3 "${ROOT}/scripts/mcp-contract.py" \
+    --url "http://127.0.0.1:${PORT}/mcp" \
+    --call sequentialthinking \
+    --args-json '{"thought":"Verify direct ToolHive execution","nextThoughtNeeded":false,"thoughtNumber":1,"totalThoughts":1}'
+
+"$THV_BIN" rm "$WORKLOAD"
+if [[ "$MODE" == "replacements" ]]; then
+    echo "PASS: ToolHive ${TOOLHIVE_VERSION} replacement contracts, MCPJam probes, filtering, and tools/call"
+    exit 0
+fi
 WORKLOAD="${WORKLOAD}-arxiv"
 PORT="${TOOLHIVE_ARXIV_TEST_PORT:-19191}"
 export ARXIV_DATA_DIR="${TEMP_DIR}/arxiv-papers"

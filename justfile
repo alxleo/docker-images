@@ -19,5 +19,5 @@ test-image image:
     bash scripts/test-image.sh "{{ image }}"
 
 # Run the live ToolHive replacement oracle with Docker (not Colima).
-test-toolhive-fleet:
-    bash test/test-toolhive-fleet.sh
+test-toolhive-fleet mode="full":
+    bash test/test-toolhive-fleet.sh "{{ mode }}"

@@ -1,13 +1,5 @@
 [
   {
-    "name": "mcp-hackernews",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=mcp-hacker-news@1.0.3",
-    "tag": "1.0.3",
-    "description": "Hacker News stories, comments, and discussions",
-    "contract": "mcp-contracts/mcp-hackernews.json"
-  },
-  {
     "name": "mcp-brave",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.1.0",
@@ -54,14 +46,6 @@
     "tag": "1.12.0",
     "description": "Self-hosted metasearch via SearXNG",
     "contract": "mcp-contracts/mcp-searxng.json"
-  },
-  {
-    "name": "mcp-sequential-thinking",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2026.7.4",
-    "tag": "2026.7.4",
-    "description": "Structured reasoning and chain-of-thought enhancement",
-    "contract": "mcp-contracts/mcp-sequential-thinking.json"
   },
   {
     "name": "mcp-firecrawl",
