@@ -307,7 +307,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        if args.call is not None:
+        if isinstance(args.call, str):
             arguments = json.loads(args.args_json)
             if not isinstance(arguments, dict):
                 raise ContractError("--args-json must decode to an object")
