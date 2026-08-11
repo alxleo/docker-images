@@ -255,8 +255,11 @@ def _searxng_reddit(query: str, subreddit: str, want: int) -> list[dict[str, str
     Returns thread hits [{subreddit, id, title, url}] in SearXNG relevance order,
     deduped by submission id. Raises httpx.HTTPError if SearXNG is unreachable.
     """
-    site = f"reddit.com/r/{subreddit}" if subreddit else "reddit.com"
-    resp = _client.get(f"{SEARXNG_URL}/search", params={"q": f"{query} site:{site}", "format": "json"})
+    scope = f"r/{subreddit}" if subreddit else "reddit"
+    resp = _client.get(
+        f"{SEARXNG_URL}/search",
+        params={"q": f"{query} {scope} comments", "format": "json"},
+    )
     resp.raise_for_status()
     hits: list[dict[str, str]] = []
     seen: set[str] = set()
