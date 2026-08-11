@@ -22,6 +22,7 @@ from __future__ import annotations
 import html
 import os
 import re
+from threading import Lock
 from time import monotonic
 from typing import Any
 from urllib.parse import urlparse
@@ -39,6 +40,7 @@ COMMENT_BODY_MAX = 600
 MAX_ATTEMPTS = 2
 SEARCH_CACHE_TTL_SECONDS = 60
 _search_cache: dict[tuple[str, str, int, str], tuple[float, str]] = {}
+_search_lock = Lock()
 
 # Reddit search runs through the homelab's self-hosted SearXNG (Arctic-Shift's
 # own full-text index is under maintenance). Same integration mcp-searxng uses:
@@ -295,13 +297,14 @@ def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = 
     sort='relevance' (default), 'top' (by score), or 'new' (most recent).
     """
     key = (query, subreddit, limit, sort)
-    now = monotonic()
-    cached = _search_cache.get(key)
-    if cached and now - cached[0] < SEARCH_CACHE_TTL_SECONDS:
-        return cached[1]
-    result = _search_reddit_uncached(query, subreddit, limit, sort)
-    _search_cache[key] = (now, result)
-    return result
+    with _search_lock:
+        now = monotonic()
+        cached = _search_cache.get(key)
+        if cached and now - cached[0] < SEARCH_CACHE_TTL_SECONDS:
+            return cached[1]
+        result = _search_reddit_uncached(query, subreddit, limit, sort)
+        _search_cache[key] = (now, result)
+        return result
 
 
 def _search_reddit_uncached(query: str, subreddit: str, limit: int, sort: str) -> str:
