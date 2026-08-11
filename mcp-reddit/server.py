@@ -303,6 +303,8 @@ def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = 
         hits = _searxng_reddit(query, subreddit, want)
     except (httpx.HTTPError, ValueError):  # unreachable, or a non-JSON body (json.JSONDecodeError ⊂ ValueError)
         return _pullpush_fallback(query, subreddit, limit, sort)
+    if not hits:
+        return _pullpush_fallback(query, subreddit, limit, sort)
     return _enrich_and_format(hits, subreddit, query, limit, sort)
 
 

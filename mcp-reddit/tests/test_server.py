@@ -178,11 +178,11 @@ REDDIT_RSS = (
     '<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">'
     "<title>selfhosted: search results - docker</title>"
     "<entry><author><name>/u/a</name></author>"
-    "<content type=\"html\">&lt;a href=&quot;https://www.reddit.com/r/selfhosted/comments/aaa111/docker_tips/&quot;&gt;x&lt;/a&gt;</content>"
+    '<content type="html">&lt;a href=&quot;https://www.reddit.com/r/selfhosted/comments/aaa111/docker_tips/&quot;&gt;x&lt;/a&gt;</content>'
     "<title>Docker tips &amp; tricks</title>"
     '<link href="https://www.reddit.com/r/selfhosted/comments/aaa111/docker_tips/"/></entry>'
     "<entry><author><name>/u/b</name></author>"
-    "<content type=\"html\">&lt;a href=&quot;https://www.reddit.com/r/selfhosted/comments/bbb222/nas_build/&quot;&gt;x&lt;/a&gt;</content>"
+    '<content type="html">&lt;a href=&quot;https://www.reddit.com/r/selfhosted/comments/bbb222/nas_build/&quot;&gt;x&lt;/a&gt;</content>'
     "<title>NAS build log</title>"
     '<link href="https://www.reddit.com/r/selfhosted/comments/bbb222/nas_build/"/></entry>'
     "</feed>"
@@ -192,6 +192,7 @@ REDDIT_RSS = (
 def _mock_searxng(monkeypatch, server, results, reddit_rss=None):
     """Route _client.get by URL. reddit.com → RSS (or a 429 when reddit_rss is None,
     so subreddit queries fall through to SearXNG); the SearXNG host → JSON results."""
+
     def routed(url, params=None, headers=None):
         if "reddit.com" in url:
             if reddit_rss is None:
@@ -212,9 +213,20 @@ def test_searxng_reddit_parses_dedups_drops_nonthreads(server, monkeypatch):
 def test_search_enriches_hits_and_falls_back_to_stub(server, monkeypatch):
     _mock_searxng(monkeypatch, server, SEARX[:2])
     # Arctic-Shift indexed abc123 (live data) but not def456 (→ SearXNG stub)
-    monkeypatch.setattr(server, "_get", lambda path, params: [
-        {"id": "abc123", "subreddit": "selfhosted", "title": "Enriched", "score": 42, "num_comments": 7, "permalink": "/r/selfhosted/comments/abc123/"},
-    ])
+    monkeypatch.setattr(
+        server,
+        "_get",
+        lambda path, params: [
+            {
+                "id": "abc123",
+                "subreddit": "selfhosted",
+                "title": "Enriched",
+                "score": 42,
+                "num_comments": 7,
+                "permalink": "/r/selfhosted/comments/abc123/",
+            },
+        ],
+    )
     out = server.search_reddit("q")
     assert "score 42" in out and "Enriched" in out  # enriched hit
     assert "Second hit" in out and "score ?" in out  # stub fallback keeps SearXNG title
@@ -242,7 +254,13 @@ def test_search_unavailable_on_non_json_body(server, monkeypatch):
 
 def test_search_falls_back_to_pullpush_when_searxng_down(server, monkeypatch):
     """SearXNG down → PullPush serves native posts, labelled as a dated archive."""
-    pp_post = {"subreddit": "selfhosted", "title": "Archived NAS build", "score": 55, "num_comments": 12, "permalink": "/r/selfhosted/comments/old1/"}
+    pp_post = {
+        "subreddit": "selfhosted",
+        "title": "Archived NAS build",
+        "score": 55,
+        "num_comments": 12,
+        "permalink": "/r/selfhosted/comments/old1/",
+    }
 
     class _PPResp:
         def raise_for_status(self):
@@ -262,17 +280,46 @@ def test_search_falls_back_to_pullpush_when_searxng_down(server, monkeypatch):
     assert "Archived NAS build" in out and "score 55" in out
 
 
-def test_search_no_results_message(server, monkeypatch):
+def test_search_falls_back_to_pullpush_when_searxng_has_no_reddit_hits(server, monkeypatch):
+    pp_post = {
+        "subreddit": "homelab",
+        "title": "Archived homelab build",
+        "score": 21,
+        "num_comments": 8,
+        "permalink": "/r/homelab/comments/old2/",
+    }
+
+    class _PPResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [pp_post]}
+
+    def routed_get(url, params=None):
+        return _PPResp() if "pullpush" in url else _FakeResp([])
+
+    monkeypatch.setattr(server._client, "get", routed_get)
+    out = server.search_reddit("homelab")
+    assert server.PULLPUSH_STALE_NOTE in out
+    assert "Archived homelab build" in out and "score 21" in out
+
+
+def test_search_reports_unavailable_when_both_backends_have_no_results(server, monkeypatch):
     _mock_searxng(monkeypatch, server, [])
-    assert server.search_reddit("obscure", subreddit="homelab") == "No Reddit results for 'obscure' in r/homelab."
+    assert server.search_reddit("obscure", subreddit="homelab") == server.SEARCH_UNAVAILABLE
 
 
 def test_search_sort_top_ranks_by_score(server, monkeypatch):
     _mock_searxng(monkeypatch, server, SEARX[:2])
-    monkeypatch.setattr(server, "_get", lambda path, params: [
-        {"id": "abc123", "subreddit": "s", "title": "low", "score": 3, "permalink": "/a"},
-        {"id": "def456", "subreddit": "s", "title": "high", "score": 99, "permalink": "/b"},
-    ])
+    monkeypatch.setattr(
+        server,
+        "_get",
+        lambda path, params: [
+            {"id": "abc123", "subreddit": "s", "title": "low", "score": 3, "permalink": "/a"},
+            {"id": "def456", "subreddit": "s", "title": "high", "score": 99, "permalink": "/b"},
+        ],
+    )
     out = server.search_reddit("q", sort="top")
     assert out.index("high") < out.index("low")
 
@@ -293,9 +340,20 @@ def test_subreddit_query_prefers_reddit_native(server, monkeypatch):
         raise AssertionError("SearXNG must not be called when reddit-native returns hits")
 
     monkeypatch.setattr(server._client, "get", routed)
-    monkeypatch.setattr(server, "_get", lambda path, params: [
-        {"id": "aaa111", "subreddit": "selfhosted", "title": "Docker tips", "score": 12, "num_comments": 4, "permalink": "/r/selfhosted/comments/aaa111/"},
-    ])
+    monkeypatch.setattr(
+        server,
+        "_get",
+        lambda path, params: [
+            {
+                "id": "aaa111",
+                "subreddit": "selfhosted",
+                "title": "Docker tips",
+                "score": 12,
+                "num_comments": 4,
+                "permalink": "/r/selfhosted/comments/aaa111/",
+            },
+        ],
+    )
     out = server.search_reddit("docker", subreddit="selfhosted")
     assert "Docker tips" in out and "score 12" in out
     assert "NAS build log" in out  # bbb222 stub-rendered from the RSS title
