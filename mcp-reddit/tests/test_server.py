@@ -27,6 +27,11 @@ def server():
     return module
 
 
+@pytest.fixture(autouse=True)
+def clear_search_cache(server):
+    server._search_cache.clear()
+
+
 def test_ping_compatibility_route(server):
     request = Request({"type": "http", "method": "GET", "path": "/ping", "headers": []})
     response = asyncio.run(server.ping(request))
@@ -353,6 +358,22 @@ def test_global_query_prefers_reddit_native_search(server, monkeypatch):
     assert "Docker tips" in out
     assert seen["url"] == server.REDDIT_GLOBAL_SEARCH_URL
     assert "restrict_sr" not in seen["params"]
+
+
+def test_repeated_search_uses_short_cache(server, monkeypatch):
+    calls = 0
+
+    def routed(url, params=None, headers=None):
+        nonlocal calls
+        calls += 1
+        return _RssResp(REDDIT_RSS)
+
+    monkeypatch.setattr(server._client, "get", routed)
+    monkeypatch.setattr(server, "_get", lambda path, params: [])
+    first = server.search_reddit("docker")
+    second = server.search_reddit("docker")
+    assert second == first
+    assert calls == 1
 
 
 def test_subreddit_query_prefers_reddit_native(server, monkeypatch):
