@@ -100,7 +100,6 @@ class TestCaddyCloudflare:
             ["docker", "run", "--rm", self.IMAGE, "caddy", "list-modules"],
             capture_output=True,
             text=True,
-            check=False,
         )
         assert result.returncode == 0, f"caddy list-modules failed: {result.stderr}"
         assert "dns.providers.cloudflare" in result.stdout
@@ -111,6 +110,7 @@ class TestCaddyCloudflare:
             ["docker", "run", "--rm", self.IMAGE, "caddy", "list-modules"],
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0, f"caddy list-modules failed: {result.stderr}"
         assert "http.handlers.sablier" in result.stdout
