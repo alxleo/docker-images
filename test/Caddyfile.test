@@ -17,3 +17,13 @@
 		redir https://localhost{uri} permanent
 	}
 }
+
+:81 {
+	route {
+		sablier http://sablier:10000 {
+			group test
+			dynamic
+		}
+		respond "ready\n" 200
+	}
+}

@@ -104,6 +104,16 @@ class TestCaddyCloudflare:
         assert result.returncode == 0, f"caddy list-modules failed: {result.stderr}"
         assert "dns.providers.cloudflare" in result.stdout
 
+    def test_sablier_module_loaded(self):
+        """The on-demand service handler must be compiled in."""
+        result = subprocess.run(
+            ["docker", "run", "--rm", self.IMAGE, "caddy", "list-modules"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"caddy list-modules failed: {result.stderr}"
+        assert "http.handlers.sablier" in result.stdout
+
     def test_caddy_version(self):
         """Caddy binary reports expected version."""
         result = subprocess.run(
