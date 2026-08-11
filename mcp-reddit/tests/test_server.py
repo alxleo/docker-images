@@ -233,7 +233,7 @@ def test_search_enriches_hits_and_falls_back_to_stub(server, monkeypatch):
 
 
 def test_search_unavailable_when_searxng_down(server, monkeypatch):
-    def boom(url, params=None):
+    def boom(url, params=None, headers=None):
         raise server.httpx.HTTPError("connection refused")
 
     monkeypatch.setattr(server._client, "get", boom)
@@ -248,7 +248,12 @@ def test_search_unavailable_on_non_json_body(server, monkeypatch):
         def json(self):
             raise ValueError("Expecting value")  # what resp.json() raises on an HTML error page
 
-    monkeypatch.setattr(server._client, "get", lambda url, params=None: _HtmlResp())
+    def routed_get(url, params=None, headers=None):
+        if "reddit.com" in url:
+            raise server.httpx.HTTPError("native search unavailable")
+        return _HtmlResp()
+
+    monkeypatch.setattr(server._client, "get", routed_get)
     assert server.search_reddit("q") == server.SEARCH_UNAVAILABLE
 
 
@@ -269,7 +274,7 @@ def test_search_falls_back_to_pullpush_when_searxng_down(server, monkeypatch):
         def json(self):
             return {"data": [pp_post]}
 
-    def routed_get(url, params=None):
+    def routed_get(url, params=None, headers=None):
         if "pullpush" in url:
             return _PPResp()
         raise server.httpx.HTTPError("searxng down")
@@ -296,7 +301,9 @@ def test_search_falls_back_to_pullpush_when_searxng_has_no_reddit_hits(server, m
         def json(self):
             return {"data": [pp_post]}
 
-    def routed_get(url, params=None):
+    def routed_get(url, params=None, headers=None):
+        if "reddit.com" in url:
+            raise server.httpx.HTTPError("native search unavailable")
         return _PPResp() if "pullpush" in url else _FakeResp([])
 
     monkeypatch.setattr(server._client, "get", routed_get)
@@ -330,6 +337,22 @@ def test_reddit_native_search_parses_atom(server, monkeypatch):
     assert [h["id"] for h in hits] == ["aaa111", "bbb222"]
     assert hits[0]["title"] == "Docker tips & tricks"  # HTML-unescaped
     assert hits[0]["subreddit"] == "selfhosted"
+
+
+def test_global_query_prefers_reddit_native_search(server, monkeypatch):
+    seen = {}
+
+    def routed(url, params=None, headers=None):
+        seen["url"] = url
+        seen["params"] = params
+        return _RssResp(REDDIT_RSS)
+
+    monkeypatch.setattr(server._client, "get", routed)
+    monkeypatch.setattr(server, "_get", lambda path, params: [])
+    out = server.search_reddit("docker")
+    assert "Docker tips" in out
+    assert seen["url"] == server.REDDIT_GLOBAL_SEARCH_URL
+    assert "restrict_sr" not in seen["params"]
 
 
 def test_subreddit_query_prefers_reddit_native(server, monkeypatch):
