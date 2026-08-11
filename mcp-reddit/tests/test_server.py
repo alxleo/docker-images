@@ -6,6 +6,7 @@ instead of aborting collection. Skips if the mcp SDK isn't installed.
 """
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 from pathlib import Path
 
@@ -373,6 +374,22 @@ def test_repeated_search_uses_short_cache(server, monkeypatch):
     first = server.search_reddit("docker")
     second = server.search_reddit("docker")
     assert second == first
+    assert calls == 1
+
+
+def test_concurrent_searches_share_one_upstream_request(server, monkeypatch):
+    calls = 0
+
+    def routed(url, params=None, headers=None):
+        nonlocal calls
+        calls += 1
+        return _RssResp(REDDIT_RSS)
+
+    monkeypatch.setattr(server._client, "get", routed)
+    monkeypatch.setattr(server, "_get", lambda path, params: [])
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: server.search_reddit("docker"), range(2)))
+    assert results[0] == results[1]
     assert calls == 1
 
 
