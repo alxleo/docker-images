@@ -216,6 +216,19 @@ def test_searxng_reddit_parses_dedups_drops_nonthreads(server, monkeypatch):
     assert hits[0]["subreddit"] == "selfhosted"
 
 
+def test_searxng_query_uses_terms_supported_by_available_engines(server, monkeypatch):
+    seen = {}
+
+    def routed(url, params=None):
+        seen["params"] = params
+        return _FakeResp(SEARX)
+
+    monkeypatch.setattr(server._client, "get", routed)
+    server._searxng_reddit("homelab", "", 10)
+    assert seen["params"]["q"] == "homelab reddit comments"
+    assert "site:" not in seen["params"]["q"]
+
+
 def test_search_enriches_hits_and_falls_back_to_stub(server, monkeypatch):
     _mock_searxng(monkeypatch, server, SEARX[:2])
     # Arctic-Shift indexed abc123 (live data) but not def456 (→ SearXNG stub)
