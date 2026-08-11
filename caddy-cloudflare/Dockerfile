@@ -1,4 +1,4 @@
-# Custom Caddy with Cloudflare DNS + caddy-docker-proxy plugins.
+# Custom Caddy with Cloudflare DNS, caddy-docker-proxy, and Sablier plugins.
 # - Cloudflare DNS: ACME DNS-01 challenges for Let's Encrypt wildcard certs
 # - caddy-docker-proxy: label-based routing from Docker container metadata
 #
@@ -8,7 +8,8 @@ ARG CADDY_VERSION=2.11
 FROM ghcr.io/alxleo/base-images/caddy:${CADDY_VERSION}-builder AS builder
 RUN echo "cache-bust: 2026-03-28" && xcaddy build \
     --with github.com/caddy-dns/cloudflare \
-    --with github.com/lucaslorentz/caddy-docker-proxy/v2
+    --with github.com/lucaslorentz/caddy-docker-proxy/v2 \
+    --with github.com/sablierapp/sablier-caddy-plugin@v1.0.2
 
 # conftest:exempt=user_required -- caddy drops privileges at runtime
 FROM ghcr.io/alxleo/base-images/caddy:${CADDY_VERSION}
