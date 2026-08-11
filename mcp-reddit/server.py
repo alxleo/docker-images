@@ -43,12 +43,13 @@ MAX_ATTEMPTS = 2
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://searxng:8080")
 _THREAD_RE = re.compile(r"reddit\.com/r/([^/]+)/comments/([0-9a-z]+)")
 
-# Reddit's own search — for subreddit-scoped queries. Reddit blocks unauth .json
+# Reddit's own search. Reddit blocks unauth .json
 # (403) but still serves .rss to residential IPs (this container's egress runs on
 # the homelab's residential line, so it works where a datacenter IP wouldn't). It's
 # rate-limited (429 under load), so it's tried first for freshness and falls back
 # to SearXNG on any failure. Reddit requires a unique descriptive User-Agent.
 REDDIT_SEARCH_URL = "https://www.reddit.com/r/{subreddit}/search.rss"
+REDDIT_GLOBAL_SEARCH_URL = "https://www.reddit.com/search.rss"
 REDDIT_UA = "mcp-reddit/2.0 (homelab feed reader; +https://github.com/alxleo/docker-images)"
 _ENTRY_RE = re.compile(r"<entry>(.*?)</entry>", re.DOTALL)
 _TITLE_RE = re.compile(r"<title>(.*?)</title>", re.DOTALL)
@@ -211,16 +212,18 @@ SEARCH_UNAVAILABLE = (
 
 
 def _reddit_native_search(subreddit: str, query: str, sort: str, want: int) -> list[dict[str, str]]:
-    """Subreddit search via Reddit's own search.rss (native, freshest source).
+    """Search via Reddit's own search.rss (native, freshest source).
 
     Returns thread hits [{subreddit, id, title, url}]. Raises httpx.HTTPError on a
     non-200 (notably 429 rate-limit or 403) so the caller falls back to SearXNG.
     """
     sort_val = sort if sort in ("relevance", "top", "new") else "relevance"
-    params = {"q": query, "restrict_sr": "1", "sort": sort_val, "limit": str(min(want, 25))}
-    resp = _client.get(
-        REDDIT_SEARCH_URL.format(subreddit=subreddit), params=params, headers={"User-Agent": REDDIT_UA}
-    )
+    params = {"q": query, "sort": sort_val, "limit": str(min(want, 25))}
+    url = REDDIT_GLOBAL_SEARCH_URL
+    if subreddit:
+        params["restrict_sr"] = "1"
+        url = REDDIT_SEARCH_URL.format(subreddit=subreddit)
+    resp = _client.get(url, params=params, headers={"User-Agent": REDDIT_UA})
     resp.raise_for_status()
     hits: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -289,16 +292,15 @@ def search_reddit(query: str, subreddit: str = "", limit: int = 25, sort: str = 
     sort='relevance' (default), 'top' (by score), or 'new' (most recent).
     """
     want = min(limit * 2, API_MAX_LIMIT)
-    # Subreddit-scoped: Reddit's own search is native + freshest. Its .rss works
+    # Reddit's own search is native + freshest. Its .rss works
     # from this container's residential egress (unlike .json); rate-limited, so
     # any failure (429/403/parse) silently falls through to SearXNG.
-    if subreddit:
-        try:
-            hits = _reddit_native_search(subreddit, query, sort, want)
-            if hits:
-                return _enrich_and_format(hits, subreddit, query, limit, sort)
-        except (httpx.HTTPError, ValueError):
-            pass
+    try:
+        hits = _reddit_native_search(subreddit, query, sort, want)
+        if hits:
+            return _enrich_and_format(hits, subreddit, query, limit, sort)
+    except (httpx.HTTPError, ValueError):
+        pass
     try:
         hits = _searxng_reddit(query, subreddit, want)
     except (httpx.HTTPError, ValueError):  # unreachable, or a non-JSON body (json.JSONDecodeError ⊂ ValueError)
