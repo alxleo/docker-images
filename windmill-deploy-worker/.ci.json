@@ -1,0 +1,6 @@
+{
+  "platforms": "linux/amd64",
+  "test_commands": [
+    "docker run --rm --cap-drop=ALL --security-opt=no-new-privileges:true -e AGENT_BROWSER_SOCKET_DIR=/tmp/ab $IMAGE_REF sh -c \"agent-browser --version && agent-browser open 'data:text/html,<title>worker-ready</title>' && agent-browser get title | grep -Fx worker-ready && agent-browser close\""
+  ]
+}
