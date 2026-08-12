@@ -22,6 +22,7 @@
     "mcp-substack",
     "pihole-exporter",
     "dagu-ops",
-    "docs-hub"
+    "docs-hub",
+    "windmill-deploy-worker"
   ]
 }
