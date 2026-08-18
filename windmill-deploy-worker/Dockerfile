@@ -25,9 +25,10 @@ RUN apt-get update \
 # hygiene job's HOME override cannot orphan them.
 ENV MISE_DATA_DIR=/opt/mise \
     MISE_CACHE_DIR=/opt/mise/cache
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -fsSL -o /usr/local/bin/mise \
         "https://github.com/jdx/mise/releases/download/${MISE_VERSION}/mise-${MISE_VERSION}-linux-x64" \
     && echo "${MISE_SHA256}  /usr/local/bin/mise" | sha256sum -c - \
     && chmod 0755 /usr/local/bin/mise \
     && mise install "github:coollabsio/coolify-cli@${COOLIFY_CLI_VERSION}" \
-    && mise exec "github:coollabsio/coolify-cli@${COOLIFY_CLI_VERSION}" -- coolify --version
+    && mise exec "github:coollabsio/coolify-cli@${COOLIFY_CLI_VERSION}" -- coolify --help >/dev/null
