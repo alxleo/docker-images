@@ -59,6 +59,11 @@ updates:
     groups:
       docs-hub-deps:
         patterns: ["*"]
+    ignore:
+      # TypeScript 7 (the Go rewrite) breaks @astrojs/check's peer range —
+      # ERESOLVE in the grouped bump. Lift when the Astro toolchain supports it.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore"
       include: "scope"
