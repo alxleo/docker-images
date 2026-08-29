@@ -1,4 +1,4 @@
-# Weekly maintenance: vulnerability scanning and action updates.
+# Weekly maintenance: vulnerability scanning.
 #
 # Trivy scans run here (not in CI) because they check deployed :latest images
 # for new CVEs -- external changes, not code changes. Keeps builds fast and
@@ -123,44 +123,3 @@ jobs:
             -af settings.py \
             "ghcr.io/alxleo/${{ matrix.name }}:latest"
 
-  # ---------------------------------------------------------------------------
-  # Update GitHub Actions to latest versions
-  # ---------------------------------------------------------------------------
-  update-actions:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
-        with:
-          persist-credentials: true  # needed for git push
-
-      - name: Update actions
-        run: npx --yes actions-up --yes
-
-      - name: Check for changes
-        id: diff
-        run: |
-          if git diff --quiet; then
-            echo "changes=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changes=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create PR
-        if: steps.diff.outputs.changes == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          branch="maintenance/update-actions-$(date +%Y%m%d)"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git checkout -b "$branch"
-          git add -A
-          git commit -m "ci: update GitHub Actions versions"
-          git push -u origin "$branch"
-          gh pr create \
-            --title "ci: update GitHub Actions versions" \
-            --body "Automated weekly action version bump. Node 20 retirement: June 2026." \
-            --draft
