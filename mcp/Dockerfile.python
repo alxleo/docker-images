@@ -6,6 +6,7 @@
 #     - PyPI: "mcp-server-name==1.0.0"
 #     - Git: "git+https://github.com/user/repo@v1.0.0"
 #   MCP_ENTRYPOINT: Command to run (e.g., "mcp-youtube-transcript")
+#   UV_VERSION: pinned uv release (distroless copy source)
 #
 # Runtime env vars:
 #   MCP_SERVER_COMMAND: Command override (optional)
@@ -22,30 +23,19 @@
 # Example run:
 #   docker run -p 8080:8080 mcp-youtube
 
-# Stage 1: Install uv (needs curl)
-FROM ghcr.io/alxleo/base-images/node:26-slim AS build
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ARG UV_VERSION=0.12.0
 
-# Stage 2: Runtime (no curl)
-FROM ghcr.io/alxleo/base-images/node:26-slim
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
+FROM ghcr.io/alxleo/base-images/node:26-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
-# Install Python 3.11+, git (for git+ packages), and entrypoint deps
-# No curl needed — uv copied from build stage, healthcheck uses microcheck
-# libgnutls30: targeted upgrade for CVE-2026-33845, CVE-2026-42010 (fixed in 3.7.9-2+deb12u7)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 git unzip jq ca-certificates && \
-    apt-get install -y --no-install-recommends --only-upgrade libgnutls30 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Python 3 and git (for git+ packages); no curl — uv is copied in pinned,
+# healthcheck uses microcheck
+RUN apk add --no-cache python3 git unzip jq ca-certificates
 
-# Copy uv from build stage (uvx no longer needed — packages are system-installed)
-COPY --from=build /root/.local/bin/uv /usr/local/bin/uv
+# Pinned uv from the official distroless image (musl static binary)
+COPY --from=uv /uv /usr/local/bin/uv
 
 # Healthcheck binary: 75KB static C/musl, localhost-only by design
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
@@ -59,8 +49,8 @@ ARG MCP_PACKAGE
 ARG MCP_ENTRYPOINT
 
 # Pre-install the Python MCP package into the system Python site-packages.
-# Using `uv pip install --system` puts everything in /usr/local/lib/python3/
-# and scripts in /usr/local/bin/ — both in the image layer, unaffected by
+# Using `uv pip install --system` puts everything in /usr/lib/python3.*/
+# and scripts in /usr/bin — both in the image layer, unaffected by
 # tmpfs mounts on ~/.cache and ~/.local/share.
 RUN if [ -n "$MCP_PACKAGE" ]; then \
         echo "Pre-installing Python package: $MCP_PACKAGE..." && \
@@ -92,9 +82,7 @@ ENV MCP_PACKAGE_NAME="$MCP_PACKAGE" \
 #   - Clear error messages and validation
 # Secrets are injected via environment variables or Docker secrets
 # See /entrypoint.py for implementation
-# Strip setuid/setgid bits and clean stale root caches
-RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true \
-    && rm -rf /root/.npm /root/.cache
+RUN rm -rf /root/.npm /root/.cache
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
