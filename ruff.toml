@@ -7,7 +7,7 @@ line-length = 120
 # Rules enabled by coding-standards ruff.toml baseline.
 # Suppress rules that conflict with this repo's design:
 ignore = [
-    # pr-reviewer/scripts/ uses PYTHONPATH, not packages -- __init__.py would break imports
+    # Standalone script dirs (scripts/, test/, mcp/) aren't packages -- __init__.py would break them
     "INP001",
     # Scripts and MCP servers intentionally print to stdout
     "T201",
@@ -26,11 +26,5 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-# pr-reviewer runs CLI tools (claude, gh, gemini) as its core function -- not untrusted input
-"pr-reviewer/scripts/*.py" = ["S603", "S607", "S606"]
-# Test files use fake tokens, self-signed certs, and subprocess calls by design
-"pr-reviewer/tests/*.py" = ["S105", "S501", "S603", "S607", "PLW1510"]
 # mcp-substack server binds to 0.0.0.0 inside a container -- expected
 "mcp-substack/server.py" = ["S104"]
-# Entrypoint script uses subprocess to exec the server
-"pr-reviewer/scripts/entrypoint.py" = ["S603", "S607"]

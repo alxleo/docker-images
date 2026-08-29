@@ -11,8 +11,12 @@ repos:
         exclude: ^docs-hub/package-lock\.json$
       - id: check-json
       - id: check-yaml
+      # Patch files carry significant trailing whitespace in context lines;
+      # rewriting them breaks `git apply`.
       - id: end-of-file-fixer
+        exclude: '\.patch$'
       - id: trailing-whitespace
+        exclude: '\.patch$'
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
@@ -30,7 +34,6 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^pr-reviewer/
 
   - repo: local
     hooks:
@@ -62,12 +65,6 @@ repos:
         entry: yamllint
         language: system
         types: [yaml]
-      - id: log-audit
-        name: log audit (no sensitive data at INFO)
-        entry: bash -c 'pattern="log\\.(info|warning)\\(.*[%,]\\s*(body|diff|raw_result|review_body|result\\.stdout|result\\.text)\\s*[,)]"; if grep -rPn "$pattern" "$@"; then echo "Sensitive data in INFO/WARNING log — use DEBUG"; exit 1; fi' --
-        language: system
-        files: ^pr-reviewer/scripts/.*\.py$
-        types: [python]
       - id: no-unicode-in-config
         name: No unicode in config files
         entry: bash -c 'for f in "$@"; do if LC_ALL=C grep -n "[^[:print:][:space:]]" "$f"; then echo "Non-ASCII in $f - use plain ASCII"; exit 1; fi; done' --

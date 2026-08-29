@@ -2,7 +2,7 @@
 #
 # coding-standards auto-detects and runs: hadolint, shellcheck, yamllint,
 # actionlint, zizmor, ruff, lychee, gitleaks, semgrep, and more.
-# Repo-specific jobs: pytest (pr-reviewer), log audit.
+# Repo-specific jobs: pytest (manifests, entrypoint, contracts, fleet), conftest.
 
 name: Lint
 
@@ -32,37 +32,25 @@ jobs:
           persist-credentials: false
       - uses: alxleo/coding-standards/docker-action@main
 
-  pytest-matrix:
-    name: pytest (pr-reviewer, Python ${{ matrix.python-version }})
+  pytest:
+    name: pytest
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ matrix.python-version }}
-      - run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
-          pip install pytest respx httpx requests pyyaml pyjwt cryptography grep-ast 'tree-sitter-language-pack==1.13.7'
-      - run: pytest pr-reviewer/tests/ test/test_manifests.py -x -m "not calibration"
-        env:
-          PYTHONPATH: pr-reviewer/scripts
-
-  pytest:
-    name: pytest (pr-reviewer)
-    needs: pytest-matrix
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every Python version
-        env:
-          MATRIX_RESULT: ${{ needs.pytest-matrix.result }}
-        run: test "$MATRIX_RESULT" = "success"
+          python-version: "3.14"
+      - run: pip install pytest pyyaml requests
+      # Same suite as `just check` so local and CI verification agree
+      - run: >-
+          pytest -x
+          test/test_manifests.py
+          test/test_entrypoint.py
+          "test/test_custom_images.py::TestImageReferenceResolution"
+          test/test_mcp_contract.py
+          test/test_toolhive_fleet.py
 
   conftest:
     name: conftest (Dockerfile + Compose policies)
@@ -82,21 +70,3 @@ jobs:
         run: conftest test --parser dockerfile -p policy/ -- */Dockerfile mcp/Dockerfile.*
       - name: Test Compose policies
         run: conftest test --parser yaml -p policy/ -- test/docker-compose*.yml examples/docker-compose.yml
-
-  log-audit:
-    name: log audit (no sensitive data at INFO)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
-        with:
-          persist-credentials: false
-      - name: Check for content leaked in INFO/WARNING logs
-        run: |
-          # Fail if any log.info/log.warning passes raw content variables as format args.
-          # Safe: log.info("... %d chars", len(body))  — logs metadata
-          # Unsafe: log.info("Preview: %s", body)       — logs content
-          pattern='log\.(info|warning)\(.*[%,]\s*(body|diff|raw_result|review_body|result\.stdout|result\.text)\s*[,)]'
-          if grep -rPn "$pattern" pr-reviewer/scripts/; then
-            echo "::error::Sensitive data passed to INFO/WARNING log. Use DEBUG for content, INFO for metadata only."
-            exit 1
-          fi

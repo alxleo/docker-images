@@ -31,7 +31,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 | Type | How | Examples |
 |------|-----|---------|
-| **Custom images** | `*/Dockerfile` + `.ci.json` | pr-reviewer, caddy-cloudflare, mcp-reddit |
+| **Custom images** | `*/Dockerfile` + `.ci.json` | caddy-cloudflare, docs-hub, mcp-reddit |
 | **MCP images** | `mcp-images.json` -> purpose-fit Dockerfile | mcp-brave, mcp-arxiv |
 | **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose) |
 
@@ -40,7 +40,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 | Base | Used by | Why |
 |------|---------|-----|
 | `node:26-alpine` | Dockerfile.npm (16 MCP images) | Smallest viable Node base, no setuid binaries |
-| `node:26-slim` | Dockerfile.python (3 MCP images), pr-reviewer | Python C extensions (pymupdf) need glibc |
+| `node:26-slim` | Dockerfile.python (2 MCP images), Dockerfile.arxiv proxy stage | Python C extensions (pymupdf) need glibc |
 | `python:3.14-alpine` | mcp-reddit, mcp-substack | Pure Python deps, Alpine viable |
 | `alpine:3.23` | pihole-exporter, mcp-auth-proxy (runtime) | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
 
@@ -52,7 +52,7 @@ Each image gets a monotonically incrementing build counter tracked via git tags.
 
 - Base version: the `tag` field in `.ci.json` (defaults to `latest`)
 - Build counter: stored as `{name}/{tag}-build.{N}` git tags, auto-incremented on every push to main
-- Pushed tags: `:latest`, `:{tag}` (from `.ci.json`), and `:{tag}-build.{N}` (build version); `pr-reviewer` is the exception — it receives `:{github.sha}` and `:latest` (no static version tag, so `:latest` is the stable reference)
+- Pushed tags: `:latest`, `:{tag}` (from `.ci.json`), and `:{tag}-build.{N}` (build version)
 - The `tags: ['*/v*']` trigger in `build-images.yml` is inert — actual build tags follow the `{name}/{tag}-build.{N}` pattern and do not match `*/v*`
 - Conventional commits are used for commit messages and readability; no automated release tooling runs
 
@@ -74,7 +74,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, tags, dispatch | Auto-discover, matrix build, test, push; gitleaks scan on PRs |
-| Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest, log audit |
+| Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan, action updates |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
 
@@ -95,7 +95,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 
 ### Pre-commit hooks
 
-gitleaks, shellcheck, hadolint, check-user-has-group (USER numeric ID must have preceding addgroup), actionlint, yamllint, zizmor, ruff, log audit (no sensitive data at INFO), no-unicode-in-config, secret file blocking, caddy fmt.
+gitleaks, shellcheck, hadolint, check-user-has-group (USER numeric ID must have preceding addgroup), actionlint, yamllint, zizmor, ruff, no-unicode-in-config, secret file blocking, caddy fmt.
 
 ## Development
 
