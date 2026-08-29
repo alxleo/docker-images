@@ -38,7 +38,7 @@
       "name": "mcp-brave",
       "port": 19101,
       "state": "ready",
-      "source": {"type": "npx", "package": "@brave/brave-search-mcp-server", "version": "2.1.0"},
+      "source": {"type": "npx", "package": "@brave/brave-search-mcp-server", "version": "2.1.3"},
       "secrets": [{"name": "BRAVE_API_KEY", "target": "BRAVE_API_KEY"}]
     },
     {
@@ -52,21 +52,21 @@
       "name": "mcp-tavily",
       "port": 19103,
       "state": "ready",
-      "source": {"type": "npx", "package": "tavily-mcp", "version": "0.2.21"},
+      "source": {"type": "npx", "package": "tavily-mcp", "version": "0.2.22"},
       "secrets": [{"name": "TAVILY_API_KEY", "target": "TAVILY_API_KEY"}]
     },
     {
       "name": "mcp-context7",
       "port": 19104,
       "state": "ready",
-      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "3.2.5"},
+      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "4.0.4"},
       "secrets": [{"name": "CONTEXT7_API_KEY", "target": "CONTEXT7_API_KEY"}]
     },
     {
       "name": "mcp-searxng",
       "port": 19105,
       "state": "ready",
-      "source": {"type": "npx", "package": "mcp-searxng", "version": "1.12.0"},
+      "source": {"type": "npx", "package": "mcp-searxng", "version": "2.1.0"},
       "environment": [{"name": "SEARXNG_URL", "required": true}],
       "network": "mcp-network",
       "isolate_network": false,
@@ -94,7 +94,7 @@
       "name": "mcp-firecrawl",
       "port": 19107,
       "state": "ready",
-      "source": {"type": "npx", "package": "firecrawl-mcp", "version": "3.22.4"},
+      "source": {"type": "npx", "package": "firecrawl-mcp", "version": "3.24.0"},
       "secrets": [{"name": "FIRECRAWL_API_KEY", "target": "FIRECRAWL_API_KEY"}]
     },
     {
@@ -235,14 +235,14 @@
       "name": "mcp-exa",
       "port": 19114,
       "state": "ready",
-      "source": {"type": "npx", "package": "exa-mcp-server", "version": "3.2.1"},
+      "source": {"type": "npx", "package": "exa-mcp-server", "version": "3.4.1"},
       "secrets": [{"name": "EXA_API_KEY", "target": "EXA_API_KEY"}]
     },
     {
       "name": "mcp-karakeep",
       "port": 19115,
       "state": "ready",
-      "source": {"type": "npx", "package": "@karakeep/mcp", "version": "0.32.1"},
+      "source": {"type": "npx", "package": "@karakeep/mcp", "version": "0.33.0"},
       "secrets": [
         {"name": "KARAKEEP_API_KEY", "target": "KARAKEEP_API_KEY"},
         {"name": "KARAKEEP_ADDR", "target": "KARAKEEP_ADDR"}

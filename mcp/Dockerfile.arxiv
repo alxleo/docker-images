@@ -5,14 +5,14 @@
 # preserving the existing /ping and tool-filtering contract through mcp-proxy.
 
 FROM ghcr.io/alxleo/base-images/python:3.14-slim AS build
-ARG UV_VERSION=0.12.0
+ARG UV_VERSION=0.12.7
 RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 
 FROM ghcr.io/alxleo/base-images/node:26-slim AS proxy
-ARG MCP_PROXY_VERSION=6.5.4
+ARG MCP_PROXY_VERSION=6.7.11
 RUN npm install -g \
     "mcp-proxy@${MCP_PROXY_VERSION}" \
-    "mcp-filter@0.6.0"
+    "mcp-filter@1.1.3"
 
 FROM ghcr.io/alxleo/base-images/python:3.14-slim
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images

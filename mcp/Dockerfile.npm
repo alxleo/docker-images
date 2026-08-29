@@ -28,8 +28,8 @@ RUN apk add --no-cache unzip jq python3
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
-# mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)
-RUN npm install -g mcp-proxy@6.5.4 mcp-filter@0.6.0
+# mcp-filter installed globally for faster startup (validated: 62% token reduction in testing)
+RUN npm install -g mcp-proxy@6.7.11 mcp-filter@1.1.3
 
 # Install MCP package globally so the binary lives in /usr/local/bin/
 # (image layer, unaffected by tmpfs on /root/.npm and /root/.cache)
