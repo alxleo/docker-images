@@ -76,11 +76,33 @@ jobs:
           result=$(bash scripts/discover-images.sh)
           echo "result=${result}" >> "$GITHUB_OUTPUT"
 
+      # On main pushes, diff against the head of the last SUCCESSFUL build run,
+      # not event.before: rapid merges supersede queued runs in the concurrency
+      # group (GitHub keeps only the newest pending run), and each cancelled
+      # run's changes would otherwise never be built or pushed.
+      - name: Resolve diff base
+        id: base
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          last_built=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --branch main --event push --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // empty' || true)
+          if [ -n "$last_built" ] && git cat-file -e "$last_built" 2>/dev/null; then
+            echo "sha=${last_built}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${EVENT_BEFORE}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Detect changed directories
         id: changes
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || steps.base.outputs.sha }}
           FULL_MATRIX: ${{ steps.matrix.outputs.result }}
         run: |
           # workflow_run = post-mirror refresh: rebuild everything so base-layer
