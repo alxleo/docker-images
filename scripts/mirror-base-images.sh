@@ -18,7 +18,7 @@ images=(
     "alpine:3.23"
     "caddy:2.11"
     "caddy:2.11-builder"
-    "golang:1.25-alpine"
+    "golang:1.26-alpine"
     "golang:1.26-bookworm"
     "node:26-alpine"
     "node:26-slim"
