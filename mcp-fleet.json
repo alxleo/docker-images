@@ -252,7 +252,7 @@
       "name": "mcp-reddit",
       "port": 19116,
       "state": "ready",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-reddit:1.3.0", "target_port": 29116},
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-reddit:1.3.1", "target_port": 29116},
       "contract": "mcp-contracts/mcp-reddit.json",
       "allow_tools": ["browse_subreddit", "read_thread", "search_reddit"],
       "environment": [
