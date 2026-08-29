@@ -1,6 +1,6 @@
-# arXiv MCP 0.6.1
+# arXiv MCP 0.7.2
 #
-# Upstream provides a stdio server and native Streamable HTTP, but 0.6.1 uses
+# Upstream provides a stdio server and native Streamable HTTP, but 0.7.x uses
 # the MCP SDK 1.x Server API. Keep that dependency boundary isolated here while
 # preserving the existing /ping and tool-filtering contract through mcp-proxy.
 
@@ -17,7 +17,7 @@ RUN npm install -g \
 FROM ghcr.io/alxleo/base-images/python:3.14-slim
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
-ARG ARXIV_MCP_VERSION=0.6.1
+ARG ARXIV_MCP_VERSION=0.7.2
 COPY --from=build /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=proxy /usr/local/bin/node /usr/local/bin/node
 COPY --from=proxy /usr/local/lib/node_modules/mcp-proxy /usr/local/lib/node_modules/mcp-proxy

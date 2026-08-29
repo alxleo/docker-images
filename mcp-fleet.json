@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "toolhive_version": "0.41.0",
-  "mcpjam_version": "3.16.0",
+  "toolhive_version": "0.46.0",
+  "mcpjam_version": "5.3.0",
   "secrets_provider": "environment",
   "group": "homelab",
   "defaults": {
@@ -165,16 +165,16 @@
       "port": 19111,
       "state": "legacy-wrapper",
       "remove_when": "the Git dependency is represented by a locked Python project",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.5.14", "target_port": 29111},
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.7.0", "target_port": 29111},
       "environment": [{"name": "MCP_PORT", "value": "29111"}],
       "contract": "mcp-contracts/mcp-youtube.json",
-      "allow_tools": ["get_timed_transcript", "get_transcript", "get_video_info"]
+      "allow_tools": ["get_available_languages", "get_timed_transcript", "get_transcript", "get_video_info"]
     },
     {
       "name": "mcp-arxiv",
       "port": 19112,
       "state": "ready",
-      "source": {"type": "uvx", "package": "arxiv-mcp-server", "version": "0.6.1"},
+      "source": {"type": "uvx", "package": "arxiv-mcp-server", "version": "0.7.2"},
       "build_with": ["mcp>=1.27,<2"],
       "args": ["--storage-path", "/data/papers"],
       "volumes": [
@@ -189,12 +189,17 @@
         "get_abstract",
         "get_paper_latex",
         "get_paper_latex_section",
+        "get_paper_outline",
         "list_paper_latex_sections",
         "list_papers",
+        "list_watches",
         "read_paper",
+        "read_paper_section",
         "reindex",
+        "search_paper_text",
         "search_papers",
         "semantic_search",
+        "unwatch_topic",
         "watch_topic"
       ]
     },

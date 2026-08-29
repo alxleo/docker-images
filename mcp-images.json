@@ -94,8 +94,8 @@
   {
     "name": "mcp-youtube",
     "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.5.14\nMCP_ENTRYPOINT=mcp-youtube-transcript",
-    "tag": "0.5.14",
+    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.7.0\nMCP_ENTRYPOINT=mcp-youtube-transcript",
+    "tag": "0.7.0",
     "description": "YouTube transcript and video metadata extraction",
     "contract": "mcp-contracts/mcp-youtube.json",
     "test_commands": [
@@ -105,12 +105,12 @@
   {
     "name": "mcp-arxiv",
     "dockerfile": "Dockerfile.arxiv",
-    "build_args": "ARXIV_MCP_VERSION=0.6.1\nMCP_PROXY_VERSION=6.7.11\nUV_VERSION=0.12.7",
-    "tag": "0.6.1",
+    "build_args": "ARXIV_MCP_VERSION=0.7.2\nMCP_PROXY_VERSION=6.7.11\nUV_VERSION=0.12.7",
+    "tag": "0.7.2",
     "description": "Search and retrieve academic papers from arXiv",
     "contract": "mcp-contracts/mcp-arxiv.json",
     "test_commands": [
-      "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.' && python3 -c 'from importlib.metadata import version; assert version(\\\"arxiv-mcp-server\\\") == \\\"0.6.1\\\"; assert version(\\\"mcp\\\").startswith(\\\"1.\\\"); import pymupdf4llm'\""
+      "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.' && python3 -c 'from importlib.metadata import version; assert version(\\\"arxiv-mcp-server\\\") == \\\"0.7.2\\\"; assert version(\\\"mcp\\\").startswith(\\\"1.\\\"); import pymupdf4llm'\""
     ]
   },
   {

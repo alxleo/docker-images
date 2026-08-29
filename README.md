@@ -73,16 +73,16 @@ just test-toolhive-fleet replacements  # Hacker News + Sequential Thinking only
 
 The live test runs the pinned Hacker News and Sequential Thinking packages on
 Node 26 and Arxiv on Python 3.14 through ToolHive, then connects Jina through
-ToolHive's native remote transport. It verifies their complete 11-, 1-, 14-,
+ToolHive's native remote transport. It verifies their complete 11-, 1-, 19-,
 and 21-tool contracts, makes harmless calls against both retired-image
 replacements, and checks every handshake independently with MCPJam. The Hacker
 News lane also proves that an allow-list hides and rejects a blocked tool. It
 uses an isolated temporary ToolHive state directory and removes only its
 uniquely named test workloads.
 
-MCPJam 3.16.0's `server probe` passes this endpoint. Its higher-level
+MCPJam 5.3.0's `server probe` passes this endpoint. Its higher-level
 `server doctor` and `tools list` currently time out during version negotiation
-against ToolHive 0.41.0 even though the initialize probe and deterministic
+against ToolHive even though the initialize probe and deterministic
 contract succeed. The client sends the draft `server/discover` request before
 legacy initialization; older servers can leave it unanswered. Keep the
 deterministic contract plus `server probe` as the fleet oracle until that
