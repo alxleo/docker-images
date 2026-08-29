@@ -3,7 +3,8 @@
 # Triggers:
 #   - Pull requests: build-only (no push) -- gates merge
 #   - Push to main: build + push to ghcr.io as :latest
-#   - Tags (*/v*): build + push as :vX.Y.Z + :latest
+#   - Mirror refresh: successful "Mirror base images" run rebuilds + pushes all
+#     images so base-layer CVE fixes propagate without manual dispatch
 #   - Manual dispatch: build + push (all images)
 #
 # Bot PRs (Dependabot, etc): affected custom images are built and tested.
@@ -28,9 +29,12 @@ concurrency:
 on:
   push:
     branches: [main]
-    tags: ['*/v*']
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Mirror base images"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -46,6 +50,10 @@ jobs:
   # ---------------------------------------------------------------------------
   discover:
     name: Discover images
+    # A failed mirror refresh must not trigger a fleet-wide rebuild
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -75,7 +83,9 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           FULL_MATRIX: ${{ steps.matrix.outputs.result }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          # workflow_run = post-mirror refresh: rebuild everything so base-layer
+          # CVE fixes propagate (issue #168)
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "workflow_run" ]; then
             {
               echo "matrix=${FULL_MATRIX}"
               echo "changed=[]"
