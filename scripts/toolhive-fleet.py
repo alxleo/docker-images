@@ -99,7 +99,7 @@ def validate_fleet(fleet: dict[str, Any]) -> list[str]:
 
     shared_entries = {entry["name"]: entry for entry in load_json(SHARED_IMAGES)}
     contracted_names = {path.stem for path in MCP_CONTRACTS.glob("mcp-*.json")}
-    expected_names = set(shared_entries) | contracted_names | {"mcp-reddit", "mcp-substack"}
+    expected_names = set(shared_entries) | contracted_names | {"mcp-reddit"}
     actual_names: list[str] = []
     ports: list[int] = []
     target_ports: list[int] = []

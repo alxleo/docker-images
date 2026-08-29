@@ -26,5 +26,5 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-# mcp-substack server binds to 0.0.0.0 inside a container -- expected
-"mcp-substack/server.py" = ["S104"]
+# MCP servers bind to 0.0.0.0 inside a container -- expected
+"mcp-reddit/server.py" = ["S104"]

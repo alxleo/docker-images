@@ -1,4 +1,4 @@
-# Upstream Dagu base image — Go stdlib and gRPC-Go CVEs.
+# Upstream Dagu base image -- Go stdlib and gRPC-Go CVEs.
 # We don't build Dagu from source, so we can't bump these.
 # Track: https://github.com/dagu-org/dagu/releases for a new version.
 # Revisit: when Dagu publishes a release with Go >= 1.24.13 and grpc >= 1.79.3

@@ -13,7 +13,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
-| `mcp-substack` | Custom MCP server for authenticated Substack content | Never (custom server) |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 | `windmill-deploy-worker` | Windmill worker with browser verifier, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
 
@@ -25,13 +24,13 @@ The shared legacy images follow this pattern:
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
 - Health: `GET /ping` on port `8080` (from `mcp-proxy`, validated by CI)
 
-Custom servers can instead expose native Streamable HTTP. `mcp-reddit` and
-`mcp-substack` do so on `/mcp`, with protocol-aware image tests and no Node.js
-proxy or filter packages.
+Custom servers can instead expose native Streamable HTTP. `mcp-reddit` does so
+on `/mcp`, with protocol-aware image tests and no Node.js proxy or filter
+packages.
 
 ## ToolHive MCP Fleet
 
-[`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 18
+[`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 17
 repository MCPs. It pins ToolHive, MCPJam, Node 26, Python 3.14, packages,
 ports, secret references, networks, mounts, and removal criteria for the two
 workloads that still depend on a legacy wrapper. Homelab can consume this

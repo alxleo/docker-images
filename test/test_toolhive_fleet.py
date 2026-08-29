@@ -24,8 +24,8 @@ def fleet():
 
 def test_fleet_covers_published_and_direct_repository_mcps(fleet):
     assert toolhive_fleet.validate_fleet(fleet) == []
-    assert len(fleet["servers"]) == 18
-    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 16
+    assert len(fleet["servers"]) == 17
+    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 15
     assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 2
 
 
