@@ -28,7 +28,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tar-stream": "3.2.0",
-    "three": "0.185.1",
+    "three": "0.183.2",
     "vega-embed": "7.1.0",
     "yaml": "2.9.0"
   },
@@ -38,7 +38,7 @@
     "@types/node": "26.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
-    "typescript": "7.0.2"
+    "typescript": "5.9.3"
   },
   "overrides": {
     "@excalidraw/excalidraw": {
