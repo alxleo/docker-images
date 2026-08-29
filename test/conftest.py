@@ -71,6 +71,7 @@ def stack(tmp_path_factory):
             cwd=compose_dir,
             capture_output=True,
             text=True,
+            check=False,
         )
 
     # Start stack
@@ -139,7 +140,7 @@ def run_container():
         if cmd:
             docker_cmd.extend(cmd)
 
-        result = subprocess.run(docker_cmd, capture_output=True, text=True)
+        result = subprocess.run(docker_cmd, capture_output=True, text=True, check=False)
         assert result.returncode == 0, (
             f"docker run failed: {result.stderr}"
         )
@@ -165,6 +166,7 @@ def run_container():
         subprocess.run(
             ["docker", "rm", "-f", name],
             capture_output=True,
+            check=False,
         )
 
 

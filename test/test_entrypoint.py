@@ -5,14 +5,13 @@ Tests command construction, filter arg building, server command
 resolution, secret injection, and startup jitter.
 """
 
+# Import entrypoint from mcp/ (not a package -- use importlib to avoid E402)
+import importlib.util
 import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-# Import entrypoint from mcp/ (not a package -- use importlib to avoid E402)
-import importlib.util
 
 _entrypoint_path = Path(__file__).resolve().parent.parent / "mcp" / "entrypoint.py"
 _spec = importlib.util.spec_from_file_location("entrypoint", _entrypoint_path)

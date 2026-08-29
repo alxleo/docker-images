@@ -24,6 +24,7 @@ def _build_hackernews_image():
     result = subprocess.run(
         ["docker", "image", "inspect", MCP_IMAGE],
         capture_output=True,
+        check=False,
     )
     if result.returncode == 0:
         return  # Already built
@@ -41,6 +42,7 @@ def _build_hackernews_image():
         ],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 0, f"Build failed: {result.stderr}"
 
@@ -216,6 +218,7 @@ class TestSecretInjection:
             ],
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0, f"Failed to read PID 1 env: {result.stderr}"
         return result.stdout
