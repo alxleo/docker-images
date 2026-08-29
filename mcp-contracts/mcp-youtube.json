@@ -2,6 +2,10 @@
   "lock_version": 1,
   "tools": [
     {
+      "input_schema_sha256": "sha256:2fd693c14f7fe888e8af65f9b477530cd4b95767cdc0a667d36a3b6fef5f1e85",
+      "name": "get_available_languages"
+    },
+    {
       "input_schema_sha256": "sha256:3a41d1a483a8c75a6f0d2e15cd1952238043cd1a93117f65c78c5497bfd5d8ff",
       "name": "get_timed_transcript"
     },
