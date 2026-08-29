@@ -31,7 +31,7 @@ ENV MCP_PORT=8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["python", "/app/healthcheck.py"]
 
-# Matching uid=1000/gid=1000 app user (base python:alpine ships none — see mcp-substack)
+# Matching uid=1000/gid=1000 app user (base python:alpine ships none)
 RUN addgroup -g 1000 -S app \
     && adduser -u 1000 -G app -S -D -s /sbin/nologin app
 USER 1000

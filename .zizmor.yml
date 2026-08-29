@@ -9,3 +9,10 @@ rules:
   unpinned-uses:
     ignore:
       - lint.yml
+  # workflow_run on build-images.yml only fires from "Mirror base images" runs
+  # on main (branches: [main] filter) -- same-repo scheduled workflow, no
+  # untrusted code path. It exists so base-mirror refreshes rebuild images
+  # (issue #168).
+  dangerous-triggers:
+    ignore:
+      - build-images.yml
