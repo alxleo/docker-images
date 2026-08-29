@@ -1,9 +1,12 @@
 version: 2
 
 updates:
-  # Keep GHA action versions current
+  # Keep GHA action versions current. "/" only scans .github/workflows;
+  # the composite action needs its own directory entry.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/build-image
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
