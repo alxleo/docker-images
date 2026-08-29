@@ -6,9 +6,9 @@
 
 ARG CADDY_VERSION=2.11
 FROM ghcr.io/alxleo/base-images/caddy:${CADDY_VERSION}-builder AS builder
-RUN echo "cache-bust: 2026-03-28" && xcaddy build \
-    --with github.com/caddy-dns/cloudflare \
-    --with github.com/lucaslorentz/caddy-docker-proxy/v2 \
+RUN xcaddy build \
+    --with github.com/caddy-dns/cloudflare@v0.2.4 \
+    --with github.com/lucaslorentz/caddy-docker-proxy/v2@v2.13.1 \
     --with github.com/sablierapp/sablier-caddy-plugin@v1.0.2
 
 # conftest:exempt=user_required -- caddy drops privileges at runtime
