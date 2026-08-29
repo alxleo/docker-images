@@ -39,8 +39,8 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 | Base | Used by | Why |
 |------|---------|-----|
-| `node:26-alpine` | Dockerfile.npm (16 MCP images) | Smallest viable Node base, no setuid binaries |
-| `node:26-slim` | Dockerfile.python (2 MCP images), Dockerfile.arxiv proxy stage | Python C extensions (pymupdf) need glibc |
+| `node:26-alpine` | Dockerfile.npm, Dockerfile.python | Smallest viable Node base, no setuid binaries |
+| `node:26-slim` | Dockerfile.arxiv proxy stage | Python C extensions (pymupdf) need glibc |
 | `python:3.14-alpine` | mcp-reddit | Pure Python deps, Alpine viable |
 | `alpine:3.23` | pihole-exporter, mcp-auth-proxy (runtime) | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
 
