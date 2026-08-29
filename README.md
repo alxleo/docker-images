@@ -10,12 +10,12 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + tailscale plugins | Never (plugins aren't in upstream) |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
-| `pr-reviewer` | AI PR reviewer with Claude/Gemini/Codex CLIs | Never (custom multi-model engine) |
 | `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `mcp-substack` | Custom MCP server for authenticated Substack content | Never (custom server) |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
+| `windmill-deploy-worker` | Windmill worker with browser verifier, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
 
 ## MCP Service Images
 

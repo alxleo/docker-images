@@ -211,20 +211,6 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${IMAGE_NAME}/${VERSION}" >> "$GITHUB_OUTPUT"
 
-      # --- Resolve tag (pr-reviewer uses github.sha, others use .ci.json tag) ---
-      - name: Resolve image tag
-        id: tag
-        env:
-          CI_TAG: ${{ matrix.tag }}
-          IMAGE_NAME: ${{ matrix.name }}
-          GIT_SHA: ${{ github.sha }}
-        run: |
-          if [ "$IMAGE_NAME" = "pr-reviewer" ]; then
-            echo "tag=${GIT_SHA}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${CI_TAG}" >> "$GITHUB_OUTPUT"
-          fi
-
       # --- Build (no push — tests run first) ---
       - name: Build
         id: build
@@ -232,7 +218,7 @@ jobs:
         with:
           name: ${{ matrix.name }}
           context: ${{ matrix.context }}
-          tag: ${{ steps.tag.outputs.tag }}
+          tag: ${{ matrix.tag }}
           build-args: ${{ matrix.build_args }}
           platforms: ${{ matrix.platforms }}
           scope: ${{ matrix.name }}
@@ -277,7 +263,7 @@ jobs:
           github.event_name != 'pull_request'
         env:
           IMAGE_NAME: ${{ matrix.name }}
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_TAG: ${{ matrix.tag }}
           IMAGE_VERSION: ${{ steps.version.outputs.version }}
           IMAGE_PLATFORMS: ${{ matrix.platforms }}
           IMAGE_CONTEXT: ${{ matrix.context }}
