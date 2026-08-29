@@ -34,6 +34,6 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 # Matching uid=1000/gid=1000 app user (base python:alpine ships none — see mcp-substack)
 RUN addgroup -g 1000 -S app \
     && adduser -u 1000 -G app -S -D -s /sbin/nologin app
-USER app
+USER 1000
 
 ENTRYPOINT ["python", "/app/server.py"]

@@ -69,7 +69,7 @@ def _extract_json(
                 event_data.append("")
             elif line.startswith("data:"):
                 value = line[5:]
-                event_data.append(value[1:] if value.startswith(" ") else value)
+                event_data.append(value.removeprefix(" "))
         if event_data:
             candidates.append("\n".join(event_data))
     else:

@@ -100,9 +100,9 @@ class TestCaddyHealthProbe:
         assert r.status_code == 200
         upstreams = r.json()
         addresses = {u["address"] for u in upstreams}
-        for addr in EXPECTED_UPSTREAMS:
+        for addr, service in EXPECTED_UPSTREAMS.items():
             assert addr in addresses, (
-                f"Missing upstream {addr} ({EXPECTED_UPSTREAMS[addr]}). "
+                f"Missing upstream {addr} ({service}). "
                 f"Registered: {addresses}"
             )
 
@@ -146,7 +146,7 @@ class TestMCPProtocol:
 
     @pytest.mark.parametrize("service", MCP_SERVICES)
     def test_initialize_http(self, stack, service):
-        result, session_id = mcp_initialize(stack["http_base"], service)
+        result, _ = mcp_initialize(stack["http_base"], service)
         assert result is not None, f"{service}: no valid JSON response"
         assert "result" in result, f"{service}: no result key: {result}"
         assert "capabilities" in result["result"], f"{service}: no capabilities"
@@ -157,7 +157,7 @@ class TestMCPProtocol:
         if session_id is None:
             warnings.warn(f"{service}: no Mcp-Session-Id header (stateless mode)")
             pytest.skip("Server running in stateless mode")
-        assert len(session_id) > 0
+        assert session_id
 
     @pytest.mark.parametrize("service", MCP_SERVICES)
     def test_tools_list_http(self, stack, service):

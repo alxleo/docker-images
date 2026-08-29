@@ -44,9 +44,10 @@ def _get_image_tag(env_var: str, image_name: str) -> str:
     """Resolve an explicit override, current build, or published fallback."""
     if explicit_ref := os.environ.get(env_var):
         return explicit_ref
-    if os.environ.get("IMAGE_NAME") == image_name:
-        if current_ref := os.environ.get("IMAGE_REF"):
-            return current_ref
+    if os.environ.get("IMAGE_NAME") == image_name and (
+        current_ref := os.environ.get("IMAGE_REF")
+    ):
+        return current_ref
     return f"{REGISTRY}/{image_name}:{_CUSTOM_TAGS[image_name]}"
 
 
@@ -100,6 +101,7 @@ class TestCaddyCloudflare:
             ["docker", "run", "--rm", self.IMAGE, "caddy", "list-modules"],
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0, f"caddy list-modules failed: {result.stderr}"
         assert "dns.providers.cloudflare" in result.stdout
@@ -121,6 +123,7 @@ class TestCaddyCloudflare:
             ["docker", "run", "--rm", self.IMAGE, "caddy", "version"],
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0
         assert result.stdout.strip().startswith("v2.")
@@ -180,7 +183,7 @@ class TestMCPAuthProxy:
             def _grep_count(pattern: str) -> int:
                 r = subprocess.run(
                     ["grep", "-ac", pattern, tmp_path],
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, check=False,
                 )
                 assert r.returncode in (0, 1), (
                     f"grep -ac {pattern!r} errored (rc={r.returncode}): {r.stderr}"
@@ -199,7 +202,7 @@ class TestMCPAuthProxy:
                 f"may have regressed one or more session-storage fields back to 255"
             )
         finally:
-            subprocess.run(["docker", "rm", "-f", container_id], capture_output=True)
+            subprocess.run(["docker", "rm", "-f", container_id], capture_output=True, check=False)
             if tmp_path:
                 try:
                     os.unlink(tmp_path)
@@ -233,7 +236,7 @@ class TestMCPAuthProxy:
         # /bin/sh runs and can exec a builtin
         r = subprocess.run(
             ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "echo shell-ok"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
         assert r.returncode == 0, f"/bin/sh missing or broken: rc={r.returncode}, stderr={r.stderr}"
         assert "shell-ok" in r.stdout, f"shell did not echo as expected: {r.stdout!r}"
@@ -242,7 +245,7 @@ class TestMCPAuthProxy:
         ca_cmd = "wc -c </etc/ssl/certs/ca-certificates.crt"
         r = subprocess.run(
             ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", ca_cmd],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
         assert r.returncode == 0, f"ca-certificates bundle unreadable: {r.stderr}"
         ca_bytes = int(r.stdout.strip())
@@ -251,7 +254,7 @@ class TestMCPAuthProxy:
         # curl exists (homelab healthcheck depends on it)
         r = subprocess.run(
             ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", "curl --version | head -1"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
         assert r.returncode == 0 and "curl " in r.stdout, (
             f"curl missing or broken: rc={r.returncode}, stderr={r.stderr!r}"
@@ -271,7 +274,7 @@ class TestMCPAuthProxy:
         )
         r = subprocess.run(
             ["docker", "run", "--rm", "--entrypoint", "/bin/sh", self.IMAGE, "-c", data_cmd],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
         assert r.returncode == 0, f"USER/data check failed: {r.stderr}"
         lines = r.stdout.strip().split("\n")
@@ -300,6 +303,7 @@ class TestMCPImageMetadata:
             ],
             capture_output=True,
             text=True,
+            check=False,
         )
         if result.returncode != 0:
             pytest.skip(f"Image {self.IMAGE} not available locally")

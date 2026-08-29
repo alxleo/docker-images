@@ -6,8 +6,8 @@ instead of aborting collection. Skips if the mcp SDK isn't installed.
 """
 
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import importlib.util
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
