@@ -53,7 +53,6 @@ Each image gets a monotonically incrementing build counter tracked via git tags.
 - Base version: the `tag` field in `.ci.json` (defaults to `latest`)
 - Build counter: stored as `{name}/{tag}-build.{N}` git tags, auto-incremented on every push to main
 - Pushed tags: `:latest`, `:{tag}` (from `.ci.json`), and `:{tag}-build.{N}` (build version)
-- The `tags: ['*/v*']` trigger in `build-images.yml` is inert — actual build tags follow the `{name}/{tag}-build.{N}` pattern and do not match `*/v*`
 - Conventional commits are used for commit messages and readability; no automated release tooling runs
 
 ### GHCR Base Image Mirrors
@@ -73,7 +72,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
-| Build | `build-images.yml` | push main, PRs, tags, dispatch | Auto-discover, matrix build, test, push; gitleaks scan on PRs |
+| Build | `build-images.yml` | push main, PRs, dispatch, mirror refresh | Auto-discover, matrix build, test, push; gitleaks scan on PRs; a successful mirror run rebuilds everything |
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan, action updates |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
