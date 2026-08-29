@@ -10,7 +10,7 @@
       "name": "searxng_search_suggestions"
     },
     {
-      "input_schema_sha256": "sha256:2c7acde6f978058bd3c1b7cea66e9501756c86e910b78909cd6769fc9b336f10",
+      "input_schema_sha256": "sha256:68372f674435dee48333444866df6bb32fc9345a953a2e2c80be08720a58d30c",
       "name": "searxng_web_search"
     },
     {

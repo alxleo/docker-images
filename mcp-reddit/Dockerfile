@@ -10,7 +10,7 @@
 # Stage 1: resolve the locked Python 3.14 environment.
 FROM ghcr.io/alxleo/base-images/python:3.14-alpine AS build
 WORKDIR /app
-RUN pip install --no-cache-dir uv==0.12.0
+RUN pip install --no-cache-dir uv==0.12.7
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 

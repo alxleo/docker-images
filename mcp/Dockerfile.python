@@ -23,7 +23,7 @@
 # Example run:
 #   docker run -p 8080:8080 mcp-youtube
 
-ARG UV_VERSION=0.12.0
+ARG UV_VERSION=0.12.7
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
@@ -41,8 +41,8 @@ COPY --from=uv /uv /usr/local/bin/uv
 COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 
 # Install mcp-proxy (HTTP bridge) and mcp-filter (tool filtering to reduce context tokens)
-# mcp-filter@0.6.0 installed globally for faster startup (validated: 62% token reduction in testing)
-RUN npm install -g mcp-proxy@6.5.4 mcp-filter@0.6.0
+# mcp-filter installed globally for faster startup (validated: 62% token reduction in testing)
+RUN npm install -g mcp-proxy@6.7.11 mcp-filter@1.1.3
 
 # Build arguments for the Python MCP package
 ARG MCP_PACKAGE
