@@ -14,9 +14,11 @@ RUN addgroup -g 10001 observer \
     && adduser -D -H -u 10001 -G observer observer \
     && uv pip install --system --break-system-packages \
       "mcp==1.26.0" \
+      "pexpect==4.9.0" \
       "pydantic==2.12.5" \
       "PyYAML==6.0.3" \
       "requests==2.32.5" \
+      "typer==0.27.0" \
     && rm -rf /root/.cache
 
 WORKDIR /app
