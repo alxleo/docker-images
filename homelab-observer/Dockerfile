@@ -28,5 +28,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["/bin/httpcheck", "http://localhost:8080/healthz"]
 
-USER observer
+USER 10001:10001
 CMD ["python", "/app/services/mcp-homelab-observer/server.py"]
