@@ -21,6 +21,7 @@
     "pihole-exporter",
     "dagu-ops",
     "docs-hub",
+    "homelab-observer",
     "windmill-deploy-worker"
   ]
 }
