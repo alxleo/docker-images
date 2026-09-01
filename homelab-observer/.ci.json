@@ -1,0 +1,9 @@
+{
+  "name": "homelab-observer",
+  "platforms": "linux/amd64,linux/arm64",
+  "tag": "1.0.0",
+  "test_commands": [
+    "docker run --rm --entrypoint python \"$IMAGE_REF\" -c \"from mcp.server.fastmcp import FastMCP; import pydantic, yaml, requests; assert FastMCP and pydantic and yaml and requests\"",
+    "docker inspect \"$IMAGE_REF\" --format '{{json .Config.Cmd}}' | grep -F '/app/services/mcp-homelab-observer/server.py'"
+  ]
+}
