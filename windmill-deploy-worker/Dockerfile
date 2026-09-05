@@ -3,7 +3,7 @@
 # dropped capabilities, so browser binaries and shared libraries belong here.
 
 # conftest:exempt=user_required -- Windmill workers run as root upstream; the homelab Compose service drops all Linux capabilities and enables no-new-privileges.
-FROM ghcr.io/windmill-labs/windmill:1.798.1
+FROM ghcr.io/windmill-labs/windmill:1.803.0
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ARG AGENT_BROWSER_VERSION=0.31.2
