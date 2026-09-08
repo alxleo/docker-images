@@ -1,9 +1,27 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, readlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { gzipSync } from "node:zlib";
+import tar from "tar-stream";
 import { clientForSource, GitHubClient, syncSource } from "../server/pipeline.mjs";
+
+async function gzippedArchive(files) {
+  const pack = tar.pack();
+  const chunks = [];
+  const finished = new Promise((resolve, reject) => {
+    pack.on("data", (chunk) => chunks.push(chunk));
+    pack.on("end", resolve);
+    pack.on("error", reject);
+  });
+  for (const [name, content] of Object.entries(files)) {
+    pack.entry({ name }, content);
+  }
+  pack.finalize();
+  await finished;
+  return gzipSync(Buffer.concat(chunks));
+}
 
 test("every due source check synchronizes its Gitea pull mirror before reading the branch", async () => {
   const calls = [];
@@ -66,6 +84,49 @@ test("a GitHub source never selects or synchronizes the Gitea mirror client", as
     ["github-prepare", "alxleo/homelab"],
     ["branch", "alxleo/homelab", "main"]
   ]);
+});
+
+test("a GitHub branch response publishes the exact archived SHA", async () => {
+  const sha = "c".repeat(40);
+  const archive = await gzippedArchive({ "homelab-fixture/docs/index.md": "# GitHub canonical" });
+  const calls = [];
+  const client = new GitHubClient({
+    token: "test-token",
+    fetcher: async (url, options) => {
+      const address = String(url);
+      calls.push([address, options]);
+      if (address === "https://api.github.com/repos/alxleo/homelab/branches/main") {
+        return Response.json({ commit: { sha } });
+      }
+      if (address === `https://api.github.com/repos/alxleo/homelab/tarball/${sha}`) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: `https://codeload.github.com/alxleo/homelab/tar.gz/${sha}` }
+        });
+      }
+      if (address === `https://codeload.github.com/alxleo/homelab/tar.gz/${sha}`) {
+        return new Response(archive, { status: 200 });
+      }
+      throw new Error(`unexpected request: ${address}`);
+    }
+  });
+  const stateDir = await mkdtemp(path.join(os.tmpdir(), "docs-hub-github-publish-"));
+  const source = { id: "homelab", provider: "github", repository: "alxleo/homelab", branch: "main" };
+
+  assert.deepEqual(await syncSource({ source, client, stateDir }), { changed: true, sha });
+  assert.equal(await readlink(path.join(stateDir, "sources", "homelab", "current")), sha);
+  assert.equal(
+    await readFile(path.join(stateDir, "sources", "homelab", sha, "docs", "index.md"), "utf8"),
+    "# GitHub canonical"
+  );
+  assert.deepEqual(
+    calls.map(([address]) => address),
+    [
+      "https://api.github.com/repos/alxleo/homelab/branches/main",
+      `https://api.github.com/repos/alxleo/homelab/tarball/${sha}`,
+      `https://codeload.github.com/alxleo/homelab/tar.gz/${sha}`
+    ]
+  );
 });
 
 test("GitHub archive redirects are fetched from codeload without forwarding credentials", async () => {

@@ -221,9 +221,16 @@ export class GitHubClient {
   async prepare() {}
 
   async branch(repository, branch) {
-    return this.request(`/repos/${repository}/branches/${encodeURIComponent(branch)}`).then((response) =>
-      response.json()
+    const branchResponse = await this.request(`/repos/${repository}/branches/${encodeURIComponent(branch)}`).then(
+      (response) => response.json()
     );
+    return {
+      ...branchResponse,
+      commit: {
+        ...branchResponse.commit,
+        id: branchResponse.commit?.sha
+      }
+    };
   }
 
   async archive(repository, sha) {
