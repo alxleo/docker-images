@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { searchCorpus } from "./corpus.mjs";
 import {
   dueSources,
+  GitHubClient,
   GiteaClient,
   loadConfiguration,
   refresh,
@@ -16,10 +17,12 @@ const MODE = process.env.DOCS_HUB_MODE ?? "controller";
 const PORT = Number(process.env.DOCS_HUB_PORT ?? 8080);
 const STATE_DIR = process.env.DOCS_HUB_STATE_DIR ?? "/state";
 const GITEA_URL = process.env.DOCS_HUB_GITEA_URL ?? "http://localhost:3000";
+const GITHUB_API_URL = process.env.DOCS_HUB_GITHUB_API_URL ?? "https://api.github.com";
 const SITE_ORIGIN = process.env.DOCS_HUB_SITE_URL ?? "http://localhost:8080";
 const ASSET_ORIGIN = process.env.DOCS_HUB_ASSET_ORIGIN ?? "http://localhost:8081";
 const API_TOKEN_FILE = process.env.DOCS_HUB_API_TOKEN_FILE ?? "/run/secrets/docs_hub_api_token";
 const GITEA_TOKEN_FILE = process.env.DOCS_HUB_GITEA_TOKEN_FILE ?? "/run/secrets/docs_hub_gitea_token";
+const GITHUB_TOKEN_FILE = process.env.DOCS_HUB_GITHUB_TOKEN_FILE ?? "/run/secrets/docs_hub_github_token";
 const MAX_BODY_BYTES = 64 * 1024;
 const TICK_MILLISECONDS = 60_000;
 const STATIC_CACHE_SECONDS = 300;
@@ -27,7 +30,7 @@ const STATIC_CACHE_SECONDS = 300;
 let activeRefresh = null;
 let lastRefresh = null;
 let apiToken = "";
-let giteaClient = null;
+let sourceClients = null;
 
 function log(level, event, detail = {}) {
   process.stdout.write(`${JSON.stringify({ timestamp: new Date().toISOString(), level, event, ...detail })}\n`);
@@ -216,9 +219,9 @@ export async function mcpCall(body) {
 }
 
 async function startRefresh(sourceId = "") {
-  if (!giteaClient) throw new Error("refresh is unavailable in this process");
+  if (!sourceClients) throw new Error("refresh is unavailable in this process");
   if (activeRefresh) return activeRefresh;
-  activeRefresh = refresh({ sourceId, client: giteaClient, stateDir: STATE_DIR })
+  activeRefresh = refresh({ sourceId, clients: sourceClients, stateDir: STATE_DIR })
     .then((result) => {
       lastRefresh = { status: "ok", at: new Date().toISOString(), result };
       log("info", "refresh.complete", { sourceId: sourceId || "all", changed: result.changed });
@@ -397,7 +400,15 @@ async function handler(request, response) {
 export async function main() {
   if (MODE === "machine") apiToken = await readSecret(API_TOKEN_FILE);
   if (MODE === "controller") {
-    giteaClient = new GiteaClient({ baseUrl: GITEA_URL, token: await readSecret(GITEA_TOKEN_FILE) });
+    const { sources } = await loadConfiguration();
+    const providers = new Set(sources.map((source) => source.provider));
+    sourceClients = {};
+    if (providers.has("gitea")) {
+      sourceClients.gitea = new GiteaClient({ baseUrl: GITEA_URL, token: await readSecret(GITEA_TOKEN_FILE) });
+    }
+    if (providers.has("github")) {
+      sourceClients.github = new GitHubClient({ baseUrl: GITHUB_API_URL, token: await readSecret(GITHUB_TOKEN_FILE) });
+    }
     setInterval(() => void schedulerTick().catch((error) => log("error", "scheduler.failed", { error: String(error) })), TICK_MILLISECONDS);
     void schedulerTick().catch((error) => log("error", "initial-refresh.failed", { error: String(error) }));
   }

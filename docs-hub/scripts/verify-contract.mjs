@@ -45,6 +45,8 @@ assert(
   "source ingestion must fail closed around secret-shaped paths"
 );
 for (const source of sources.sources) {
+  const provider = source.provider ?? sources.defaults?.provider ?? "gitea";
+  assert(["gitea", "github"].includes(provider), `${source.id}: source provider must be gitea or github`);
   assert(/^[A-Za-z0-9._-]+$/u.test(source.id ?? ""), "source id must be route-safe");
   assert(/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/u.test(source.repository ?? ""), "repository must be owner/name");
   assert(Array.isArray(source.roots) && source.roots.length > 0, `${source.id}: roots must not be empty`);

@@ -9,13 +9,18 @@ credentials, hostnames, or source documents.
 
 ## Required runtime mounts
 
-- `/config/sources.yml`: source IDs, Gitea `owner/repository`, branch, roots,
-  include/exclude globs, label, and visual policy.
+- `/config/sources.yml`: source IDs, a `provider` of `gitea` or `github`,
+  `owner/repository`, branch, roots, include/exclude globs, label, and visual
+  policy. GitHub sources read their canonical branch and never request a Gitea
+  mirror synchronization.
 - `/config/visual-registry.yml`: enabled formats and their rendering, limits,
   CSP, fallback, and verifier policy.
 - `/state`: persistent source snapshots and atomically published releases.
 - `/run/secrets/docs_hub_gitea_token`: narrowly scoped mirror token in
-  `controller` mode.
+  `controller` mode, required only when a source uses `provider: gitea`.
+- `/run/secrets/docs_hub_github_token`: narrowly scoped GitHub repository-read
+  token in `controller` mode, required only when a source uses
+  `provider: github`.
 - `/run/secrets/docs_hub_api_token`: separate read-only bearer token in
   `machine` mode.
 
@@ -27,6 +32,7 @@ DOCS_HUB_CONFIG_ROOT=/config
 DOCS_HUB_SITE_URL=http://localhost:8080
 DOCS_HUB_ASSET_ORIGIN=http://localhost:8081
 DOCS_HUB_GITEA_URL=http://localhost:3000
+DOCS_HUB_GITHUB_API_URL=https://api.github.com
 ```
 
 The image's final user is `1000:1000`. A deployment with a pre-created,

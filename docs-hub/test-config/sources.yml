@@ -1,5 +1,6 @@
 version: 1
 defaults:
+  provider: gitea
   owner: example
   branch: main
   include:

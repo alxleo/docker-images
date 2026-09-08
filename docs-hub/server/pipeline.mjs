@@ -29,7 +29,6 @@ import { safeMarkdown } from "./sanitize.mjs";
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG_ROOT = path.resolve(process.env.DOCS_HUB_CONFIG_ROOT ?? "/config");
 const FIXTURE_ROOT = path.join(APP_ROOT, "fixtures");
-const GITEA_URL = (process.env.DOCS_HUB_GITEA_URL ?? "http://localhost:3000").replace(/\/+$/u, "");
 const ASSET_ORIGIN = (process.env.DOCS_HUB_ASSET_ORIGIN ?? "http://localhost:8081").replace(/\/+$/u, "");
 const MAX_ARCHIVE_FILE_BYTES = 512 * 1024 * 1024;
 const RETAIN_RELEASES = 3;
@@ -139,6 +138,7 @@ export async function scheduledRefreshSource(stateDir, dueSources) {
 function mergedSources(config) {
   const defaults = config.defaults ?? {};
   return (config.sources ?? []).map((source) => ({
+    provider: defaults.provider ?? "gitea",
     owner: defaults.owner,
     branch: defaults.branch ?? "main",
     include: defaults.include ?? ["**/*.md"],
@@ -176,7 +176,7 @@ export class GiteaClient {
     return response;
   }
 
-  async mirrorSync(repository) {
+  async prepare(repository) {
     await this.request(`/repos/${repository}/mirror-sync`, { method: "POST" });
   }
 
@@ -189,6 +189,84 @@ export class GiteaClient {
   async archive(repository, sha) {
     return this.request(`/repos/${repository}/archive/${encodeURIComponent(sha)}.tar.gz`);
   }
+
+  browseUrl(repository, sha) {
+    return `${this.baseUrl}/${repository}/src/commit/${sha}`;
+  }
+}
+
+export class GitHubClient {
+  constructor({ baseUrl = "https://api.github.com", token, fetcher = fetch }) {
+    this.baseUrl = baseUrl.replace(/\/+$/u, "");
+    this.token = token;
+    this.fetcher = fetcher;
+  }
+
+  async request(route, options = {}) {
+    const response = await this.fetcher(`${this.baseUrl}${route}`, {
+      ...options,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${this.token}`,
+        ...(options.headers ?? {})
+      },
+      redirect: "error"
+    });
+    if (!response.ok) {
+      throw new Error(`GitHub ${options.method ?? "GET"} ${route} returned ${response.status}`);
+    }
+    return response;
+  }
+
+  async prepare() {}
+
+  async branch(repository, branch) {
+    const branchResponse = await this.request(`/repos/${repository}/branches/${encodeURIComponent(branch)}`).then(
+      (response) => response.json()
+    );
+    return {
+      ...branchResponse,
+      commit: {
+        ...branchResponse.commit,
+        id: branchResponse.commit?.sha
+      }
+    };
+  }
+
+  async archive(repository, sha) {
+    const response = await this.fetcher(`${this.baseUrl}/repos/${repository}/tarball/${encodeURIComponent(sha)}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${this.token}`
+      },
+      redirect: "manual"
+    });
+    if (response.status !== 302) {
+      throw new Error(`GitHub GET /repos/${repository}/tarball/${sha} returned ${response.status}`);
+    }
+    const location = response.headers.get("location");
+    const archiveUrl = location ? new URL(location) : null;
+    if (!archiveUrl || archiveUrl.protocol !== "https:" || archiveUrl.hostname !== "codeload.github.com") {
+      throw new Error(`GitHub archive redirect for ${repository} was not a codeload URL`);
+    }
+    const archive = await this.fetcher(archiveUrl, {
+      headers: { Accept: "application/octet-stream" },
+      redirect: "error"
+    });
+    if (!archive.ok) throw new Error(`GitHub archive download for ${repository} returned ${archive.status}`);
+    return archive;
+  }
+
+  browseUrl(repository, sha) {
+    return `https://github.com/${repository}/tree/${sha}`;
+  }
+}
+
+export function clientForSource(clients, source) {
+  const provider = source.provider ?? "gitea";
+  const client = clients[provider];
+  if (!client) throw new Error(`${source.id}: no configured ${provider} source client`);
+  return client;
 }
 
 async function extractArchive(response, destination) {
@@ -262,15 +340,13 @@ async function pruneDirectories(root, keep, limit) {
 }
 
 export async function syncSource({ source, client, stateDir }) {
-  // A Gitea pull mirror is only useful as the source of truth when each due
-  // check asks Gitea to fetch its upstream before reading the branch SHA.
-  // Browser reloads never enter this pipeline; only scheduled or explicitly
-  // authenticated refreshes do.
-  await client.mirrorSync(source.repository);
+  // Only Gitea sources synchronize a pull mirror. GitHub sources are already
+  // canonical and deliberately perform no mirror operation before their SHA read.
+  await client.prepare(source.repository);
   const branch = await client.branch(source.repository, source.branch);
   const sha = branch?.commit?.id;
   if (!/^[0-9a-f]{40,64}$/u.test(sha ?? "")) {
-    throw new Error(`${source.id}: Gitea returned an invalid branch SHA`);
+    throw new Error(`${source.id}: ${source.provider} returned an invalid branch SHA`);
   }
   const sourceRoot = path.join(stateDir, "sources", source.id);
   await mkdir(sourceRoot, { recursive: true });
@@ -420,13 +496,13 @@ function frontmatter(title, description) {
   return `---\ntitle: ${JSON.stringify(title)}\ndescription: ${JSON.stringify(description)}\n---\n\n`;
 }
 
-async function materializeSource({ source, snapshot, contentRoot, publicRoot, corpus, builtAt, visualFormats }) {
+async function materializeSource({ source, client, snapshot, contentRoot, publicRoot, corpus, builtAt, visualFormats }) {
   const sha = path.basename(await readlink(snapshot));
   const sourceRoot = path.resolve(path.dirname(snapshot), sha);
   const allFiles = await walk(sourceRoot);
   const files = allFiles.filter((relativePath) => included(source, relativePath));
   const existingFiles = new Set(files);
-  const editBase = `${GITEA_URL}/${source.repository}/src/commit/${sha}`;
+  const editBase = client.browseUrl(source.repository, sha);
   const routeName = source.id;
   if (!/^[A-Za-z0-9._-]+$/u.test(routeName)) {
     throw new Error(`${source.id}: repository name is unsafe for a published route`);
@@ -505,7 +581,7 @@ async function materializeSource({ source, snapshot, contentRoot, publicRoot, co
   };
 }
 
-export async function buildAndPublish({ sources, visuals, stateDir }) {
+export async function buildAndPublish({ sources, visuals, clients, stateDir }) {
   const builtAt = new Date().toISOString();
   const renderer = await rendererFingerprint();
   const buildId = `${builtAt.replace(/[-:.]/gu, "").slice(0, 15)}-${crypto.randomUUID().slice(0, 8)}`;
@@ -531,6 +607,7 @@ export async function buildAndPublish({ sources, visuals, stateDir }) {
       sourceBuilds.push(
         await materializeSource({
           source,
+          client: clientForSource(clients, source),
           snapshot,
           contentRoot,
           publicRoot,
@@ -585,7 +662,7 @@ export async function buildAndPublish({ sources, visuals, stateDir }) {
   }
 }
 
-export async function refresh({ sourceId = "", client, stateDir }) {
+export async function refresh({ sourceId = "", clients, stateDir }) {
   const { sources, visuals } = await loadConfiguration();
   const selected = sourceId ? sources.filter((source) => source.id === sourceId) : sources;
   if (selected.length === 0) throw new Error(`unknown source: ${sourceId}`);
@@ -595,7 +672,7 @@ export async function refresh({ sourceId = "", client, stateDir }) {
   const results = [];
   for (const source of selected) {
     try {
-      const result = await syncSource({ source, client, stateDir });
+      const result = await syncSource({ source, client: clientForSource(clients, source), stateDir });
       changed ||= result.changed;
       state[source.id] = {
         ...(state[source.id] ?? {}),
@@ -620,7 +697,7 @@ export async function refresh({ sourceId = "", client, stateDir }) {
   if (failed.length > 0) throw new Error(failed.map((result) => `${result.source}: ${result.error}`).join("; "));
   const currentExists = await exists(path.join(stateDir, "current"));
   const rendererChanged = !currentExists || (await rendererBuildChanged(stateDir));
-  const build = changed || rendererChanged ? await buildAndPublish({ sources, visuals, stateDir }) : null;
+  const build = changed || rendererChanged ? await buildAndPublish({ sources, visuals, clients, stateDir }) : null;
   return { changed, build, results };
 }
 

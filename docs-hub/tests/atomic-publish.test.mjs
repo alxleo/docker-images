@@ -11,6 +11,14 @@ import {
   scheduledRefreshSource
 } from "../server/pipeline.mjs";
 
+const clients = {
+  gitea: {
+    browseUrl(repository, sha) {
+      return `https://gitea.example/${repository}/src/commit/${sha}`;
+    }
+  }
+};
+
 test("a renderer image change invalidates an otherwise-current static release", async () => {
   const stateDir = await import("node:fs/promises").then(({ mkdtemp }) =>
     mkdtemp(path.join(os.tmpdir(), "docs-hub-renderer-"))
@@ -40,7 +48,7 @@ test("a deliberately failed rebuild preserves the previous current release", asy
   await writeFile(path.join(stateDir, "releases", "known-good", "index.html"), "known good");
   await symlink(path.join("releases", "known-good"), path.join(stateDir, "current"));
   const { sources, visuals } = await loadConfiguration();
-  await assert.rejects(() => buildAndPublish({ sources, visuals, stateDir }), /no synchronized source snapshot/u);
+  await assert.rejects(() => buildAndPublish({ sources, visuals, clients, stateDir }), /no synchronized source snapshot/u);
   assert.equal(await readlink(path.join(stateDir, "current")), path.join("releases", "known-good"));
 });
 
@@ -64,7 +72,7 @@ test("a broken visual asset fails before the current release advances", async ()
     await symlink(sha, path.join(stateDir, "sources", source.id, "current"));
   }
   await assert.rejects(
-    () => buildAndPublish({ sources, visuals, stateDir }),
+    () => buildAndPublish({ sources, visuals, clients, stateDir }),
     /visual asset does not exist inside the source snapshot/u
   );
   assert.equal(await readlink(path.join(stateDir, "current")), path.join("releases", "known-good"));
