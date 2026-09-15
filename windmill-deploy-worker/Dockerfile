@@ -6,7 +6,7 @@
 FROM ghcr.io/windmill-labs/windmill:1.798.1
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
-ARG AGENT_BROWSER_VERSION=0.31.2
+ARG AGENT_BROWSER_VERSION=0.37.1
 ARG MISE_VERSION=v2026.7.16
 ARG MISE_SHA256=f93483d0e7e0ad6296a5fb2600188d1dadd2c48a4d295af31b69f636a51b92e4
 ARG COOLIFY_CLI_VERSION=1.6.2
