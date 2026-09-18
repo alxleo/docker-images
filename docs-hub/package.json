@@ -18,7 +18,7 @@
     "@excalidraw/excalidraw": "0.18.1",
     "@google/model-viewer": "4.3.1",
     "@scalar/api-reference": "1.66.1",
-    "astro": "7.2.4",
+    "astro": "7.3.3",
     "clsx": "2.1.1",
     "leaflet": "1.9.4",
     "mermaid": "11.17.0",
