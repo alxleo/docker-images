@@ -14,10 +14,18 @@ updates:
       default-days: 7
 
   # Base-image tag bumps. Only FROMs that point at real upstream registries
-  # can move on their own (windmill, dagu-ops ubuntu, golang builders) — the
+  # can move on their own (dagu-ops ubuntu, golang builders) — the
   # ghcr.io/alxleo/base-images/* mirrors only ever hold tags that
   # scripts/mirror-base-images.sh pushes, so a new base minor still starts
   # with a mirror-list edit. mcp-images.json pins stay manual.
+  #
+  # /windmill-deploy-worker is deliberately ABSENT: its Windmill base must
+  # exactly match the homelab estate's pinned server version
+  # (services/windmill/compose.yaml x-windmill-image). An auto-merged bump
+  # here ships through :latest + pull_policy always, and a worker newer than
+  # the server refuses to poll jobs until the server migrates — which
+  # silenced the estate's whole deploy lane on 2026-08-29 (#260). The base
+  # moves only together with the homelab pin, by hand.
   - package-ecosystem: docker
     directories:
       - /caddy-cloudflare
@@ -27,7 +35,6 @@ updates:
       - /mcp-auth-proxy
       - /mcp-reddit
       - /pihole-exporter
-      - /windmill-deploy-worker
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
