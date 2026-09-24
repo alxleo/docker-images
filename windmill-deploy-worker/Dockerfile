@@ -14,7 +14,7 @@ ARG COMPOSE_VERSION=v5.5.0
 ARG COMPOSE_SHA256=c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends age sudo \
+    && apt-get install -y --no-install-recommends age bind9-dnsutils sudo \
     && npm install -g "agent-browser@${AGENT_BROWSER_VERSION}" \
     && agent-browser install --with-deps \
     && agent-browser --version \
