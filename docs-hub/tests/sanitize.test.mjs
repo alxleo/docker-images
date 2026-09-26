@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { buildDocument, extractText } from "../server/corpus.mjs";
 import { assertVisualSize, renderedDocumentUrl, resolveVisualAsset } from "../server/pipeline.mjs";
-import { safeMarkdown, stripExecutableMarkdown } from "../server/sanitize.mjs";
+import { rewriteRelativeMarkdownImages, safeMarkdown, stripExecutableMarkdown } from "../server/sanitize.mjs";
 
 const TEST_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const context = {
@@ -32,6 +32,28 @@ test("imported MDX and HTML scripts cannot execute", () => {
   assert.doesNotMatch(result, /\sonerror=/iu);
   assert.doesNotMatch(result, /javascript:/iu);
   assert.doesNotMatch(result, /<Danger/u);
+});
+
+test("relative Markdown images use their validated published asset URL", () => {
+  const result = rewriteRelativeMarkdownImages(
+    [
+      "![Target](target.svg)",
+      '![Titled](diagrams/target.svg "Architecture")',
+      "![Remote](https://example.com/remote.svg)",
+      "![Absolute](/already-public.svg)"
+    ].join("\n"),
+    context
+  );
+
+  assert.equal(
+    result,
+    [
+      "![Target](/repo/target.svg)",
+      '![Titled](/repo/diagrams/target.svg "Architecture")',
+      "![Remote](https://example.com/remote.svg)",
+      "![Absolute](/already-public.svg)"
+    ].join("\n")
+  );
 });
 
 test("raw repository HTML and active URL schemes never enter rendered Markdown", () => {

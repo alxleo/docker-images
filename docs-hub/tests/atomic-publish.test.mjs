@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readlink, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, readlink, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -76,4 +76,26 @@ test("a broken visual asset fails before the current release advances", async ()
     /visual asset does not exist inside the source snapshot/u
   );
   assert.equal(await readlink(path.join(stateDir, "current")), path.join("releases", "known-good"));
+});
+
+test("a relative Markdown image is published before Astro builds the document", async () => {
+  const stateDir = await import("node:fs/promises").then(({ mkdtemp }) =>
+    mkdtemp(path.join(os.tmpdir(), "docs-hub-relative-image-"))
+  );
+  const { sources, visuals } = await loadConfiguration();
+  const sha = "c".repeat(40);
+  const snapshot = path.join(stateDir, "sources", "example-docs", sha, "docs", "architecture");
+  await mkdir(snapshot, { recursive: true });
+  await writeFile(path.join(snapshot, "target.md"), "# Target\n\n![Target architecture](target.svg)\n");
+  await writeFile(
+    path.join(snapshot, "target.svg"),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><title>Target</title></svg>\n'
+  );
+  await symlink(sha, path.join(stateDir, "sources", "example-docs", "current"));
+
+  await buildAndPublish({ sources, visuals, clients, stateDir });
+
+  const release = await import("node:fs/promises").then(({ realpath }) => realpath(path.join(stateDir, "current")));
+  await access(path.join(release, "repos", "example-docs", "docs", "architecture", "target", "index.html"));
+  await access(path.join(release, "repos", "example-docs", "docs", "architecture", "target.svg"));
 });

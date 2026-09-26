@@ -1,5 +1,6 @@
 const VISUAL_DIRECTIVE =
   /^:::visual\{format="([a-z0-9-]+)"\s+src="([^"]+)"\s+caption="([^"]*)"(?:\s+fallback="([^"]+)")?(?:\s+transcript="([^"]+)")?\}$/gm;
+const MARKDOWN_IMAGE = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\))/gu;
 
 function escapeAttribute(value) {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -45,8 +46,15 @@ export function convertVisualDirectives(markdown, context) {
   });
 }
 
+export function rewriteRelativeMarkdownImages(markdown, context) {
+  return markdown.replace(MARKDOWN_IMAGE, (match, prefix, source, suffix) => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/|#)/iu.test(source)) return match;
+    return `${prefix}${context.assetUrl(source)}${suffix}`;
+  });
+}
+
 export function safeMarkdown(markdown, context) {
-  return convertVisualDirectives(stripExecutableMarkdown(markdown), context);
+  return convertVisualDirectives(rewriteRelativeMarkdownImages(stripExecutableMarkdown(markdown), context), context);
 }
 
 export function markdownText(markdown) {
