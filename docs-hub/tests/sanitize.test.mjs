@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { buildDocument, extractText } from "../server/corpus.mjs";
 import { assertVisualSize, renderedDocumentUrl, resolveVisualAsset } from "../server/pipeline.mjs";
-import { safeMarkdown, stripExecutableMarkdown } from "../server/sanitize.mjs";
+import { rewriteRelativeMarkdownImages, safeMarkdown, stripExecutableMarkdown } from "../server/sanitize.mjs";
 
 const TEST_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const context = {
@@ -32,6 +32,71 @@ test("imported MDX and HTML scripts cannot execute", () => {
   assert.doesNotMatch(result, /\sonerror=/iu);
   assert.doesNotMatch(result, /javascript:/iu);
   assert.doesNotMatch(result, /<Danger/u);
+});
+
+test("relative Markdown images use their validated published asset URL", () => {
+  const result = rewriteRelativeMarkdownImages(
+    [
+      "![Target](target.svg)",
+      '![Titled](diagrams/target.svg "Architecture")',
+      "![Remote](https://example.com/remote.svg)",
+      "![Absolute](/already-public.svg)"
+    ].join("\n"),
+    context
+  );
+
+  assert.equal(
+    result,
+    [
+      "![Target](/repo/target.svg)",
+      '![Titled](/repo/diagrams/target.svg "Architecture")',
+      "![Remote](https://example.com/remote.svg)",
+      "![Absolute](/already-public.svg)"
+    ].join("\n")
+  );
+});
+
+test("image examples inside inline code never reach the asset resolver", () => {
+  const resolved = [];
+  const strictContext = {
+    ...context,
+    assetUrl(asset) {
+      resolved.push(asset);
+      if (asset.startsWith("missing")) throw new Error(`missing asset resolved: ${asset}`);
+      return `/repo/${asset}`;
+    }
+  };
+
+  assert.equal(
+    rewriteRelativeMarkdownImages("Use `![example](missing-inline.png)` then ![live](present.png).", strictContext),
+    "Use `![example](missing-inline.png)` then ![live](/repo/present.png)."
+  );
+  assert.deepEqual(resolved, ["present.png"]);
+});
+
+test("image examples inside fenced code never reach the asset resolver", () => {
+  const resolved = [];
+  const strictContext = {
+    ...context,
+    assetUrl(asset) {
+      resolved.push(asset);
+      if (asset.startsWith("missing")) throw new Error(`missing asset resolved: ${asset}`);
+      return `/repo/${asset}`;
+    }
+  };
+  const markdown = [
+    "```markdown",
+    "![example](missing-fenced.png)",
+    "```",
+    "",
+    "![live](present.png)"
+  ].join("\n");
+
+  assert.equal(
+    rewriteRelativeMarkdownImages(markdown, strictContext),
+    ["```markdown", "![example](missing-fenced.png)", "```", "", "![live](/repo/present.png)"].join("\n")
+  );
+  assert.deepEqual(resolved, ["present.png"]);
 });
 
 test("raw repository HTML and active URL schemes never enter rendered Markdown", () => {
