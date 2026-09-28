@@ -78,6 +78,6 @@ in
     "d /var/lib/github-runner 0750 runner runner -"
     "d /opt/runner 0755 root root -"
     "L+ /opt/runner/run.sh - - - - ${githubRunnerLauncher}"
-    "L+ /opt/runner/act_runner - - - - ${pkgs.gitea-actions-runner}/bin/act_runner"
+    "L+ /opt/runner/act_runner - - - - ${pkgs.gitea-actions-runner}/bin/gitea-runner"
   ];
 }

@@ -31,7 +31,7 @@
             machine.succeed("docker info")
             machine.succeed("docker compose version")
             machine.succeed("Runner.Listener --version")
-            machine.succeed("act_runner --version")
+            machine.succeed("/opt/runner/act_runner --version")
             machine.succeed("test -x /opt/runner/run.sh")
           '';
         };
