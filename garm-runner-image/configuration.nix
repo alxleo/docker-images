@@ -62,21 +62,6 @@ let
     ${pkgs.coreutils}/bin/chmod 0644 "$output"
   '';
 
-  metadata = pkgs.runCommand "garm-runner-x86_64-metadata.tar.xz" {
-    nativeBuildInputs = [ pkgs.gnutar pkgs.xz ];
-  } ''
-    image=$TMPDIR/image
-    mkdir -p "$image/templates"
-    cp ${./metadata.yaml} "$image/metadata.yaml"
-    cp ${./templates/meta-data.tpl} "$image/templates/meta-data.tpl"
-    cp ${./templates/network-config.tpl} "$image/templates/network-config.tpl"
-    cp ${./templates/user-data.tpl} "$image/templates/user-data.tpl"
-    cp ${./templates/vendor-data.tpl} "$image/templates/vendor-data.tpl"
-    tar --create --file=- \
-      --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
-      --directory="$image" metadata.yaml templates \
-      | xz --compress --check=crc32 > "$out"
-  '';
 in
 {
   system.stateVersion = "26.05";
@@ -92,6 +77,32 @@ in
 
   virtualisation.incus.agent.enable = true;
   virtualisation.docker.enable = true;
+  virtualisation.lxc.templates = {
+    meta-data = {
+      enable = true;
+      target = "/var/lib/cloud/seed/nocloud-net/meta-data";
+      template = ./templates/meta-data.tpl;
+      when = [ "create" "copy" ];
+    };
+    network-config = {
+      enable = true;
+      target = "/var/lib/cloud/seed/nocloud-net/network-config";
+      template = ./templates/network-config.tpl;
+      when = [ "create" "copy" ];
+    };
+    user-data = {
+      enable = true;
+      target = "/var/lib/cloud/seed/nocloud-net/user-data";
+      template = ./templates/user-data.tpl;
+      when = [ "create" "copy" ];
+    };
+    vendor-data = {
+      enable = true;
+      target = "/var/lib/cloud/seed/nocloud-net/vendor-data";
+      template = ./templates/vendor-data.tpl;
+      when = [ "create" "copy" ];
+    };
+  };
 
   # Docker pulls need the same egress path as the bootstrap script. The CLI
   # configuration also injects the proxy into containers created by jobs.
@@ -182,6 +193,4 @@ in
     "L+ /opt/garm/github-runner - - - - ${pkgs.github-runner}"
     "L+ /opt/garm/gitea-runner - - - - ${pkgs.gitea-actions-runner}/bin/act_runner"
   ];
-
-  system.build.metadata = metadata;
 }
