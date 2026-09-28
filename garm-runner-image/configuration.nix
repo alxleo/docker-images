@@ -32,7 +32,7 @@ let
     procps
     sudo
     systemd
-    tar
+    gnutar
     unzip
     which
   ];
