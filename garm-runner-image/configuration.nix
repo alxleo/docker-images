@@ -60,8 +60,31 @@ let
     tmp=$(${pkgs.coreutils}/bin/mktemp)
     trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
 
+    # GARM stores the rendered bootstrap as a base64 write_files entry in its
+    # cloud-config. Decode that one entry before deriving the controller host.
+    encoded_script=$(${pkgs.gawk}/bin/awk '
+      /^write_files:/ { in_write_files = 1; next }
+      in_write_files && /^[^[:space:]]/ { in_write_files = 0 }
+      in_write_files && /^[[:space:]]*-[[:space:]]+encoding:/ { content = "" }
+      in_write_files && /^[[:space:]]+content:/ {
+        line = $0
+        sub(/^[[:space:]]+content:[[:space:]]*/, "", line)
+        content = line
+      }
+      in_write_files && /^[[:space:]]+path:[[:space:]]*\/install_runner[.]sh[[:space:]]*$/ {
+        print content
+        exit
+      }
+    ' "$seed")
+    if [ -z "$encoded_script" ]; then
+      echo "could not find GARM's bootstrap script in NoCloud user-data" >&2
+      exit 1
+    fi
+    ${pkgs.coreutils}/bin/printf '%s' "$encoded_script" \
+      | ${pkgs.coreutils}/bin/base64 --decode > "$tmp"
+
     controller_url=$(${pkgs.gnused}/bin/sed -n \
-      's/^[[:space:]]*METADATA_URL="\([^"]*\)".*/\1/p' "$seed" \
+      's/^[[:space:]]*METADATA_URL="\([^"]*\)".*/\1/p' "$tmp" \
       | ${pkgs.coreutils}/bin/head -n 1)
     controller_host=$(${pkgs.coreutils}/bin/printf '%s\n' "$controller_url" \
       | ${pkgs.gnused}/bin/sed -E 's#^https://(\[[^]]+\]|[^:/]+)(:[0-9]+)?(/.*)?$#\1#')
@@ -181,7 +204,6 @@ in
       "update_hostname"
       "resolv_conf"
       "rsyslog"
-      "users-groups"
     ];
   };
 
