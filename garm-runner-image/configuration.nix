@@ -61,7 +61,7 @@ let
     trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
 
     controller_url=$(${pkgs.gnused}/bin/sed -n \
-      's/^[[:space:]]*CALLBACK_URL="\([^"]*\)".*/\1/p' "$seed" \
+      's/^[[:space:]]*METADATA_URL="\([^"]*\)".*/\1/p' "$seed" \
       | ${pkgs.coreutils}/bin/head -n 1)
     controller_host=$(${pkgs.coreutils}/bin/printf '%s\n' "$controller_url" \
       | ${pkgs.gnused}/bin/sed -E 's#^https://(\[[^]]+\]|[^:/]+)(:[0-9]+)?(/.*)?$#\1#')
