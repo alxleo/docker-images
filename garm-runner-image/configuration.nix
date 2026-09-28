@@ -161,6 +161,7 @@ in
   };
 
   users.groups.runner = { };
+  users.users.root.initialHashedPassword = lib.mkForce "!";
   users.users.runner = {
     description = "GARM runner";
     extraGroups = [ "docker" ];
@@ -181,6 +182,8 @@ in
       ];
     }
   ];
+
+  services.openssh.enable = lib.mkForce false;
 
   environment.systemPackages = runnerTools ++ [ controllerCaBundle ];
   environment.sessionVariables = proxyEnvironment // {
