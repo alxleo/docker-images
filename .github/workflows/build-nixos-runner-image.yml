@@ -1,0 +1,61 @@
+name: Build NixOS runner image
+
+on:
+  pull_request:
+    paths:
+      - nixos-runner-image/**
+      - .github/workflows/build-nixos-runner-image.yml
+  push:
+    branches: [main]
+    paths:
+      - nixos-runner-image/**
+      - .github/workflows/build-nixos-runner-image.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/alxleo/nixos-runner
+
+jobs:
+  build:
+    name: Build and verify container disk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - name: Evaluate runner system
+        run: nix flake check --accept-flake-config --print-build-logs ./nixos-runner-image
+      - name: Build runner disk
+        run: |
+          nix build --accept-flake-config --print-build-logs \
+            ./nixos-runner-image#nixos-runner-qcow2 -o result-runner
+          cp result-runner/nixos-runner.qcow2 nixos-runner-image/nixos.qcow2
+          test -s nixos-runner-image/nixos.qcow2
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build container disk
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: nixos-runner-image
+          file: nixos-runner-image/Containerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
