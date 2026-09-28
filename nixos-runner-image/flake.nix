@@ -33,6 +33,7 @@
             machine.succeed("Runner.Listener --version")
             machine.succeed("/opt/runner/act_runner --version")
             machine.succeed("test -x /opt/runner/run.sh")
+            machine.succeed("sudo -u runner timeout 10 /opt/runner/run.sh --help")
           '';
         };
       };

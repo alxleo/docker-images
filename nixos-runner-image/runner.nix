@@ -7,7 +7,7 @@ let
     export HOME=/home/runner
     export RUNNER_ROOT=/var/lib/github-runner
     cd /var/lib/github-runner
-    exec ${githubRunner}/lib/github-runner/run.sh "$@"
+    exec ${githubRunner}/bin/run.sh "$@"
   '';
 in
 {
