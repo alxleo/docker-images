@@ -2,13 +2,11 @@
 
 let
   proxyUrl = "http://10.203.187.1:3128";
-  noProxy = "127.0.0.1,localhost,::1";
+  noProxy = "127.0.0.1,localhost,::1,10.203.187.1";
   proxyEnvironment = {
-    ALL_PROXY = proxyUrl;
     HTTP_PROXY = proxyUrl;
     HTTPS_PROXY = proxyUrl;
     NO_PROXY = noProxy;
-    all_proxy = proxyUrl;
     http_proxy = proxyUrl;
     https_proxy = proxyUrl;
     no_proxy = noProxy;
@@ -50,9 +48,13 @@ let
     ${pkgs.coreutils}/bin/mkdir -p /run/garm
     if [ -r "$seed" ]; then
       ${pkgs.gawk}/bin/awk '
-        /-----BEGIN CERTIFICATE-----/ { in_cert = 1 }
-        in_cert { print }
-        /-----END CERTIFICATE-----/ { in_cert = 0 }
+        {
+          line = $0
+          sub(/^[[:space:]]*/, "", line)
+        }
+        line == "-----BEGIN CERTIFICATE-----" { in_cert = 1 }
+        in_cert { print line }
+        line == "-----END CERTIFICATE-----" { in_cert = 0 }
       ' "$seed" > "$tmp"
     fi
 
@@ -90,6 +92,17 @@ in
 
   virtualisation.incus.agent.enable = true;
   virtualisation.docker.enable = true;
+
+  # Docker pulls need the same egress path as the bootstrap script. The CLI
+  # configuration also injects the proxy into containers created by jobs.
+  systemd.services.docker.environment = proxyEnvironment;
+  environment.etc."docker/cli/config.json".text = builtins.toJSON {
+    proxies.default = {
+      httpProxy = proxyUrl;
+      httpsProxy = proxyUrl;
+      inherit noProxy;
+    };
+  };
 
   services.cloud-init = {
     enable = true;
@@ -161,6 +174,7 @@ in
   environment.systemPackages = runnerTools ++ [ controllerCaBundle ];
   environment.sessionVariables = proxyEnvironment // {
     CURL_CA_BUNDLE = "/run/garm/controller-ca.pem";
+    DOCKER_CONFIG = "/etc/docker/cli";
   };
 
   systemd.tmpfiles.rules = [
