@@ -38,7 +38,7 @@ jobs:
             ./garm-runner-image#garm-runner-metadata -o result-metadata
           mkdir -p dist
           cp result-qcow2/nixos.qcow2 dist/garm-runner-x86_64.qcow2
-          cp result-metadata/tarball/*.tar.xz dist/garm-runner-x86_64-metadata.tar.xz
+          cp result-metadata dist/garm-runner-x86_64-metadata.tar.xz
       - name: Upload build assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

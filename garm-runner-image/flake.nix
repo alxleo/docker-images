@@ -19,7 +19,7 @@
 
       packages.${system} = {
         garm-runner-qcow2 = configuration.config.system.build.qemuImage;
-        garm-runner-metadata = configuration.config.system.build.metadata;
+        garm-runner-metadata = configuration.config.system.build.garmMetadata;
       };
 
       checks.${system}.garm-runner = configuration.config.system.build.toplevel;
