@@ -65,13 +65,13 @@ let
     encoded_script=$(${pkgs.gawk}/bin/awk '
       /^write_files:/ { in_write_files = 1; next }
       in_write_files && /^[^[:space:]]/ { in_write_files = 0 }
-      in_write_files && /^  - / { content = "" }
-      in_write_files && /^    content:/ {
+      in_write_files && /^[[:space:]]*-[[:space:]]+encoding:/ { content = "" }
+      in_write_files && /^[[:space:]]+content:/ {
         line = $0
-        sub(/^    content:[[:space:]]*/, "", line)
+        sub(/^[[:space:]]+content:[[:space:]]*/, "", line)
         content = line
       }
-      in_write_files && /^    path:[[:space:]]*\/install_runner[.]sh[[:space:]]*$/ {
+      in_write_files && /^[[:space:]]+path:[[:space:]]*\/install_runner[.]sh[[:space:]]*$/ {
         print content
         exit
       }
