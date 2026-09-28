@@ -153,8 +153,8 @@ in
   systemd.services.cloud-init.environment = proxyEnvironment;
   systemd.services.cloud-config.environment = proxyEnvironment;
   systemd.services.cloud-final = {
-    wants = lib.mkAfter [ "garm-controller-ca.service" ];
-    after = lib.mkAfter [ "garm-controller-ca.service" ];
+    wants = lib.mkAfter [ "docker.service" "garm-controller-ca.service" ];
+    after = lib.mkAfter [ "docker.service" "garm-controller-ca.service" ];
     environment = proxyEnvironment // {
       CURL_CA_BUNDLE = "/run/garm/controller-ca.pem";
     };
