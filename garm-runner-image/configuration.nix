@@ -1,17 +1,6 @@
 { config, lib, pkgs, ... }:
 
 let
-  proxyUrl = "http://10.203.187.1:3128";
-  noProxy = "127.0.0.1,localhost,::1,10.203.187.1";
-  proxyEnvironment = {
-    HTTP_PROXY = proxyUrl;
-    HTTPS_PROXY = proxyUrl;
-    NO_PROXY = noProxy;
-    http_proxy = proxyUrl;
-    https_proxy = proxyUrl;
-    no_proxy = noProxy;
-  };
-
   runnerTools = with pkgs; [
     bash
     coreutils
@@ -62,16 +51,53 @@ let
     ${pkgs.coreutils}/bin/chmod 0644 "$output"
   '';
 
+  runnerProxyEnvironment = pkgs.writeShellScriptBin "garm-runner-proxy-environment" ''
+    set -euo pipefail
+
+    seed=/var/lib/cloud/seed/nocloud-net/user-data
+    output=/run/garm/proxy.env
+    docker_config=/etc/docker/cli/config.json
+    tmp=$(${pkgs.coreutils}/bin/mktemp)
+    trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
+
+    controller_url=$(${pkgs.gnused}/bin/sed -n \
+      's/^[[:space:]]*CALLBACK_URL="\([^"]*\)".*/\1/p' "$seed" \
+      | ${pkgs.coreutils}/bin/head -n 1)
+    controller_host=$(${pkgs.coreutils}/bin/printf '%s\n' "$controller_url" \
+      | ${pkgs.gnused}/bin/sed -E 's#^https://(\[[^]]+\]|[^:/]+)(:[0-9]+)?(/.*)?$#\1#')
+
+    if [ -z "$controller_host" ] || [ "$controller_host" = "$controller_url" ]; then
+      echo "could not derive the GARM controller host from NoCloud user-data" >&2
+      exit 1
+    fi
+
+    proxy_url="http://$controller_host:3128"
+    no_proxy="127.0.0.1,localhost,::1,$controller_host"
+
+    ${pkgs.coreutils}/bin/mkdir -p /run/garm /etc/docker/cli
+    ${pkgs.coreutils}/bin/cat >"$tmp" <<EOF
+    HTTP_PROXY=$proxy_url
+    HTTPS_PROXY=$proxy_url
+    NO_PROXY=$no_proxy
+    http_proxy=$proxy_url
+    https_proxy=$proxy_url
+    no_proxy=$no_proxy
+    DOCKER_CONFIG=/etc/docker/cli
+    EOF
+    ${pkgs.coreutils}/bin/install -m 0644 "$tmp" "$output"
+
+    ${pkgs.coreutils}/bin/cat >"$tmp" <<EOF
+    {"proxies":{"default":{"httpProxy":"$proxy_url","httpsProxy":"$proxy_url","noProxy":"$no_proxy"}}}
+    EOF
+    ${pkgs.coreutils}/bin/install -m 0644 "$tmp" "$docker_config"
+  '';
+
 in
 {
   system.stateVersion = "26.05";
 
   networking.hostName = "garm-runner";
   networking.useDHCP = lib.mkDefault true;
-  networking.proxy = {
-    default = proxyUrl;
-    noProxy = noProxy;
-  };
 
   boot.kernel.sysctl."vm.overcommit_memory" = 1;
 
@@ -104,15 +130,22 @@ in
     };
   };
 
-  # Docker pulls need the same egress path as the bootstrap script. The CLI
-  # configuration also injects the proxy into containers created by jobs.
-  systemd.services.docker.environment = proxyEnvironment;
-  environment.etc."docker/cli/config.json".text = builtins.toJSON {
-    proxies.default = {
-      httpProxy = proxyUrl;
-      httpsProxy = proxyUrl;
-      inherit noProxy;
+  # Derive the local controller and proxy address from GARM's per-instance
+  # cloud-init data. This keeps the public image free of private topology.
+  systemd.services.garm-runner-proxy-environment = {
+    description = "Prepare the GARM runner proxy environment";
+    after = [ "cloud-init-local.service" "incus-agent.service" ];
+    before = [ "docker.service" "cloud-final.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${runnerProxyEnvironment}/bin/garm-runner-proxy-environment";
+      RemainAfterExit = true;
     };
+  };
+  systemd.services.docker = {
+    requires = lib.mkAfter [ "garm-runner-proxy-environment.service" ];
+    after = lib.mkAfter [ "garm-runner-proxy-environment.service" ];
+    serviceConfig.EnvironmentFile = "/run/garm/proxy.env";
   };
 
   services.cloud-init = {
@@ -149,15 +182,21 @@ in
   };
 
   systemd.services.cloud-init-local.after = lib.mkAfter [ "incus-agent.service" ];
-  systemd.services.cloud-init-local.environment = proxyEnvironment;
-  systemd.services.cloud-init.environment = proxyEnvironment;
-  systemd.services.cloud-config.environment = proxyEnvironment;
   systemd.services.cloud-final = {
-    wants = lib.mkAfter [ "docker.service" "garm-controller-ca.service" ];
-    after = lib.mkAfter [ "docker.service" "garm-controller-ca.service" ];
-    environment = proxyEnvironment // {
+    requires = lib.mkAfter [
+      "docker.service"
+      "garm-controller-ca.service"
+      "garm-runner-proxy-environment.service"
+    ];
+    after = lib.mkAfter [
+      "docker.service"
+      "garm-controller-ca.service"
+      "garm-runner-proxy-environment.service"
+    ];
+    environment = {
       CURL_CA_BUNDLE = "/run/garm/controller-ca.pem";
     };
+    serviceConfig.EnvironmentFile = "/run/garm/proxy.env";
   };
 
   users.groups.runner = { };
@@ -185,10 +224,9 @@ in
 
   services.openssh.enable = lib.mkForce false;
 
-  environment.systemPackages = runnerTools ++ [ controllerCaBundle ];
-  environment.sessionVariables = proxyEnvironment // {
+  environment.systemPackages = runnerTools ++ [ controllerCaBundle runnerProxyEnvironment ];
+  environment.sessionVariables = {
     CURL_CA_BUNDLE = "/run/garm/controller-ca.pem";
-    DOCKER_CONFIG = "/etc/docker/cli";
   };
 
   systemd.tmpfiles.rules = [
