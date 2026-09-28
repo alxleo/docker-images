@@ -181,7 +181,6 @@ in
       "update_hostname"
       "resolv_conf"
       "rsyslog"
-      "users-groups"
     ];
   };
 
