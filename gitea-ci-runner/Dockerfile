@@ -9,7 +9,6 @@ FROM ghcr.io/jdx/mise:2026.8.14@sha256:08c2a808bf88a002a118b5013a21aaab000662f15
 
 # docker.gitea.com publishes a multi-platform index; pinning the index keeps
 # amd64 and arm64 jobs on the same reviewed upstream release.
-# conftest:exempt=user_required -- Gitea job containers need root for Docker actions and the runner socket.
 FROM docker.gitea.com/runner-images:ubuntu-latest@sha256:fd911d7417bfbf0f454530e447da95b58001e1df41bbc5e1a8dd35d432575aae
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" \
@@ -109,4 +108,4 @@ RUN set -eux; \
     test "$(node26 --version)" = "v26.10.0"; \
     actions-up --version | grep -Eq '^actions-up/1\.21\.0([[:space:]]|$)'
 
-USER root
+USER ubuntu
