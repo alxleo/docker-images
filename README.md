@@ -15,7 +15,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, Windmill, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
-| `windmill-deploy-worker` | Windmill worker with browser verifier, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
+| `windmill-deploy-worker` | Windmill worker with browser verifier, sync CLI, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
 
 ## MCP Service Images
 
