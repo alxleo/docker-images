@@ -18,6 +18,7 @@ RUN apt-get update \
     && npm install -g "agent-browser@${AGENT_BROWSER_VERSION}" \
     && agent-browser install --with-deps \
     && agent-browser --version \
+    && wmill --version \
     && age --version \
     && SUDO_FORCE_REMOVE=yes apt-get purge -y sudo \
     && rm -rf /var/lib/apt/lists/* /root/.npm
