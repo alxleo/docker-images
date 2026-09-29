@@ -82,7 +82,8 @@ RUN set -eux; \
     just --version; \
     caddy version; \
     tofu version; \
-    shellcheck --version | head -1; \
+    shellcheck_output="$(shellcheck --version)"; \
+    case "$shellcheck_output" in *"version: ${SHELLCHECK_VERSION}"*) ;; *) exit 1 ;; esac; \
     shfmt --version; \
     yamllint --version; \
     actionlint -version; \
@@ -106,6 +107,7 @@ RUN set -eux; \
     ln -sfn npx /opt/mise/installs/node/26.10.0/bin/npx26; \
     test "$(node24 --version)" = "v24.21.0"; \
     test "$(node26 --version)" = "v26.10.0"; \
-    actions-up --version | grep -Eq '^actions-up/1\.21\.0([[:space:]]|$)'
+    actions_up_output="$(actions-up --version)"; \
+    case "$actions_up_output" in "actions-up/${ACTIONS_UP_VERSION}"*) ;; *) exit 1 ;; esac
 
-USER ubuntu
+USER 1000:1000
