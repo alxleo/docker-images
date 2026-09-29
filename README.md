@@ -12,6 +12,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
+| `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, Windmill, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 | `windmill-deploy-worker` | Windmill worker with browser verifier, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
