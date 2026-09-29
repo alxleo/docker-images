@@ -40,5 +40,7 @@ label-schema:
 
 trustedRegistries:
   - docker.io
+  # Official Gitea runner base; Dockerfiles must still pin its digest.
+  - docker.gitea.com
   - ghcr.io
   - gcr.io

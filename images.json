@@ -21,6 +21,7 @@
     "pihole-exporter",
     "dagu-ops",
     "docs-hub",
+    "gitea-ci-runner",
     "homelab-observer",
     "windmill-deploy-worker"
   ]
