@@ -16,7 +16,6 @@ in
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" "auto-allocate-uids" "cgroups" ];
     auto-allocate-uids = true;
-    allow-new-privileges = true;
     extra-system-features = [ "uid-range" ];
   };
 
