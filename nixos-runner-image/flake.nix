@@ -15,7 +15,10 @@
     {
       nixosModules.default = import ./runner.nix;
       nixosConfigurations.nixos-runner = configuration;
-      packages.${system}.nixos-runner-qcow2 = configuration.config.system.build.image;
+      packages.${system} = {
+        nixos-runner-qcow2 = configuration.config.system.build.image;
+        garm-metadata = configuration.config.system.build.garmMetadata;
+      };
       checks.${system} = {
         nixos-runner = configuration.config.system.build.toplevel;
         runner-capabilities = pkgs.testers.runNixOSTest {
