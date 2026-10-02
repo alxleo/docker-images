@@ -43,7 +43,7 @@ get_runner_file credentials/runner "$RUNNER_ROOT/.runner" || fail "failed to get
 get_runner_file credentials/credentials "$RUNNER_ROOT/.credentials" || fail "failed to get runner credentials"
 get_runner_file credentials/credentials_rsaparams "$RUNNER_ROOT/.credentials_rsaparams" || fail "failed to get runner key parameters"
 tmp_settings=$(mktemp)
-jq '.disableUpdate = true' "$RUNNER_ROOT/.runner" >"$tmp_settings"
+jq '.DisableUpdate = true | del(.disableUpdate)' "$RUNNER_ROOT/.runner" >"$tmp_settings"
 mv "$tmp_settings" "$RUNNER_ROOT/.runner"
 {{- else }}
 registration_token=$(curl --retry 5 --retry-delay 5 --retry-connrefused --fail --silent \
@@ -71,7 +71,7 @@ while ! /opt/garm/github-runner/bin/Runner.Listener configure \
 done
 {{- end }}
 
-agent_id=$(grep '"agentId"' "$RUNNER_ROOT/.runner" | tr -cd '0-9')
+agent_id=$(jq -r '.agentId // .AgentId // empty' "$RUNNER_ROOT/.runner")
 call "{\"status\": \"idle\", \"message\": \"runner successfully configured\", \"agent_id\": ${agent_id:-null}}"
 
 unset CURL_CA_BUNDLE
