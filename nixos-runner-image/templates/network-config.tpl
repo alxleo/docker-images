@@ -1,4 +1,2 @@
 version: 2
-ethernets:
-  eth0:
-    dhcp4: true
+ethernets: {}
