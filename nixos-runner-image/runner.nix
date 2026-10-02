@@ -120,7 +120,7 @@ in
 
   services.cloud-init = {
     enable = true;
-    network.enable = true;
+    network.enable = false;
     extraPackages = runnerTools;
     settings.datasource_list = [ "NoCloud" ];
     settings.cloud_init_modules = lib.mkForce [

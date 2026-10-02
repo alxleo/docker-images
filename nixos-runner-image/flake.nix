@@ -30,6 +30,8 @@
           };
           testScript = ''
             machine.start()
+            machine.wait_for_unit("network-online.target")
+            machine.succeed("ip -o link show up | grep -v ' lo '")
             machine.wait_for_unit("docker.service")
             machine.succeed("docker info")
             machine.succeed("docker compose version")
