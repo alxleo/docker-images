@@ -43,7 +43,7 @@ in
     inherit lib config pkgs;
     inherit (config.image) baseName;
     format = "qcow2";
-    diskSize = 32768;
+    diskSize = 16384;
   });
 
   networking.hostName = "nixos-runner";
