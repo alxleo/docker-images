@@ -1,0 +1,78 @@
+#!/bin/bash
+set -euo pipefail
+
+CALLBACK_URL="{{ .CallbackURL }}"
+METADATA_URL="{{ .MetadataURL }}"
+BEARER_TOKEN="{{ .CallbackToken }}"
+RUNNER_ROOT="/var/lib/github-runner"
+RUNNER_WORK="$RUNNER_ROOT/_work"
+
+controller_host=$(printf '%s\n' "$METADATA_URL" | sed -E 's#^https://(\[[^]]+\]|[^:/]+)(:[0-9]+)?(/.*)?$#\1#')
+proxy_url="http://$controller_host:3128"
+export HTTP_PROXY="$proxy_url" HTTPS_PROXY="$proxy_url"
+export http_proxy="$proxy_url" https_proxy="$proxy_url"
+export NO_PROXY="127.0.0.1,localhost,::1,$controller_host"
+export no_proxy="$NO_PROXY"
+export CURL_CA_BUNDLE=/run/garm/controller-ca.pem
+
+call() {
+    local payload="$1"
+    [[ "$CALLBACK_URL" =~ ^(.*)/status(/)?$ ]] || CALLBACK_URL="${CALLBACK_URL}/status"
+    curl --retry 5 --retry-delay 5 --retry-connrefused --fail --silent \
+        -X POST -d "$payload" -H 'Accept: application/json' \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" "$CALLBACK_URL" || true
+}
+
+fail() {
+    call "{\"status\": \"failed\", \"message\": \"$1\"}"
+    exit 1
+}
+
+get_runner_file() {
+    curl --retry 5 --retry-delay 5 --retry-connrefused --fail --silent \
+        -H 'Accept: application/json' -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        "${METADATA_URL}/$1" -o "$2"
+}
+
+mkdir -p "$RUNNER_ROOT" "$RUNNER_WORK"
+export HOME=/home/{{ .RunnerUsername }} RUNNER_ROOT
+cd "$RUNNER_ROOT"
+
+{{- if .UseJITConfig }}
+get_runner_file credentials/runner "$RUNNER_ROOT/.runner" || fail "failed to get runner identity"
+get_runner_file credentials/credentials "$RUNNER_ROOT/.credentials" || fail "failed to get runner credentials"
+get_runner_file credentials/credentials_rsaparams "$RUNNER_ROOT/.credentials_rsaparams" || fail "failed to get runner key parameters"
+tmp_settings=$(mktemp)
+jq '.disableUpdate = true' "$RUNNER_ROOT/.runner" >"$tmp_settings"
+mv "$tmp_settings" "$RUNNER_ROOT/.runner"
+{{- else }}
+registration_token=$(curl --retry 5 --retry-delay 5 --retry-connrefused --fail --silent \
+    -H 'Accept: application/json' -H "Authorization: Bearer ${BEARER_TOKEN}" \
+    "${METADATA_URL}/runner-registration-token/")
+
+attempt=1
+{{- if .GitHubRunnerGroup }}
+while ! /opt/garm/github-runner/bin/Runner.Listener configure \
+    --unattended --url "{{ .RepoURL }}" --token "$registration_token" \
+    --runnergroup "{{ .GitHubRunnerGroup }}" \
+    --name "{{ .RunnerName }}" --labels "{{ .RunnerLabels }}" \
+    --no-default-labels --ephemeral --disableupdate --work "$RUNNER_WORK"; do
+{{- else }}
+while ! /opt/garm/github-runner/bin/Runner.Listener configure \
+    --unattended --url "{{ .RepoURL }}" --token "$registration_token" \
+    --name "{{ .RunnerName }}" --labels "{{ .RunnerLabels }}" \
+    --no-default-labels --ephemeral --disableupdate --work "$RUNNER_WORK"; do
+{{- end }}
+    if ((attempt >= 5)); then
+        fail "failed to configure runner after ${attempt} attempts"
+    fi
+    attempt=$((attempt + 1))
+    sleep 5
+done
+{{- end }}
+
+agent_id=$(grep '"agentId"' "$RUNNER_ROOT/.runner" | tr -cd '0-9')
+call "{\"status\": \"idle\", \"message\": \"runner successfully configured\", \"agent_id\": ${agent_id:-null}}"
+
+unset CURL_CA_BUNDLE
+exec /opt/garm/github-runner/bin/Runner.Listener run --startuptype service
