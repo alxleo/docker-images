@@ -38,12 +38,22 @@ in
 
   system.stateVersion = "26.05";
 
+  boot.loader.grub.enable = lib.mkForce false;
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = false;
+
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/ESP";
+    fsType = "vfat";
+  };
+
   image.baseName = "nixos-runner";
   system.build.kubevirtImage = lib.mkForce (import "${modulesPath}/../lib/make-disk-image.nix" {
     inherit lib config pkgs;
     inherit (config.image) baseName;
     format = "qcow2";
     diskSize = 16384;
+    partitionTableType = "efi";
   });
 
   networking.hostName = "nixos-runner";
