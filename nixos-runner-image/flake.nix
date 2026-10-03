@@ -38,6 +38,8 @@
             machine.succeed("Runner.Listener --version")
             machine.succeed("/opt/runner/act_runner --version")
             machine.succeed("test -x /opt/runner/run.sh")
+            machine.succeed("/opt/garm/github-runner/lib/externals/node20/bin/node --version | grep -Eq '^v24\\.'")
+            machine.succeed("/opt/garm/github-runner/lib/externals/node24/bin/node --version | grep -Eq '^v24\\.'")
             machine.succeed("sudo -u runner timeout 10 /opt/runner/run.sh --help")
           '';
         };

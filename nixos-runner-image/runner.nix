@@ -1,7 +1,10 @@
 { lib, pkgs, ... }:
 
 let
-  githubRunner = pkgs.github-runner.override { nodeRuntimes = [ "node24" ]; };
+  githubRunner = pkgs.github-runner.override {
+    nodeRuntimes = [ "node20" "node24" ];
+    nodejs_20 = pkgs.nodejs_24;
+  };
   runnerTools = with pkgs; [
     bash
     coreutils
