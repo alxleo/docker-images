@@ -1,0 +1,61 @@
+# Every tool the job image carries, installed by `mise install` in the
+# Dockerfile. Same syntax as the homelab repository's .mise.toml: that
+# repository's Lint & Validate fails when a pin there is missing from the
+# image it pins, so a version bump is the same line edited in both places.
+#
+# Exact versions only: mise's lookup of a partial version would move the
+# image between rebuilds.
+[tools]
+# Two Python and Node lines: the repository's (3.13, 24) and the newest
+# supported ones (3.14, 26), exposed as python3.13/python3.14 and node24/node26.
+python = ["3.13.14", "3.14.7"]
+node = ["24.21.0", "26.10.0"]
+# The Dockerfile replaces mise's bun with the digest-pinned upstream binary and
+# fails the build if its version differs from this pin.
+bun = "1.3.14"
+uv = "0.12.19"
+just = "1.58.0"
+
+pre-commit = "4.6.2"
+ruff = "0.16.9"
+semgrep = "1.177.0"
+shellcheck = "0.11.0"
+shfmt = "3.14.1"
+yamllint = "1.38.0"
+gitleaks = "8.30.1"
+actionlint = "1.7.12"
+zizmor = "1.30.1"
+hadolint = "2.15.1"
+trivy = "0.74.0"
+conftest = "0.71.0"
+cue = "0.17.1"
+d2 = "0.8.2"
+jq = "1.8.2"
+yq = "4.53.6"
+lychee = "0.23.0"
+"pipx:ansible-core" = "2.21.4"
+"npm:actions-up" = "1.21.0"
+"npm:json-schema-to-typescript" = "16.0.0"
+"npm:dependency-cruiser" = "18.4.0"
+"npm:@axe-core/cli" = "4.13.0"
+"npm:jscpd" = "5.2.1"
+
+opentofu = "1.13.1"
+helm = "4.3.0"
+kubectl = "1.37.1"
+flux2 = "2.9.5"
+talosctl = "1.14.1"
+cilium-hubble = "1.19.4"
+terraform-docs = "0.24.0"
+tflint = "0.64.0"
+sops = "3.13.3"
+age = "1.3.2"
+openbao = "2.6.2"
+caddy = "2.11.6"
+cloudflared = "2026.9.3"
+restic = "0.19.1"
+gh = "2.100.0"
+"npm:windmill-cli" = "1.811.1"
+kyverno = "1.19.1"
+kubeconform = "0.8.0"
+pluto = "5.24.4"
