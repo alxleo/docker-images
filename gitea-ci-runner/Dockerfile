@@ -20,11 +20,12 @@ ARG PYTHON_REPO_VERSION=3.13.14
 ARG PYTHON_CI_VERSION=3.14.7
 ARG NODE_REPO_VERSION=24.21.0
 ARG NODE_LATEST_VERSION=26.10.0
+ARG BUN_VERSION=1.3.14
 ARG UV_VERSION=0.12.19
 ARG PRE_COMMIT_VERSION=4.6.2
 ARG JUST_VERSION=1.58.0
 ARG RUFF_VERSION=0.16.9
-ARG CADDY_VERSION=2.11.4
+ARG CADDY_VERSION=2.11.6
 ARG OPENTOFU_VERSION=1.12.6
 ARG SHELLCHECK_VERSION=0.11.0
 ARG SHFMT_VERSION=3.14.1
@@ -45,6 +46,7 @@ ARG ANSIBLE_CORE_VERSION=2.21.4
 ARG JSON_SCHEMA_TO_TYPESCRIPT_VERSION=16.0.0
 ARG DEPENDENCY_CRUISER_VERSION=18.4.0
 ARG AXE_CORE_CLI_VERSION=4.13.0
+ARG JSCPD_VERSION=5.2.1
 ARG HELM_VERSION=4.3.0
 ARG KUBECTL_VERSION=1.37.1
 ARG FLUX2_VERSION=2.9.5
@@ -55,7 +57,7 @@ ARG TFLINT_VERSION=0.64.0
 ARG SOPS_VERSION=3.13.3
 ARG AGE_VERSION=1.3.2
 ARG OPENBAO_VERSION=2.6.2
-ARG CLOUDFLARED_VERSION=2026.9.1
+ARG CLOUDFLARED_VERSION=2026.9.3
 ARG RESTIC_VERSION=0.19.1
 ARG GH_VERSION=2.100.0
 ARG WINDMILL_CLI_VERSION=1.811.1
@@ -69,6 +71,9 @@ ARG ACTIONS_UP_VERSION=1.21.0
 ENV MISE_DATA_DIR=/opt/mise \
     MISE_CONFIG_DIR=/opt/mise \
     MISE_CACHE_DIR=/tmp/mise-cache \
+    MISE_AUTO_INSTALL=false \
+    MISE_EXEC_AUTO_INSTALL=false \
+    MISE_NOT_FOUND_AUTO_INSTALL=false \
     MISE_YES=1 \
     MISE_TRUSTED_CONFIG_PATHS=/workspace \
     NPM_CONFIG_FUND=false \
@@ -86,6 +91,7 @@ RUN set -eux; \
       "python@${PYTHON_CI_VERSION}" \
       "node@${NODE_REPO_VERSION}" \
       "node@${NODE_LATEST_VERSION}" \
+      "bun@${BUN_VERSION}" \
       "uv@${UV_VERSION}" \
       "pre-commit@${PRE_COMMIT_VERSION}" \
       "just@${JUST_VERSION}" \
@@ -111,6 +117,7 @@ RUN set -eux; \
       "npm:json-schema-to-typescript@${JSON_SCHEMA_TO_TYPESCRIPT_VERSION}" \
       "npm:dependency-cruiser@${DEPENDENCY_CRUISER_VERSION}" \
       "npm:@axe-core/cli@${AXE_CORE_CLI_VERSION}" \
+      "npm:jscpd@${JSCPD_VERSION}" \
       "helm@${HELM_VERSION}" \
       "kubectl@${KUBECTL_VERSION}" \
       "flux2@${FLUX2_VERSION}" \
@@ -134,6 +141,7 @@ RUN set -eux; \
     python3.13 --version; \
     python3.14 --version; \
     node --version; \
+    bun --version; \
     uv --version; \
     mise --version; \
     pre-commit --version; \
@@ -161,6 +169,7 @@ RUN set -eux; \
     json2ts --help; \
     depcruise --version; \
     axe --version; \
+    jscpd --version; \
     helm version --short; \
     kubectl version --client=true; \
     flux --version; \
