@@ -95,6 +95,8 @@ in
 {
   boot.kernel.sysctl."vm.overcommit_memory" = 1;
 
+  programs.nix-ld.enable = true;
+
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" "auto-allocate-uids" "cgroups" ];
     auto-allocate-uids = true;
