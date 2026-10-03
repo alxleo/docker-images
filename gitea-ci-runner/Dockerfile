@@ -7,6 +7,9 @@
 
 FROM ghcr.io/jdx/mise:2026.8.14@sha256:08c2a808bf88a002a118b5013a21aaab000662f15b1fdad939ea0795724316de AS mise
 
+# Pin the upstream multi-arch Bun index while retaining mise's tool metadata.
+FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
+
 # docker.gitea.com publishes a multi-platform index; pinning the index keeps
 # amd64 and arm64 jobs on the same reviewed upstream release.
 FROM docker.gitea.com/runner-images:ubuntu-latest@sha256:fd911d7417bfbf0f454530e447da95b58001e1df41bbc5e1a8dd35d432575aae
@@ -81,6 +84,7 @@ ENV MISE_DATA_DIR=/opt/mise \
     PATH=/opt/mise/installs/node/24.21.0/bin:/opt/mise/installs/node/26.10.0/bin:/opt/mise/shims:/opt/actions-up/bin:/opt/mise/installs/python/3.13.14/bin:/opt/mise/installs/python/3.14.7/bin:${PATH}
 
 COPY --from=mise /usr/local/bin/mise /usr/local/bin/mise
+COPY --from=bun /usr/local/bin/bun /tmp/bun
 
 RUN set -eux; \
     apt-get update; \
@@ -135,13 +139,17 @@ RUN set -eux; \
       "kyverno@${KYVERNO_VERSION}" \
       "kubeconform@${KUBECONFORM_VERSION}" \
       "pluto@${PLUTO_VERSION}"; \
+    test "$(/tmp/bun --version)" = "${BUN_VERSION}"; \
+    install -Dm755 /tmp/bun "/opt/mise/installs/bun/${BUN_VERSION}/bin/bun"; \
+    rm -f /tmp/bun; \
     npm install --global --prefix /opt/actions-up --omit=dev "actions-up@${ACTIONS_UP_VERSION}"; \
     rm -rf /root/.npm "$MISE_CACHE_DIR"; \
     mise reshim; \
     python3.13 --version; \
     python3.14 --version; \
     node --version; \
-    bun --version; \
+    test "$(bun --version)" = "${BUN_VERSION}"; \
+    test "$(bun -e 'console.log("bun-js-smoke")')" = "bun-js-smoke"; \
     uv --version; \
     mise --version; \
     pre-commit --version; \
