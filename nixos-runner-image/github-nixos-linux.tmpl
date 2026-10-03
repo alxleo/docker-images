@@ -37,6 +37,7 @@ get_runner_file() {
 mkdir -p "$RUNNER_ROOT" "$RUNNER_WORK"
 export HOME=/home/{{ .RunnerUsername }} RUNNER_ROOT
 cd "$RUNNER_ROOT"
+call "{\"status\": \"installing\", \"message\": \"installing runner\"}"
 
 {{- if .UseJITConfig }}
 get_runner_file credentials/runner "$RUNNER_ROOT/.runner" || fail "failed to get runner identity"
