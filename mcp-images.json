@@ -4,8 +4,7 @@
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=mcp-hacker-news@1.0.3",
     "tag": "1.0.3",
-    "description": "Hacker News API via MCP",
-    "contract": "mcp-contracts/mcp-hackernews.json"
+    "description": "Hacker News API via MCP"
   },
   {
     "name": "mcp-brave",
@@ -60,8 +59,7 @@
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2026.7.4",
     "tag": "2026.7.4",
-    "description": "Structured step-by-step reasoning via MCP",
-    "contract": "mcp-contracts/mcp-sequential-thinking.json"
+    "description": "Structured step-by-step reasoning via MCP"
   },
   {
     "name": "mcp-firecrawl",
