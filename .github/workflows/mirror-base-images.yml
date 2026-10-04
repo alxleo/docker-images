@@ -10,6 +10,12 @@ on:
   schedule:
     - cron: '23 3 * * 1'  # Monday 3:23 AM UTC
   workflow_dispatch:
+    inputs:
+      image:
+        description: 'Optional single image to mirror (for example ubuntu:24.04)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   packages: write
@@ -31,3 +37,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+          MIRROR_IMAGE: ${{ inputs.image }}
