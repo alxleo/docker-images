@@ -25,6 +25,7 @@ RUN apt-get update \
     && agent-browser --version \
     && agent_browser_root="$(dirname "$(dirname "$(readlink -f "$(command -v agent-browser)")")")" \
     && find "${agent_browser_root}/bin" -maxdepth 1 -type f -name 'agent-browser-*' ! -name 'agent-browser-linux-x64' -delete \
+    && ln -s /root/.bun/install/global/node_modules/agent-browser/bin/agent-browser-linux-x64 /usr/local/bin/agent-browser \
     && wmill --version \
     && age --version \
     && SUDO_FORCE_REMOVE=yes apt-get purge -y sudo \
