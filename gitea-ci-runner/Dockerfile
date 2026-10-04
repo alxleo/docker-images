@@ -24,7 +24,7 @@ FROM docker.gitea.com/runner-images:ubuntu-latest@sha256:fd911d7417bfbf0f454530e
 
 # Ubuntu publishes a multi-platform index; pinning the mirrored index keeps
 # amd64 and arm64 jobs on the same reviewed release.
-FROM ghcr.io/alxleo/base-images/ubuntu:24.04@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60
+FROM ghcr.io/alxleo/base-images/ubuntu:24.04@sha256:08b706223c7cf02589905d41e80914c5cf610034f76c163427b60f3902b215fa
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" \
       org.opencontainers.image.title="Gitea CI runner job image" \
