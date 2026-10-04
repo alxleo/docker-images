@@ -24,6 +24,7 @@ images=(
     "node:26-slim"
     "python:3.14-alpine"
     "python:3.14-slim"
+    "ubuntu:24.04"
 )
 
 # Ensure GHCR login — CI uses GITHUB_TOKEN, local uses gh CLI
