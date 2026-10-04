@@ -1,0 +1,302 @@
+name: Build custom image
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: Published image name
+        required: true
+        type: string
+      context:
+        description: Docker build context
+        required: true
+        type: string
+      tag:
+        description: Upstream image tag
+        required: true
+        type: string
+      platforms:
+        description: Comma-separated target platforms
+        required: true
+        type: string
+      build_args:
+        description: Newline-separated Docker build arguments
+        required: true
+        type: string
+      test_setup:
+        description: Optional shell setup before image tests
+        required: true
+        type: string
+      test_commands:
+        description: JSON array of image test commands
+        required: true
+        type: string
+      version:
+        description: Monotonic build version
+        required: true
+        type: string
+      tag_name:
+        description: Git tag for the build version
+        required: true
+        type: string
+      publish:
+        description: Push tested digests and advance final tags
+        required: true
+        type: boolean
+    secrets:
+      gitea_build_token:
+        description: Optional trusted token for authenticated image tooling
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: alxleo
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-platforms:
+    name: Resolve native platforms
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Map platforms to native runners
+        id: matrix
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          set -euo pipefail
+          matrix='[]'
+          while IFS= read -r platform; do
+            [[ -n "$platform" ]] || continue
+            case "$platform" in
+              linux/amd64)
+                arch=amd64
+                runner=ubuntu-24.04
+                ;;
+              linux/arm64)
+                arch=arm64
+                runner=ubuntu-24.04-arm
+                ;;
+              *)
+                echo "Unsupported custom image platform: ${platform}" >&2
+                exit 1
+                ;;
+            esac
+            entry=$(jq -cn \
+              --arg platform "$platform" \
+              --arg arch "$arch" \
+              --arg runner "$runner" \
+              '{platform: $platform, arch: $arch, runner: $runner}')
+            matrix=$(jq -c --argjson entry "$entry" '. + [$entry]' <<< "$matrix")
+          done < <(tr ',' '\n' <<< "$PLATFORMS")
+          test "$(jq length <<< "$matrix")" -gt 0
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ inputs.name }} (${{ matrix.arch }})
+    needs: [resolve-platforms]
+    if: needs.resolve-platforms.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write  # push the tested per-architecture digest to GHCR
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.resolve-platforms.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Login to GHCR
+        if: inputs.publish
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Setup buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        with:
+          driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+
+      # Native runners remove the QEMU ARM compilation path. Trusted builds
+      # publish only an untagged digest here; final tags wait for tests below.
+      - name: Build native image
+        id: build
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          # zizmor: ignore[template-injection] — values come from repository manifests
+          context: ${{ inputs.context }}
+          build-args: ${{ inputs.build_args }}
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: ${{ !inputs.publish }}
+          cache-from: type=gha,scope=${{ inputs.name }}-${{ matrix.arch }}
+          cache-to: ${{ inputs.publish && format('type=gha,scope={0}-{1},mode=min', inputs.name, matrix.arch) || '' }}
+          outputs: >-
+            ${{ inputs.publish &&
+                format('type=image,name=ghcr.io/alxleo/{0},push-by-digest=true,name-canonical=true,push=true', inputs.name) || '' }}
+          tags: >-
+            ${{ !inputs.publish &&
+                format('docker-images-test/{0}:{1}-{2}', inputs.name, matrix.arch, github.run_id) || '' }}
+          # flate resolves through the GitHub API; only the trusted non-PR
+          # gitea build receives this file secret.
+          secrets: >-
+            ${{ inputs.publish &&
+                inputs.name == 'gitea-ci-runner' &&
+                secrets.gitea_build_token != '' &&
+                format('GITHUB_TOKEN={0}', secrets.gitea_build_token) || '' }}
+
+      - name: Prepare image for tests
+        id: image
+        env:
+          IMAGE_NAME: ${{ inputs.name }}
+          IMAGE_ARCH: ${{ matrix.arch }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          image_ref="docker-images-test/${IMAGE_NAME}:${IMAGE_ARCH}-${GITHUB_RUN_ID}"
+          if [[ "$PUBLISH" == 'true' ]]; then
+            test -n "${BUILD_DIGEST}"
+            source_ref="${REGISTRY}/${OWNER}/${IMAGE_NAME}@${BUILD_DIGEST}"
+            docker pull "$source_ref"
+            docker tag "$source_ref" "$image_ref"
+          fi
+          echo "image-ref=${image_ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Test setup
+        if: inputs.test_setup != ''
+        env:
+          TEST_SETUP: ${{ inputs.test_setup }}
+        run: bash -c "$TEST_SETUP"
+
+      - name: Run tests
+        if: inputs.test_commands != '[]'
+        env:
+          IMAGE_NAME: ${{ inputs.name }}
+          IMAGE_REF: ${{ steps.image.outputs.image-ref }}
+          TEST_COMMANDS: ${{ inputs.test_commands }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t cmds < <(echo "$TEST_COMMANDS" | jq -r '.[]')
+          for cmd in "${cmds[@]}"; do
+            echo "::group::${cmd}"
+            bash -c "$cmd"
+            echo "::endgroup::"
+          done
+
+      - name: Save published digest
+        if: inputs.publish
+        env:
+          IMAGE_ARCH: ${{ matrix.arch }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: printf '%s\n' "$BUILD_DIGEST" > "digest-${IMAGE_ARCH}"
+
+      - name: Upload published digest
+        if: inputs.publish
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: custom-image-digest-${{ inputs.name }}-${{ matrix.arch }}-${{ github.run_id }}
+          path: digest-${{ matrix.arch }}
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    name: Publish ${{ inputs.name }}
+    needs: [resolve-platforms, build]
+    if: inputs.publish && needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # push the per-image build version tag
+      packages: write  # publish the tested manifest and final tags to GHCR
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Setup buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        with:
+          driver-opts: image=ghcr.io/alxleo/buildkit:v0.20.2
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+
+      - name: Download architecture digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: custom-image-digest-${{ inputs.name }}-*-${{ github.run_id }}
+          path: ${{ runner.temp }}/custom-image-digests
+          merge-multiple: true
+
+      - name: Merge tested digests and advance tags
+        env:
+          IMAGE_NAME: ${{ inputs.name }}
+          IMAGE_TAG: ${{ inputs.tag }}
+          IMAGE_PLATFORMS: ${{ inputs.platforms }}
+          IMAGE_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          DIGEST_DIR: ${{ runner.temp }}/custom-image-digests
+        run: |
+          set -euo pipefail
+          image="${REGISTRY}/${OWNER}/${IMAGE_NAME}"
+          sources=()
+          while IFS= read -r platform; do
+            [[ -n "$platform" ]] || continue
+            case "$platform" in
+              linux/amd64) arch=amd64 ;;
+              linux/arm64) arch=arm64 ;;
+              *)
+                echo "Unsupported custom image platform: ${platform}" >&2
+                exit 1
+                ;;
+            esac
+            digest_file="${DIGEST_DIR}/digest-${arch}"
+            test -s "$digest_file"
+            digest=$(<"$digest_file")
+            sources+=("${image}@${digest}")
+          done < <(tr ',' '\n' <<< "${IMAGE_PLATFORMS}")
+          test "${#sources[@]}" -gt 0
+
+          create_args=(
+            --metadata-file "${RUNNER_TEMP}/${IMAGE_NAME}-index.json"
+            --tag "${image}:${IMAGE_TAG}"
+          )
+          if [[ "$IMAGE_TAG" != 'latest' ]]; then
+            create_args+=(--tag "${image}:latest")
+          fi
+          if [[ -n "$IMAGE_VERSION" ]]; then
+            create_args+=(--tag "${image}:${IMAGE_VERSION}")
+          fi
+          if [[ "${#sources[@]}" -eq 1 ]]; then
+            create_args+=(--prefer-index=false)
+          fi
+          docker buildx imagetools create "${create_args[@]}" "${sources[@]}"
+          cat "${RUNNER_TEMP}/${IMAGE_NAME}-index.json"
+
+          # The version was reserved once for the image before either native
+          # build started, and is tagged only after all tested digests merged.
+          test -n "$TAG_NAME"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
