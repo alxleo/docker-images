@@ -27,6 +27,24 @@ images=(
     "ubuntu:24.04"
 )
 
+# A manual run may select one declared image. Validate before logging in so a
+# typo cannot trigger an authenticated no-op or a partial refresh.
+if [[ -n "${MIRROR_IMAGE:-}" ]]; then
+    selected=false
+    for declared in "${images[@]}"; do
+        if [[ "$declared" == "$MIRROR_IMAGE" ]]; then
+            selected=true
+            break
+        fi
+    done
+    if [[ "$selected" != true ]]; then
+        echo "Unknown mirror image: ${MIRROR_IMAGE}" >&2
+        echo "Expected one of: ${images[*]}" >&2
+        exit 2
+    fi
+    images=("$MIRROR_IMAGE")
+fi
+
 # Ensure GHCR login — CI uses GITHUB_TOKEN, local uses gh CLI
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR:-alxleo}" --password-stdin
