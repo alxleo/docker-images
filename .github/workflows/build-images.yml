@@ -18,7 +18,8 @@
 #
 # Auto-discovery: any directory with a Dockerfile + optional .ci.json is an image.
 # discover-images.sh generates the matrix; individual image jobs are replaced by
-# a single matrix job (custom-images). MCP images keep their own matrix pipeline.
+# native architecture matrix jobs (custom-images). MCP images keep their own
+# matrix pipeline.
 
 name: Build Custom Images
 
@@ -150,9 +151,10 @@ jobs:
           changed_dirs=$(echo "$changed_files" | cut -d/ -f1 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
           changed_files_json=$(echo "$changed_files" | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
-          # CI infra changed if build action, discover script, or build workflow changed
+          # CI infra changed if build action, discovery scripts, or either custom
+          # image workflow changed.
           ci_changed="false"
-          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-images\.yml)' <<<"$changed_files"; then
+          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-(images|custom-image)\.yml)' <<<"$changed_files"; then
             ci_changed="true"
           fi
           include_watch_paths="false"
@@ -196,160 +198,98 @@ jobs:
           gitleaks detect --source . --verbose --redact
 
   # ---------------------------------------------------------------------------
-  # Custom images — single matrix job replacing 7+ individual jobs
+  # Custom images — native architecture builds and test-gated publication
   #
-  # Flow per selected image: discover dependencies -> build -> test -> push
-  # The composite action handles build with GHA cache.
-  # Push is handled inline after tests pass.
+  # Each selected image is expanded into one job per declared platform. PRs
+  # load and test both native images. Trusted builds push each tested image by
+  # digest, then publish the final tags only after every architecture succeeds.
+  # The existing composite action remains available to its other callers; this
+  # path avoids its test-build cache export so each image has one GHA export.
   # ---------------------------------------------------------------------------
-  custom-images:
-    name: ${{ matrix.name }}
+  resolve-custom-matrix:
+    name: Resolve image versions
     needs: [discover]
-    if: >-
-      needs.discover.result == 'success' &&
-      needs.discover.outputs.custom_changed == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write   # push git tags for build versions
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.discover.outputs.matrix) }}
+    if: needs.discover.result == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      images: ${{ steps.matrix.outputs.images }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
-      # --- Compute build version: {base}-build.{N} ---
-      # Base version from .ci.json tag. Build counter from git tags.
-      - name: Compute version
-        if: github.event_name != 'pull_request'
-        id: version
+      - name: Resolve versions
+        id: matrix
         env:
-          IMAGE_NAME: ${{ matrix.name }}
-          BASE_TAG: ${{ matrix.tag }}
-        run: |
-          PREFIX="${IMAGE_NAME}/${BASE_TAG}-build."
-          LATEST=$(git tag -l "${PREFIX}*" --sort=-v:refname | head -1)
-          if [ -n "$LATEST" ]; then
-            N="${LATEST#"$PREFIX"}"
-            NEXT=$((N + 1))
-          else
-            NEXT=1
-          fi
-          VERSION="${BASE_TAG}-build.${NEXT}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=${IMAGE_NAME}/${VERSION}" >> "$GITHUB_OUTPUT"
-
-      # --- Build (no push — tests run first) ---
-      - name: Build
-        id: build
-        uses: ./.github/actions/build-image
-        with:
-          name: ${{ matrix.name }}
-          context: ${{ matrix.context }}
-          tag: ${{ matrix.tag }}
-          build-args: ${{ matrix.build_args }}
-          platforms: ${{ matrix.platforms }}
-          scope: ${{ matrix.name }}
-          # flate resolves through the GitHub API; only trusted non-PR runner
-          # builds receive the workflow token, never fork pull requests.
-          github-token: >-
-            ${{ github.event_name != 'pull_request' &&
-                matrix.name == 'gitea-ci-runner' &&
-                secrets.GITHUB_TOKEN || '' }}
-
-      # --- Test setup (install uv, ripgrep, etc.) ---
-      - name: Test setup
-        if: matrix.test_setup != ''
-        env:
-          TEST_SETUP: ${{ matrix.test_setup }}
-        run: bash -c "$TEST_SETUP"
-
-      # --- Run test commands ---
-      - name: Run tests
-        if: toJson(matrix.test_commands) != '[]'
-        env:
-          IMAGE_NAME: ${{ matrix.name }}
-          IMAGE_REF: ${{ steps.build.outputs.image-ref }}
-          TEST_COMMANDS: ${{ toJson(matrix.test_commands) }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-        shell: bash
+          IMAGE_MATRIX: ${{ needs.discover.outputs.matrix }}
         run: |
           set -euo pipefail
-          mapfile -t cmds < <(echo "$TEST_COMMANDS" | jq -r '.[]')
-          for cmd in "${cmds[@]}"; do
-            echo "::group::${cmd}"
-            bash -c "$cmd"
-            echo "::endgroup::"
-          done
+          images='[]'
 
-      # --- GHCR login (non-PR only, before push) ---
-      - name: Login to GHCR
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          while IFS= read -r image; do
+            name=$(jq -r '.name' <<< "$image")
+            base_tag=$(jq -r '.tag' <<< "$image")
+            version=''
+            tag_name=''
 
-      # --- Push image(s) to GHCR via buildx ---
-      - name: Push to GHCR
-        if: >-
-          github.event_name != 'pull_request'
-        env:
-          IMAGE_NAME: ${{ matrix.name }}
-          IMAGE_TAG: ${{ matrix.tag }}
-          IMAGE_VERSION: ${{ steps.version.outputs.version }}
-          IMAGE_PLATFORMS: ${{ matrix.platforms }}
-          IMAGE_CONTEXT: ${{ matrix.context }}
-          IMAGE_BUILD_ARGS: ${{ matrix.build_args }}
-          # Keep the token scoped to the runner's publish build and trusted events.
-          GITHUB_TOKEN: >-
-            ${{ github.event_name != 'pull_request' &&
-                matrix.name == 'gitea-ci-runner' &&
-                secrets.GITHUB_TOKEN || '' }}
-        run: |
-          TAGS=(
-            -t "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_TAG}"
-            -t "ghcr.io/alxleo/${IMAGE_NAME}:latest"
-          )
-          if [ -n "${IMAGE_VERSION}" ]; then
-            TAGS+=(-t "ghcr.io/alxleo/${IMAGE_NAME}:${IMAGE_VERSION}")
-          fi
-          # Convert newline-separated build args to --build-arg flags
-          BUILD_ARG_FLAGS=()
-          if [ -n "${IMAGE_BUILD_ARGS}" ]; then
-            while IFS= read -r arg; do
-              [ -n "$arg" ] && BUILD_ARG_FLAGS+=(--build-arg "$arg")
-            done <<< "${IMAGE_BUILD_ARGS}"
-          fi
-          BUILD_SECRET_FLAGS=()
-          if [ "${IMAGE_NAME}" = "gitea-ci-runner" ] && [ -n "${GITHUB_TOKEN:-}" ]; then
-            BUILD_SECRET_FLAGS+=(--secret "id=GITHUB_TOKEN,env=GITHUB_TOKEN")
-          fi
-          docker buildx build \
-            --platform "${IMAGE_PLATFORMS}" \
-            --push \
-            --cache-from type=gha,scope="${IMAGE_NAME}" \
-            --cache-to type=gha,scope="${IMAGE_NAME}",mode=min \
-            "${BUILD_SECRET_FLAGS[@]}" \
-            "${BUILD_ARG_FLAGS[@]}" \
-            "${TAGS[@]}" \
-            "${IMAGE_CONTEXT}/"
+            if [[ "$GITHUB_EVENT_NAME" != 'pull_request' ]]; then
+              prefix="${name}/${base_tag}-build."
+              latest=$(git tag -l "${prefix}*" --sort=-v:refname | head -1)
+              if [[ -n "$latest" ]]; then
+                next=$((10#${latest#"$prefix"} + 1))
+              else
+                next=1
+              fi
+              version="${base_tag}-build.${next}"
+              tag_name="${name}/${version}"
+            fi
 
-      # --- Create git tag for build version ---
-      - name: Tag build version
-        if: >-
-          github.event_name != 'pull_request' &&
-          steps.version.outputs.tag_name
-        env:
-          TAG_NAME: ${{ steps.version.outputs.tag_name }}
-        run: |
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
+            image_with_version=$(jq -c \
+              --arg version "$version" \
+              --arg tag_name "$tag_name" \
+              '. + {version: $version, tag_name: $tag_name}' <<< "$image")
+            images=$(jq -c --argjson image "$image_with_version" '. + [$image]' <<< "$images")
+          done < <(jq -c '.[]' <<< "$IMAGE_MATRIX")
+
+          echo "images=${images}" >> "$GITHUB_OUTPUT"
+
+  # One reusable workflow call per image keeps publication scoped to that
+  # image's architecture matrix. A failed image cannot block unrelated images,
+  # and a failed current rerun cannot promote an older digest artifact.
+  custom-images:
+    name: ${{ matrix.name }}
+    needs: [discover, resolve-custom-matrix]
+    if: >-
+      needs.discover.result == 'success' &&
+      needs.resolve-custom-matrix.result == 'success' &&
+      needs.discover.outputs.custom_changed == 'true'
+    permissions:
+      contents: write  # called workflow pushes the per-image build tag
+      packages: write  # called workflow publishes tested digests to GHCR
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.resolve-custom-matrix.outputs.images) }}
+    uses: ./.github/workflows/build-custom-image.yml # zizmor: ignore[self-repository]
+    with:
+      name: ${{ matrix.name }}
+      context: ${{ matrix.context }}
+      tag: ${{ matrix.tag }}
+      platforms: ${{ matrix.platforms }}
+      build_args: ${{ matrix.build_args }}
+      test_setup: ${{ matrix.test_setup }}
+      test_commands: ${{ toJson(matrix.test_commands) }}
+      version: ${{ matrix.version }}
+      tag_name: ${{ matrix.tag_name }}
+      publish: ${{ github.event_name != 'pull_request' }}
+    secrets:
+      # flate resolves through the GitHub API; only trusted non-PR gitea builds
+      # receive the workflow token, never fork pull requests.
+      github_token: >-
+        ${{ github.event_name != 'pull_request' &&
+            matrix.name == 'gitea-ci-runner' &&
+            secrets.GITHUB_TOKEN || '' }}
 
   # ---------------------------------------------------------------------------
   # MCP images — separate pipeline (own matrix, smoke tests, E2E)
