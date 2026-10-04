@@ -3,7 +3,7 @@
 # dropped capabilities, so browser binaries and shared libraries belong here.
 
 # conftest:exempt=user_required -- Windmill workers run as root upstream; the homelab Compose service drops all Linux capabilities and enables no-new-privileges.
-FROM ghcr.io/windmill-labs/windmill:1.811.1
+FROM ghcr.io/windmill-labs/windmill-slim:1.811.1@sha256:9afc43cfc18d0d331a28ba6766373e45526955769c43efcdfe70fde4a9448e4e
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ARG AGENT_BROWSER_VERSION=0.37.1
@@ -13,15 +13,23 @@ ARG COOLIFY_CLI_VERSION=1.6.2
 ARG COMPOSE_VERSION=v5.5.0
 ARG COMPOSE_SHA256=c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b
 
+# The slim image already provides Bun, uv's Python runtime, the Windmill
+# engine, and the CLI. Keep the worker-specific tools in this layer, and do
+# not add npm/Node or a second system Python runtime just to install a Bun
+# compatible CLI.
+ENV PATH="/root/.bun/bin:${PATH}"
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends age bind9-dnsutils sudo \
-    && npm install -g "agent-browser@${AGENT_BROWSER_VERSION}" \
+    && apt-get install -y --no-install-recommends age bind9-dnsutils openssh-client sudo zstd \
+    && bun install -g --trust "agent-browser@${AGENT_BROWSER_VERSION}" \
     && agent-browser install --with-deps \
     && agent-browser --version \
+    && agent_browser_root="$(dirname "$(dirname "$(readlink -f "$(command -v agent-browser)")")")" \
+    && find "${agent_browser_root}/bin" -maxdepth 1 -type f -name 'agent-browser-*' ! -name 'agent-browser-linux-x64' -delete \
+    && ln -s /root/.bun/install/global/node_modules/agent-browser/bin/agent-browser-linux-x64 /usr/local/bin/agent-browser \
     && wmill --version \
     && age --version \
     && SUDO_FORCE_REMOVE=yes apt-get purge -y sudo \
-    && rm -rf /var/lib/apt/lists/* /root/.npm
+    && rm -rf /var/lib/apt/lists/* /root/.cache/dconf /root/.npm
 
 # Coolify key-hygiene flow (homelab #1092): the worker runs
 # `mise exec -- coolify` from the runner checkout, whose .mise.toml pins
