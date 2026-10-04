@@ -60,6 +60,8 @@ COPY --from=runner-tools /usr/bin/git-lfs /usr/bin/git-lfs
 COPY --from=runner-tools /usr/libexec/docker/cli-plugins/docker-buildx /usr/libexec/docker/cli-plugins/docker-buildx
 COPY --from=runner-tools /usr/libexec/docker/cli-plugins/docker-compose /usr/libexec/docker/cli-plugins/docker-compose
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN set -eux; if ! getent group ubuntu >/dev/null; then groupadd --gid 1000 ubuntu; fi; \
     test "$(getent group ubuntu | cut -d: -f3)" = 1000; \
     if ! getent passwd ubuntu >/dev/null; then useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash ubuntu; fi; \
