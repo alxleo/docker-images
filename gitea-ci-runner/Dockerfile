@@ -44,12 +44,21 @@ ENV MISE_DATA_DIR=/opt/mise \
 COPY --from=mise /usr/local/bin/mise /usr/local/bin/mise
 COPY mise.toml /opt/mise/config.toml
 
+# The optional file secret authenticates mise's GitHub API lookup for trusted
+# builds; fork pull requests remain unauthenticated and receive no token.
 RUN --mount=type=bind,from=bun,source=/usr/local/bin/bun,target=/tmp/bun \
-    set -eux; \
+    --mount=type=secret,id=GITHUB_TOKEN \
+    set -eu; \
     apt-get update; \
     apt-get install --no-install-recommends --yes fd-find ripgrep; \
     rm -rf /var/lib/apt/lists/*; \
+    if [ -s /run/secrets/GITHUB_TOKEN ]; then \
+        GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; \
+        export GITHUB_TOKEN; \
+    fi; \
     mise install; \
+    unset GITHUB_TOKEN; \
+    set -x; \
     bun_dir="$(mise where bun)"; \
     test "$(/tmp/bun --version)" = "${bun_dir##*/}"; \
     install -Dm755 /tmp/bun "${bun_dir}/bin/bun"; \

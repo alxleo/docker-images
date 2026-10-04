@@ -37,6 +37,10 @@ inputs:
     description: GHA cache scope key (typically image name) to prevent cache collisions in matrix builds
     required: false
     default: ''
+  github-token:
+    description: Optional token for authenticated tool downloads during trusted builds
+    required: false
+    default: ''
 
 outputs:
   image-ref:
@@ -82,6 +86,7 @@ runs:
         load: true
         cache-from: type=gha,scope=${{ inputs.scope || inputs.name }}
         cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,scope={0},mode=min', inputs.scope || inputs.name) || '' }}
+        secrets: ${{ inputs.github-token != '' && format('GITHUB_TOKEN={0}', inputs.github-token) || '' }}
         tags: |
           ghcr.io/alxleo/${{ inputs.name }}:${{ inputs.tag }}
           ghcr.io/alxleo/${{ inputs.name }}:latest
