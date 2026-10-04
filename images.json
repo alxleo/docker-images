@@ -23,6 +23,8 @@
     "docs-hub",
     "gitea-ci-runner",
     "homelab-observer",
-    "windmill-deploy-worker"
+    "windmill-deploy-worker",
+    "mcp-hackernews",
+    "mcp-sequential-thinking"
   ]
 }
