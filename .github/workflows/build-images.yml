@@ -286,7 +286,7 @@ jobs:
     secrets:
       # flate resolves through the GitHub API; only trusted non-PR gitea builds
       # receive the workflow token, never fork pull requests.
-      github_token: >-
+      gitea_build_token: >-
         ${{ github.event_name != 'pull_request' &&
             matrix.name == 'gitea-ci-runner' &&
             secrets.GITHUB_TOKEN || '' }}

@@ -44,7 +44,7 @@ on:
         required: true
         type: boolean
     secrets:
-      github_token:
+      gitea_build_token:
         description: Optional trusted token for authenticated image tooling
         required: false
 
@@ -154,8 +154,8 @@ jobs:
           secrets: >-
             ${{ inputs.publish &&
                 inputs.name == 'gitea-ci-runner' &&
-                secrets.github_token != '' &&
-                format('GITHUB_TOKEN={0}', secrets.github_token) || '' }}
+                secrets.gitea_build_token != '' &&
+                format('GITHUB_TOKEN={0}', secrets.gitea_build_token) || '' }}
 
       - name: Prepare image for tests
         id: image
