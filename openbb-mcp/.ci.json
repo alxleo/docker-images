@@ -1,0 +1,11 @@
+{
+  "name": "mcp-openbb",
+  "test_commands": [
+    "docker run --rm --entrypoint python \"$IMAGE_REF\" -c \"from importlib.metadata import version; expected={'openbb-core':'2.0.1','openbb-mcp-server':'2.0.1','openbb-sec':'2.0.0','openbb-fred':'2.0.0','openbb-ecb':'2.0.0','openbb-imf':'3.0.0','openbb-cboe':'2.0.0','openbb-nasdaq':'2.0.0','openbb-bls':'2.0.0'}; actual={name:version(name) for name in expected}; print(actual); assert actual == expected; from openbb_core.app.utils import get_user_cache_directory; assert get_user_cache_directory() == '/cache'; import importlib.util; assert importlib.util.find_spec('openbb_cli') is None\"",
+    "OPENBB_MCP_TEST_IMAGE=\"$IMAGE_REF\" bash test/test-openbb-mcp-image.sh"
+  ],
+  "watch_paths": [
+    "scripts/mcp-contract.py",
+    "test/test-openbb-mcp-image.sh"
+  ]
+}
