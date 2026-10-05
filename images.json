@@ -25,6 +25,8 @@
     "homelab-observer",
     "windmill-deploy-worker",
     "mcp-hackernews",
-    "mcp-sequential-thinking"
+    "mcp-sequential-thinking",
+    "finrobot-mcp",
+    "mcp-openbb"
   ]
 }
