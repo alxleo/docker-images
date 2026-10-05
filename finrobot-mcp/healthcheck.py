@@ -7,7 +7,6 @@ import http.client
 import json
 import os
 
-
 mode = os.environ.get("FINROBOT_MODE")
 if mode is None:
     # Docker HEALTHCHECK runs outside the entrypoint shell. Probe the API

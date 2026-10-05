@@ -37,6 +37,6 @@ EXPOSE 8000 8080
 HEALTHCHECK --interval=30s --timeout=8s --retries=3 \
     CMD ["python", "/app/healthcheck.py"]
 
-USER app
+USER 1000:1000
 ENTRYPOINT ["finrobot-entrypoint"]
 CMD ["api"]

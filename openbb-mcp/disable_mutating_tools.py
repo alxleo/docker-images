@@ -6,7 +6,10 @@ from pathlib import Path
 def main() -> None:
     import openbb_mcp_server.app.app as app_module
 
-    path = Path(app_module.__file__)
+    module_file = app_module.__file__
+    if module_file is None:
+        raise SystemExit("OpenBB app module has no source path; refusing to patch")
+    path = Path(module_file)
     source = path.read_text(encoding="utf-8")
     marker = "    return mcp\n"
     if source.count(marker) != 1:

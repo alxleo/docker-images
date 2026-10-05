@@ -14,7 +14,6 @@ from fastmcp import FastMCP
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 from finrobot.server import app as finrobot_app
 
-
 ROUTE_NAMES: dict[tuple[str, str], str] = {
     ("POST", "/api/compute/wacc"): "compute_wacc",
     ("POST", "/api/compute/dcf"): "compute_dcf",

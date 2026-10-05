@@ -10,7 +10,7 @@ trap cleanup EXIT
 docker run -d --name "$container" -p "${port}:8080" "$image" >/dev/null
 ready=false
 for _ in $(seq 1 90); do
-    if docker exec "$container" python /app/healthcheck.py >/dev/null 2>&1; then
+    if docker exec "$container" /usr/local/bin/python /app/healthcheck.py >/dev/null 2>&1; then
         ready=true
         break
     fi

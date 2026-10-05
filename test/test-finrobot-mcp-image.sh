@@ -33,7 +33,7 @@ docker run -d --name "$mcp" --network "$network" -p "${mcp_port}:8080" \
     -e FINROBOT_API_HOST_HEADER=127.0.0.1 "$image" mcp >/dev/null
 ready=false
 for _ in $(seq 1 90); do
-    if docker exec -e FINROBOT_MODE=mcp "$mcp" python /app/healthcheck.py >/dev/null 2>&1; then
+    if docker exec -e FINROBOT_MODE=mcp "$mcp" /usr/local/bin/python /app/healthcheck.py >/dev/null 2>&1; then
         ready=true
         break
     fi

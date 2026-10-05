@@ -7,7 +7,6 @@ import http.client
 import json
 import os
 
-
 payload = json.dumps(
     {
         "jsonrpc": "2.0",
