@@ -45,6 +45,9 @@ memoization is in memory. The default image settings point
 project `user_settings.json` at `/home/app/.openbb_platform/user_settings.json`
 with the same preferences plus provider credentials. Credentials and provider
 settings belong in homelab-projected files rather than the image.
+The pinned BLS 2.0.0 series fetcher inherits mandatory credential validation,
+despite upstream documentation describing the key as optional. Keyless metadata
+search works; series retrieval needs a BLS key or a supported upstream fix.
 
 `finrobot-mcp` uses the FinRobot V2 source at commit
 `2717499b8e30f242640af08c4ad9afd1113c2d45`. Run the same image with `api` for
