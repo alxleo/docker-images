@@ -5,8 +5,8 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ENV HOME=/home/app \
     XDG_CACHE_HOME=/cache \
-    OPENBB_MCP_ALLOWED_TOOL_CATEGORIES=ecb,fred,imf,sec \
-    OPENBB_MCP_DEFAULT_TOOL_CATEGORIES=ecb,fred,imf,sec \
+    OPENBB_MCP_ALLOWED_TOOL_CATEGORIES=bls,cboe,ecb,fred,imf,nasdaq,sec \
+    OPENBB_MCP_DEFAULT_TOOL_CATEGORIES=bls,cboe,ecb,fred,imf,nasdaq,sec \
     OPENBB_MCP_DEFAULT_SKILLS_DIR= \
     OPENBB_MCP_ENABLE_CLI_TOOLS=false \
     OPENBB_SEC_CACHE_DIR=/cache/sec \
@@ -24,11 +24,16 @@ RUN pip install --no-cache-dir \
         "openbb-fred==2.0.0" \
         "openbb-ecb==2.0.0" \
         "openbb-imf==3.0.0" \
+        "openbb-cboe==2.0.0" \
+        "openbb-nasdaq==2.0.0" \
+        "openbb-bls==2.0.0" \
     && python /tmp/disable_mutating_tools.py \
     && rm -f /tmp/disable_mutating_tools.py \
     && addgroup --gid 1000 app \
     && adduser --uid 1000 --gid 1000 --disabled-password --gecos '' --shell /usr/sbin/nologin app \
-    && mkdir -p /home/app/.openbb_platform /cache/sec /cache/fred /cache/ecb /data /tmp \
+    && mkdir -p /home/app/.openbb_platform /cache/http /cache/sec /cache/fred /cache/ecb /data /tmp \
+    && printf '%s\n' '{"credentials": {}, "preferences": {"cache_directory": "/cache", "data_directory": "/data", "export_directory": "/data/exports", "user_styles_directory": "/data/styles/user"}, "defaults": {"commands": {}}}' > /home/app/.openbb_platform/user_settings.json \
+    && printf '%s\n' '{}' > /home/app/.openbb_platform/system_settings.json \
     && chown -R 1000:1000 /home/app /cache /data /tmp
 
 EXPOSE 8080
