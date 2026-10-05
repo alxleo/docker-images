@@ -36,6 +36,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=8s --retries=3 \
     CMD ["python", "/app/healthcheck.py"]
 
-USER 1000
+USER app
 ENTRYPOINT ["openbb-mcp"]
 CMD ["--host", "0.0.0.0", "--port", "8080", "--transport", "streamable-http"]
