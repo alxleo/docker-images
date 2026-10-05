@@ -10,7 +10,7 @@ case "$mode" in
             --port "${FINROBOT_API_PORT:-8000}"
         ;;
     mcp)
-        exec python3 /app/finrobot_mcp.py
+        exec /usr/local/bin/python3 /app/finrobot_mcp.py
         ;;
     *)
         echo "usage: finrobot-entrypoint [api|mcp]" >&2
