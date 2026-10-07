@@ -46,6 +46,7 @@ kubectl = "1.37.1"
 flux2 = "2.9.5"
 talosctl = "1.14.1"
 cilium-hubble = "1.19.4"
+"npm:@mcpjam/cli" = { version = "5.12.2", depends = ["node"] }
 terraform-docs = "0.24.0"
 tflint = "0.64.0"
 sops = "3.13.3"
@@ -60,3 +61,25 @@ kyverno = "1.19.1"
 kubeconform = "0.8.0"
 pluto = "5.24.4"
 "github:home-operations/flate" = "0.6.5"
+
+[tool_alias]
+openobserve-cli = "http:openobserve-cli"
+flux-operator-mcp = "http:flux-operator-mcp"
+
+[tools.openobserve-cli]
+version = "0.15.0"
+bin = "openobserve-cli"
+
+[tools.openobserve-cli.platforms]
+macos-arm64 = { url = "https://github.com/AngelMsger/openobserve-cli/releases/download/v0.15.0/openobserve-cli-darwin-arm64", checksum = "sha256:e773540ec0c5d8a4c52a7d818487358a0d632cdac55323673fb5e6d37dffca05" }
+linux-x64 = { url = "https://github.com/AngelMsger/openobserve-cli/releases/download/v0.15.0/openobserve-cli-linux-amd64", checksum = "sha256:162b4047fdaeb29e596e7eb5912e52a681fdb28dfa9c9af1b9a224fbb4794683" }
+linux-arm64 = { url = "https://github.com/AngelMsger/openobserve-cli/releases/download/v0.15.0/openobserve-cli-linux-arm64", checksum = "sha256:bd8761cf882219a39af298bcd82deca030d11ffb3e957a09bc05ee1bc6683233" }
+
+[tools.flux-operator-mcp]
+version = "0.61.0"
+bin = "flux-operator-mcp"
+
+[tools.flux-operator-mcp.platforms]
+macos-arm64 = { url = "https://github.com/controlplaneio-fluxcd/flux-operator/releases/download/v0.61.0/flux-operator-mcp_0.61.0_darwin_arm64.tar.gz", checksum = "sha256:9ca7562e0411577b09022d2ec43033b41215da06f0f2fa5d9fcb12700b4e9caf" }
+linux-x64 = { url = "https://github.com/controlplaneio-fluxcd/flux-operator/releases/download/v0.61.0/flux-operator-mcp_0.61.0_linux_amd64.tar.gz", checksum = "sha256:ac9ec6165e44aafbf602aaffbbf40f40b95bf6fb17a3172958ec1e14b3798e58" }
+linux-arm64 = { url = "https://github.com/controlplaneio-fluxcd/flux-operator/releases/download/v0.61.0/flux-operator-mcp_0.61.0_linux_arm64.tar.gz", checksum = "sha256:6e1d8a7bf2245d61c084d025ec9c15452756c71dbb850af476773d31f1f85643" }
