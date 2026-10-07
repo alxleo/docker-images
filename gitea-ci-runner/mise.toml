@@ -83,4 +83,3 @@ bin = "flux-operator-mcp"
 macos-arm64 = { url = "https://github.com/controlplaneio-fluxcd/flux-operator/releases/download/v0.61.0/flux-operator-mcp_0.61.0_darwin_arm64.tar.gz", checksum = "sha256:9ca7562e0411577b09022d2ec43033b41215da06f0f2fa5d9fcb12700b4e9caf" }
 linux-x64 = { url = "https://github.com/controlplaneio-fluxcd/flux-operator/releases/download/v0.61.0/flux-operator-mcp_0.61.0_linux_amd64.tar.gz", checksum = "sha256:ac9ec6165e44aafbf602aaffbbf40f40b95bf6fb17a3172958ec1e14b3798e58" }
 linux-arm64 = { url = "https://github.com/controlplaneio-fluxcd/flux-operator/releases/download/v0.61.0/flux-operator-mcp_0.61.0_linux_arm64.tar.gz", checksum = "sha256:6e1d8a7bf2245d61c084d025ec9c15452756c71dbb850af476773d31f1f85643" }
-
