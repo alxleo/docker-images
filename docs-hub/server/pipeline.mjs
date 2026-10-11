@@ -667,7 +667,7 @@ export async function refresh({ sourceId = "", clients, stateDir }) {
   const selected = sourceId ? sources.filter((source) => source.id === sourceId) : sources;
   if (selected.length === 0) throw new Error(`unknown source: ${sourceId}`);
   const statePath = path.join(stateDir, "refresh-state.yml");
-  const state = (await exists(statePath)) ? parseYaml(await readFile(statePath, "utf8")) : {};
+  const state = (await exists(statePath)) ? (parseYaml(await readFile(statePath, "utf8")) ?? {}) : {};
   let changed = false;
   const results = [];
   for (const source of selected) {
@@ -705,7 +705,7 @@ export async function dueSources(stateDir, now = Date.now()) {
   const { sources } = await loadConfiguration();
   const statePath = path.join(stateDir, "refresh-state.yml");
   if (!(await exists(statePath))) return sources.map((source) => source.id);
-  const state = parseYaml(await readFile(statePath, "utf8"));
+  const state = parseYaml(await readFile(statePath, "utf8")) ?? {};
   return sources
     .filter((source) => !state[source.id]?.nextCheckAt || Date.parse(state[source.id].nextCheckAt) <= now)
     .map((source) => source.id);
