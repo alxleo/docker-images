@@ -5,7 +5,7 @@
 ignored:
   # DL3008: Pin versions in apt-get install (e.g., curl=7.88.1-10+deb12u8)
   # Triggered by: mcp/Dockerfile.python, mcp/Dockerfile.arxiv, dagu-ops,
-  #   pr-reviewer, windmill-deploy-worker
+  #   pr-reviewer
   # Why ignored: Debian removes old package versions from repos on each point
   #   release. Pinned versions break silently when the base image updates.
   #   apt-get install --no-install-recommends is used where possible.
