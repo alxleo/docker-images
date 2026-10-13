@@ -46,6 +46,8 @@ assert any(name.startswith("sec_") for name in tools)
 assert any(name.startswith("bls_") for name in tools)
 assert any(name.startswith("cboe_") for name in tools)
 assert any(name.startswith("nasdaq_") for name in tools)
+assert any(name.startswith("federal_reserve_") for name in tools)
+assert any(name.startswith("yfinance_") for name in tools)
 assert not any(name.startswith(("openbb_dispatch", "openbb_batch_dispatch", "openbb_config", "coverage_")) for name in tools)
 print(f"OpenBB MCP tools: {len(tools)}; mutating and CLI helpers absent")
 PY
