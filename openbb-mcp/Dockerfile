@@ -5,8 +5,8 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ENV HOME=/home/app \
     XDG_CACHE_HOME=/cache \
-    OPENBB_MCP_ALLOWED_TOOL_CATEGORIES=bls,cboe,ecb,fred,imf,nasdaq,sec \
-    OPENBB_MCP_DEFAULT_TOOL_CATEGORIES=bls,cboe,ecb,fred,imf,nasdaq,sec \
+    OPENBB_MCP_ALLOWED_TOOL_CATEGORIES=bls,cboe,ecb,federal_reserve,fred,imf,nasdaq,sec,yfinance \
+    OPENBB_MCP_DEFAULT_TOOL_CATEGORIES=bls,cboe,ecb,federal_reserve,fred,imf,nasdaq,sec,yfinance \
     OPENBB_MCP_DEFAULT_SKILLS_DIR= \
     OPENBB_MCP_ENABLE_CLI_TOOLS=false \
     OPENBB_SEC_CACHE_DIR=/cache/sec \
@@ -27,6 +27,8 @@ RUN pip install --no-cache-dir \
         "openbb-cboe==2.0.0" \
         "openbb-nasdaq==2.0.0" \
         "openbb-bls==2.0.0" \
+        "openbb-yfinance==2.0.0" \
+        "openbb-federal-reserve==2.0.0" \
     && python /tmp/disable_mutating_tools.py \
     && rm -f /tmp/disable_mutating_tools.py \
     && addgroup --gid 1000 app \

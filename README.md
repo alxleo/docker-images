@@ -15,7 +15,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, Windmill, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
-| `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, and BLS extensions | OpenBB ships a native image with the same policy controls |
+| `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 | `windmill-deploy-worker` | Windmill worker with browser verifier, sync CLI, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
 
@@ -32,9 +32,9 @@ on `/mcp`, with protocol-aware image tests and no Node.js proxy or filter
 packages.
 
 `mcp-openbb` runs the upstream `openbb-mcp` launcher on port `8080` at `/mcp`.
-It pins OpenBB Core 2.0.1, MCP Server 2.0.1, SEC/FRED/ECB/CBOE/Nasdaq/BLS
-2.0.0, and IMF 3.0.0. The runtime allow-list is
-`bls,cboe,ecb,fred,imf,nasdaq,sec`; CLI tools, bundled skills,
+It pins Core/MCP 2.0.1, the SEC/FRED/ECB/CBOE/Nasdaq/BLS/Federal Reserve/Yahoo
+Finance extensions at 2.0.0, and IMF at 3.0.0. The runtime allow-list is
+`bls,cboe,ecb,federal_reserve,fred,imf,nasdaq,sec,yfinance`; CLI tools, bundled skills,
 `run_pipeline`, and `install_skill` are disabled. OpenBB state lives under
 `/home/app/.openbb_platform`; `/cache`, `/data`, and `/tmp` are writable for
 runtime mounts. CBOE and Nasdaq use OpenBB's native
