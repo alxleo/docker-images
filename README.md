@@ -17,7 +17,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
 | `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
 | `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
-| `windmill-deploy-worker` | Windmill worker with browser verifier, sync CLI, mise, coolify-cli, compose CLI baked in | Windmill workers gain runtime package install |
 
 ## MCP Service Images
 
