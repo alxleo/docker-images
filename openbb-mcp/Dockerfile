@@ -15,6 +15,7 @@ ENV HOME=/home/app \
     MCP_PORT=8080
 
 COPY disable_mutating_tools.py /tmp/disable_mutating_tools.py
+COPY patch_provider_sources.py /tmp/patch_provider_sources.py
 COPY healthcheck.py /app/healthcheck.py
 
 RUN pip install --no-cache-dir \
@@ -29,6 +30,8 @@ RUN pip install --no-cache-dir \
         "openbb-bls==2.0.0" \
         "openbb-yfinance==2.0.0" \
         "openbb-federal-reserve==2.0.0" \
+    && python /tmp/patch_provider_sources.py \
+    && rm -f /tmp/patch_provider_sources.py \
     && python /tmp/disable_mutating_tools.py \
     && rm -f /tmp/disable_mutating_tools.py \
     && addgroup --gid 1000 app \
