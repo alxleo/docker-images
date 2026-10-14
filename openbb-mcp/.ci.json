@@ -5,7 +5,11 @@
     "OPENBB_MCP_TEST_IMAGE=\"$IMAGE_REF\" bash test/test-openbb-mcp-image.sh"
   ],
   "watch_paths": [
+    "openbb-mcp/Dockerfile",
+    "openbb-mcp/patch_provider_sources.py",
     "scripts/mcp-contract.py",
-    "test/test-openbb-mcp-image.sh"
+    "test/test-openbb-mcp-contract.py",
+    "test/test-openbb-mcp-image.sh",
+    "test/test-openbb-provider-fixes.py"
   ]
 }
