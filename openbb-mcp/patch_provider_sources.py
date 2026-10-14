@@ -17,7 +17,7 @@ def rewrite(package: str, relative_path: str, replacements: tuple[tuple[str, str
     if package_version != EXPECTED_VERSIONS[package]:
         raise RuntimeError(f"Expected {package} {EXPECTED_VERSIONS[package]}, found {package_version}")
 
-    path = Path(distribution(package).locate_file("")) / relative_path
+    path = Path(str(distribution(package).locate_file(""))) / relative_path
     source = path.read_text()
     for before, after in replacements:
         if source.count(before) != 1:

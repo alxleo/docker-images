@@ -18,6 +18,6 @@ for _ in $(seq 1 90); do
 done
 test "$ready" = true
 
-docker exec -i -e PYTHONDONTWRITEBYTECODE=1 "$container" python - < test/test-openbb-provider-fixes.py
+docker exec -i -e PYTHONDONTWRITEBYTECODE=1 "$container" python - <test/test-openbb-provider-fixes.py
 
 TEST_URL="http://127.0.0.1:${port}/mcp" python3 test/test-openbb-mcp-contract.py
