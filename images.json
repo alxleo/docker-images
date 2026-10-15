@@ -26,6 +26,7 @@
     "mcp-hackernews",
     "mcp-sequential-thinking",
     "finrobot-mcp",
-    "mcp-openbb"
+    "mcp-openbb",
+    "arc-runner"
   ]
 }
