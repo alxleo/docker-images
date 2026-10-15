@@ -20,6 +20,7 @@ updates:
   # with a mirror-list edit. mcp-images.json pins stay manual.
   - package-ecosystem: docker
     directories:
+      - /arc-runner
       - /caddy-cloudflare
       - /dagu-ops
       - /docs-hub
