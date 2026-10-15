@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" 
       org.opencontainers.image.title="Disposable ARC runner" \
       org.opencontainers.image.description="Released GitHub runner with the shared homelab CI toolchain"
 
-USER root
+USER 0:0
 COPY --from=runner --chown=1001:1001 /home/runner /home/runner
 RUN groupadd --gid 1001 runner && \
     useradd --uid 1001 --gid 1001 --home-dir /home/runner --shell /bin/bash runner && \
