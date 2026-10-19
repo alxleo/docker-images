@@ -62,6 +62,7 @@ kubeconform = "0.8.0"
 kube-linter = "0.8.3"
 pluto = "5.24.4"
 "github:home-operations/flate" = "0.6.5"
+"github:fluxcd/flux-schema" = "0.16.0"
 
 [tool_alias]
 openobserve-cli = "http:openobserve-cli"
