@@ -43,6 +43,14 @@ on:
         description: Push tested digests and advance final tags
         required: true
         type: boolean
+      native_runner:
+        description: Optional single-platform native runner label for the calling repository
+        default: ''
+        type: string
+      registry_cache:
+        description: Reuse image layers from GHCR instead of restoring an Actions cache
+        default: false
+        type: boolean
     secrets:
       gitea_build_token:
         description: Optional trusted token for authenticated image tooling
@@ -58,7 +66,7 @@ permissions:
 jobs:
   resolve-platforms:
     name: Resolve native platforms
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.native_runner || 'ubuntu-24.04' }}
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
@@ -66,8 +74,20 @@ jobs:
         id: matrix
         env:
           PLATFORMS: ${{ inputs.platforms }}
+          NATIVE_RUNNER: ${{ inputs.native_runner }}
         run: |
           set -euo pipefail
+          if [[ -n "$NATIVE_RUNNER" ]]; then
+            case "$RUNNER_ARCH" in
+              ARM64) native=arm64 ;;
+              X64) native=amd64 ;;
+              *) echo "Unsupported native architecture: $RUNNER_ARCH" >&2; exit 1 ;;
+            esac
+            [[ "$PLATFORMS" == "linux/$native" ]] || {
+              echo "A native runner override requires its single native platform" >&2
+              exit 1
+            }
+          fi
           matrix='[]'
           while IFS= read -r platform; do
             [[ -n "$platform" ]] || continue
@@ -85,6 +105,7 @@ jobs:
                 exit 1
                 ;;
             esac
+            runner="${NATIVE_RUNNER:-$runner}"
             entry=$(jq -cn \
               --arg platform "$platform" \
               --arg arch "$arch" \
@@ -141,8 +162,12 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: false
           load: ${{ !inputs.publish }}
-          cache-from: type=gha,scope=${{ inputs.name }}-${{ matrix.arch }}
-          cache-to: ${{ inputs.publish && format('type=gha,scope={0}-{1},mode=min', inputs.name, matrix.arch) || '' }}
+          cache-from: >-
+            ${{ inputs.registry_cache && format('type=registry,ref=ghcr.io/alxleo/{0}:latest', inputs.name) ||
+                format('type=gha,scope={0}-{1}', inputs.name, matrix.arch) }}
+          cache-to: >-
+            ${{ inputs.publish &&
+                (inputs.registry_cache && 'type=inline' || format('type=gha,scope={0}-{1},mode=min', inputs.name, matrix.arch)) || '' }}
           outputs: >-
             ${{ inputs.publish &&
                 format('type=image,name=ghcr.io/alxleo/{0},push-by-digest=true,name-canonical=true,push=true', inputs.name) || '' }}
@@ -218,7 +243,7 @@ jobs:
     name: Publish ${{ inputs.name }}
     needs: [resolve-platforms, build]
     if: inputs.publish && needs.build.result == 'success'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.native_runner || 'ubuntu-24.04' }}
     permissions:
       contents: write  # push the per-image build version tag
       packages: write  # publish the tested manifest and final tags to GHCR
