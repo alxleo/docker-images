@@ -22,6 +22,7 @@ if [[ -n "$changed_paths" ]]; then
         case "$path" in
         mcp/* | mcp-images.json | mcp-defaults.json | \
             scripts/mcp-contract.py | test/run-mcp-image-smoke.sh | \
+            test/check-arxiv-runtime.py | \
             test/test-mcp-smoke.sh | test/test_entrypoint.py | \
             test/test_mcp_contract.py | test/test_mcp_stack.py | \
             test/test_tool_filtering.py)
