@@ -305,7 +305,6 @@ jobs:
           test "${#sources[@]}" -gt 0
 
           create_args=(
-            --metadata-file "${RUNNER_TEMP}/${IMAGE_NAME}-index.json"
             --tag "${image}:${IMAGE_TAG}"
           )
           if [[ "$IMAGE_TAG" != 'latest' ]]; then
@@ -318,7 +317,7 @@ jobs:
             create_args+=(--prefer-index=false)
           fi
           docker buildx imagetools create "${create_args[@]}" "${sources[@]}"
-          cat "${RUNNER_TEMP}/${IMAGE_NAME}-index.json"
+          docker buildx imagetools inspect "${image}:${IMAGE_TAG}"
 
           # The version was reserved once for the image before either native
           # build started, and is tagged only after all tested digests merged.
