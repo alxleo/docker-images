@@ -124,7 +124,8 @@
     "description": "Search and retrieve academic papers from arXiv",
     "contract": "mcp-contracts/mcp-arxiv.json",
     "test_commands": [
-      "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.' && python3 -c 'from importlib.metadata import version; assert version(\\\"arxiv-mcp-server\\\") == \\\"0.7.2\\\"; assert version(\\\"mcp\\\").startswith(\\\"1.\\\"); import pymupdf4llm'\""
+      "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.'\"",
+      "docker run --rm -i --entrypoint python3 \"$IMAGE_REF\" - 0.7.2 < test/check-arxiv-runtime.py"
     ]
   },
   {

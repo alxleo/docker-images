@@ -3,6 +3,7 @@
 # Upstream provides a stdio server and native Streamable HTTP, but 0.7.x uses
 # the MCP SDK 1.x Server API. Keep that dependency boundary isolated here while
 # preserving the existing /ping and tool-filtering contract through mcp-proxy.
+# PyMuPDF 2 supplies PDF/layout modules; the legacy extra packages are empty.
 
 FROM ghcr.io/alxleo/base-images/python:3.14-slim AS build
 ARG UV_VERSION=0.12.7
@@ -31,6 +32,7 @@ RUN ln -s ../lib/node_modules/mcp-proxy/dist/bin/mcp-proxy.mjs /usr/local/bin/mc
     && rm -rf /var/lib/apt/lists/* \
     && uv pip install --system --break-system-packages \
        "mcp>=1.27,<2" \
+       "pymupdf>=2,<3" \
        "arxiv-mcp-server[pdf]==${ARXIV_MCP_VERSION}" \
     && groupadd --gid 1000 app \
     && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin app \

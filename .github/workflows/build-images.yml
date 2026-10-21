@@ -304,12 +304,22 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      smoke_matrix: ${{ steps.set-matrix.outputs.smoke_matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
       - id: set-matrix
-        run: echo "matrix=$(cat mcp-images.json | jq -c '.')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "matrix=$(jq -c '.' mcp-images.json)" >> "$GITHUB_OUTPUT"
+          # The published Python canary uses the same versions and runtime tests.
+          smoke_matrix=$(jq -c '
+            [.[] | select(.name == "mcp-arxiv")] + [{
+              name: "mcp-hackernews",
+              dockerfile: "Dockerfile.npm",
+              build_args: "MCP_PACKAGE=mcp-hacker-news@1.0.3"
+            }]' mcp-images.json)
+          echo "smoke_matrix=$smoke_matrix" >> "$GITHUB_OUTPUT"
 
   mcp-images:
     name: MCP ${{ matrix.name }}
@@ -422,15 +432,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Test-only canary for the shared npm proxy/filter layer. This image
-          # is intentionally absent from mcp-images.json and is never pushed.
-          - name: mcp-hackernews
-            dockerfile: Dockerfile.npm
-            build_args: "MCP_PACKAGE=mcp-hacker-news@1.0.3"
-          - name: mcp-arxiv
-            dockerfile: Dockerfile.arxiv
-            build_args: "ARXIV_MCP_VERSION=0.6.1\nMCP_PROXY_VERSION=6.5.4\nUV_VERSION=0.12.0"
+        include: ${{ fromJson(needs.load-mcp-matrix.outputs.smoke_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -445,13 +447,16 @@ jobs:
           push: false
           load: true
           tags: test-${{ matrix.name }}:latest
-      - name: Verify arXiv runtime
-        if: matrix.name == 'mcp-arxiv'
+      - name: Verify runtime
+        if: toJson(matrix.test_commands) != 'null'
+        env:
+          IMAGE_REF: test-${{ matrix.name }}:latest
+          TEST_COMMANDS: ${{ toJson(matrix.test_commands) }}
         run: |
-          docker run --rm --entrypoint sh test-mcp-arxiv:latest -c \
-            "python3 --version | grep -F 'Python 3.14.' &&
-             node --version | grep -E '^v26\\.' &&
-             python3 -c 'from importlib.metadata import version; assert version(\"arxiv-mcp-server\") == \"0.6.1\"; assert version(\"mcp\").startswith(\"1.\"); import pymupdf4llm'"
+          mapfile -t cmds < <(jq -r '.[]' <<< "$TEST_COMMANDS")
+          for cmd in "${cmds[@]}"; do
+            bash -euo pipefail -c "$cmd"
+          done
       - name: Start container
         env:
           IMAGE_NAME: ${{ matrix.name }}
@@ -463,7 +468,8 @@ jobs:
       - name: Run smoke tests
         env:
           IMAGE_NAME: ${{ matrix.name }}
-        run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080
+          CONTRACT: ${{ matrix.contract }}
+        run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080 "${CONTRACT}"
       - name: Dump smoke logs on failure
         if: failure()
         env:
