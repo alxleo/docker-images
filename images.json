@@ -28,6 +28,7 @@
     "finrobot-mcp",
     "mcp-openbb",
     "litellm",
-    "arc-runner"
+    "arc-runner",
+    "open-webui"
   ]
 }
