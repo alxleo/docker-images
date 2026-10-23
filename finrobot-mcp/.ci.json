@@ -6,7 +6,7 @@
   ],
   "watch_paths": [
     "scripts/mcp-contract.py",
-    "test/test-finrobot-providers.py",
-    "test/test-finrobot-mcp-image.sh"
+    "test/test-finrobot-mcp-image.sh",
+    "test/test-finrobot-providers.py"
   ]
 }
