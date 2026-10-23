@@ -67,7 +67,7 @@ jobs:
             echo "path=" >> "$GITHUB_OUTPUT"
           fi
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:latest
           exit-code: '1'
@@ -86,7 +86,7 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.mcp) }}
     steps:
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/alxleo/${{ matrix.name }}:latest
           exit-code: '1'
