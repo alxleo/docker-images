@@ -51,8 +51,8 @@ search works; series retrieval needs a BLS key or a supported upstream fix.
 `finrobot-mcp` uses the FinRobot V2 source at commit
 `2717499b8e30f242640af08c4ad9afd1113c2d45`. Run the same image with `api` for
 the native `finrobot.server:app` on port `8000`, or `mcp` for the thin FastMCP
-OpenAPI facade on port `8080` at `/mcp`. FinRobot dependencies use constraints
-exported from that commit's frozen upstream lockfile. Its allow-list contains compute POSTs,
+OpenAPI facade on port `8080` at `/mcp`. FinRobot dependencies use this image's
+frozen compatibility lockfile. Its allow-list contains compute POSTs,
 run creation/status reads, and artifact reads; settings, secrets, chat,
 coverage mutations, cancellation, deletion, and viewed-state writes are
 excluded. `runs_create` starts persistent research and LLM/provider work;
