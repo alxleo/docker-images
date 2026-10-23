@@ -27,6 +27,7 @@
     "mcp-sequential-thinking",
     "finrobot-mcp",
     "mcp-openbb",
+    "litellm",
     "arc-runner"
   ]
 }

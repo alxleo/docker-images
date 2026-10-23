@@ -18,7 +18,15 @@ COPY disable_mutating_tools.py /tmp/disable_mutating_tools.py
 COPY patch_provider_sources.py /tmp/patch_provider_sources.py
 COPY healthcheck.py /app/healthcheck.py
 
-RUN pip install --no-cache-dir \
+# The runtime consumes the vendor's security updates before installing providers.
+# hadolint ignore=DL3005
+RUN apt-get update \
+    && apt-get upgrade --no-install-recommends -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --upgrade "pip==26.2.2" \
+    && pip install --no-cache-dir \
+        "certifi>=2026.10.19" \
+        "pillow>=13.0.0" \
         "openbb-core==2.0.1" \
         "openbb-mcp-server==2.0.1" \
         "openbb-sec==2.0.0" \
@@ -30,6 +38,8 @@ RUN pip install --no-cache-dir \
         "openbb-bls==2.0.0" \
         "openbb-yfinance==2.0.0" \
         "openbb-federal-reserve==2.0.0" \
+    && pip check \
+    && pip uninstall --yes pip \
     && python /tmp/patch_provider_sources.py \
     && rm -f /tmp/patch_provider_sources.py \
     && python /tmp/disable_mutating_tools.py \
