@@ -13,7 +13,7 @@ node = ["24.21.0", "26.10.0"]
 # The Dockerfile replaces mise's bun with the digest-pinned upstream binary and
 # fails the build if its version differs from this pin.
 bun = "1.4.2"
-uv = "0.12.22"
+uv = "0.13.4"
 just = "1.58.0"
 
 pre-commit = "4.6.2"

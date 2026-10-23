@@ -10,18 +10,21 @@ ENV HOME=/home/app \
     FINROBOT_MCP_PORT=8080 \
     FINROBOT_API_URL=http://127.0.0.1:8000
 
+COPY pyproject.toml uv.lock /opt/finrobot-dependencies/
+
+# Refresh vendor security packages, including the CA store, before fetching Python dependencies.
+# hadolint ignore=DL3005
 RUN apt-get update \
+    && apt-get upgrade --no-install-recommends -y \
     && apt-get install --no-install-recommends -y git \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir "uv==0.12.22" \
-    && git clone --filter=blob:none --no-checkout https://github.com/AI4Finance-Foundation/FinRobot.git /opt/finrobot-source \
-    && git -C /opt/finrobot-source checkout --detach 2717499b8e30f242640af08c4ad9afd1113c2d45 \
-    && test "$(git -C /opt/finrobot-source rev-parse HEAD)" = "2717499b8e30f242640af08c4ad9afd1113c2d45" \
-    && uv export --directory /opt/finrobot-source/finrobot_desktop --frozen --no-dev --no-emit-project --no-hashes --output-file /tmp/finrobot-constraints.txt \
-    && uv pip install --system --no-cache-dir --constraint /tmp/finrobot-constraints.txt /opt/finrobot-source/finrobot_desktop \
-        "fastmcp==3.1.1" \
-    && rm -f /tmp/finrobot-constraints.txt \
-    && rm -rf /opt/finrobot-source \
+    && pip install --no-cache-dir --upgrade "pip==26.2.2" "uv==0.13.4" \
+    && uv export --quiet --directory /opt/finrobot-dependencies --frozen --no-dev --no-emit-project --output-file /tmp/finrobot-requirements.txt \
+    && uv pip install --system --no-cache-dir --requirement /tmp/finrobot-requirements.txt \
+    && uv pip check --system \
+    && uv pip uninstall --system uv pip \
+    && rm -rf /tmp/finrobot-requirements.txt /opt/finrobot-dependencies \
+    && apt-get purge --auto-remove -y git \
     && addgroup --gid 1000 app \
     && adduser --uid 1000 --gid 1000 --disabled-password --gecos '' --shell /usr/sbin/nologin app \
     && mkdir -p /home/app/.finrobot /cache/finrobot /data /tmp \
