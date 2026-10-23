@@ -1,0 +1,8 @@
+{
+  "test_commands": [
+    "docker run --rm -i --network none -e OFFLINE_MODE=true -e RAG_EMBEDDING_ENGINE=openai -e ENABLE_VERSION_UPDATE_CHECK=false -e SCARF_NO_ANALYTICS=true -e DO_NOT_TRACK=true -e WEBUI_SECRET_KEY=ci-only-not-a-credential --entrypoint python \"$IMAGE_REF\" - < test/test-open-webui-image.py"
+  ],
+  "watch_paths": [
+    "test/test-open-webui-image.py"
+  ]
+}
