@@ -1,0 +1,33 @@
+# The npm release bundles Go 1.25 binaries. Rebuild the same upstream release
+# so patched Go and module dependencies reach the credential-bearing server.
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM ghcr.io/alxleo/base-images/golang:1.26-bookworm AS build
+ARG SLACK_MCP_VERSION=1.3.0
+WORKDIR /src
+RUN git clone --branch "v${SLACK_MCP_VERSION}" --depth 1 https://github.com/korotovsky/slack-mcp-server.git .
+RUN go get golang.org/x/net@v0.60.0 github.com/klauspost/compress@v1.18.7 \
+    && go mod tidy \
+    && go test ./pkg/server ./cmd/slack-mcp-server
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" \
+    go build -trimpath -ldflags "-s -w" -o /out/slack-mcp-server ./cmd/slack-mcp-server
+
+FROM ghcr.io/alxleo/base-images/node:26-alpine AS runtime
+LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
+WORKDIR /
+RUN apk add --no-cache python3 ca-certificates \
+    && npm install -g mcp-proxy@6.7.21 mcp-filter@1.1.3 \
+    && npm install --prefix /usr/local/lib/node_modules/mcp-filter --omit=dev --save-prod --save-exact \
+       minimatch@10.2.5 @modelcontextprotocol/sdk@1.32.2 \
+    && rm -rf /root/.npm /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+COPY --from=build /out/slack-mcp-server /usr/local/bin/slack-mcp-server
+COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
+COPY --chmod=755 entrypoint.py /entrypoint.py
+ENV MCP_SERVER_COMMAND="slack-mcp-server" MCP_PORT=8080
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD ["/bin/httpcheck", "http://localhost:8080/ping"]
+USER 1000:1000
+ENTRYPOINT ["/entrypoint.py"]
+CMD []

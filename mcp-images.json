@@ -18,8 +18,8 @@
   },
   {
     "name": "mcp-slack",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=slack-mcp-server@1.3.0",
+    "dockerfile": "Dockerfile.slack",
+    "build_args": "SLACK_MCP_VERSION=1.3.0",
     "tag": "1.3.0",
     "description": "Slack channel messages and search",
     "secrets": [
