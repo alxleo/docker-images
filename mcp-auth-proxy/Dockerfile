@@ -18,6 +18,10 @@ ARG MCP_AUTH_PROXY_VERSION=v2.10.2
 WORKDIR /src
 RUN git clone --branch ${MCP_AUTH_PROXY_VERSION} --depth 1 https://github.com/sigbit/mcp-auth-proxy.git .
 
+# Upstream v2.10.2 predates these security fixes; retain its auth behavior.
+RUN go get golang.org/x/net@v0.60.0 google.golang.org/grpc@v1.83.2 \
+    && go mod tidy
+
 # PATCH: issue #103's abort handling still logs expected client cancellations
 # before its custom callback runs. Remove when upstream recovery suppresses
 # http.ErrAbortHandler before logging it.

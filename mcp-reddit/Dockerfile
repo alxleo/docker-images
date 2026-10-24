@@ -10,7 +10,7 @@
 # Stage 1: resolve the locked Python 3.14 environment.
 FROM ghcr.io/alxleo/base-images/python:3.14-alpine AS build
 WORKDIR /app
-RUN pip install --no-cache-dir uv==0.12.22
+RUN pip install --no-cache-dir uv==0.13.5
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
@@ -20,6 +20,10 @@ LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ENV PATH="/app/.venv/bin:${PATH}"
 COPY --from=build /app/.venv /app/.venv
+
+# The service runs its locked venv and needs no package bootstrap at runtime.
+RUN /usr/local/bin/python3.14 -m pip uninstall --yes pip setuptools \
+    && rm -rf /usr/local/lib/python3.14/ensurepip
 
 # Copy server code
 COPY server.py /app/server.py

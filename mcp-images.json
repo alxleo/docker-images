@@ -39,8 +39,8 @@
   {
     "name": "mcp-context7",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@4.0.4",
-    "tag": "4.0.4",
+    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@4.4.4",
+    "tag": "4.4.4",
     "description": "Library documentation lookup with version awareness",
     "secrets": [
       "CONTEXT7_API_KEY"
