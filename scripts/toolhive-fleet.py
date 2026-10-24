@@ -56,6 +56,8 @@ def expected_shared_source(entry: dict[str, Any]) -> tuple[str, str] | None:
         return package, version
     if entry["name"] == "mcp-arxiv":
         return "arxiv-mcp-server", build_args["ARXIV_MCP_VERSION"]
+    if entry["name"] == "mcp-slack":
+        return "slack-mcp-server", build_args["SLACK_MCP_VERSION"]
     return None
 
 
