@@ -59,7 +59,7 @@
       "name": "mcp-context7",
       "port": 19104,
       "state": "ready",
-      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "4.0.4"},
+      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "4.4.4"},
       "secrets": [{"name": "CONTEXT7_API_KEY", "target": "CONTEXT7_API_KEY"}]
     },
     {
