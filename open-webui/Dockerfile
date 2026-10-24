@@ -21,7 +21,9 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "Mako==1.4.2" \
         "black==26.10.1" \
         "jaraco.context==6.1.2" \
-        "setuptools==83.0.0" \
+        "setuptools==84.2.1" \
+        "urllib3==2.8.0" \
+        "msgpack==1.2.3" \
         "wheel==0.46.2" \
         "pip==26.2.2" \
         "opentelemetry-api==1.45.1" \

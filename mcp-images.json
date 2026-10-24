@@ -39,8 +39,8 @@
   {
     "name": "mcp-context7",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@4.0.4",
-    "tag": "4.0.4",
+    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@4.4.4",
+    "tag": "4.4.4",
     "description": "Library documentation lookup with version awareness",
     "secrets": [
       "CONTEXT7_API_KEY"
@@ -119,7 +119,7 @@
   {
     "name": "mcp-arxiv",
     "dockerfile": "Dockerfile.arxiv",
-    "build_args": "ARXIV_MCP_VERSION=0.7.2\nMCP_PROXY_VERSION=6.7.11\nUV_VERSION=0.12.7",
+    "build_args": "ARXIV_MCP_VERSION=0.7.2\nMCP_PROXY_VERSION=6.7.21\nUV_VERSION=0.13.5",
     "tag": "0.7.2",
     "description": "Search and retrieve academic papers from arXiv",
     "contract": "mcp-contracts/mcp-arxiv.json",

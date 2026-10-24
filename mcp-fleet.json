@@ -59,7 +59,7 @@
       "name": "mcp-context7",
       "port": 19104,
       "state": "ready",
-      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "4.0.4"},
+      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "4.4.4"},
       "secrets": [{"name": "CONTEXT7_API_KEY", "target": "CONTEXT7_API_KEY"}]
     },
     {
@@ -108,25 +108,16 @@
       "contract": "mcp-contracts/mcp-jina.json",
       "allow_tools": [
         "capture_screenshot_url",
-        "classify_text",
-        "deduplicate_images",
         "deduplicate_strings",
-        "expand_query",
         "extract_pdf",
         "guess_datetime_url",
-        "parallel_read_url",
-        "parallel_search_arxiv",
-        "parallel_search_ssrn",
-        "parallel_search_web",
         "primer",
         "read_url",
         "search_arxiv",
-        "search_bibtex",
         "search_images",
         "search_jina_blog",
         "search_ssrn",
         "search_web",
-        "show_api_key",
         "sort_by_relevance"
       ]
     },
