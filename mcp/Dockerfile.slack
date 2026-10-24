@@ -11,7 +11,8 @@ RUN go get golang.org/x/net@v0.60.0 github.com/klauspost/compress@v1.18.7 \
 ARG TARGETOS
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" \
-    go build -trimpath -ldflags "-s -w" -o /out/slack-mcp-server ./cmd/slack-mcp-server
+    go build -trimpath -ldflags "-s -w -X github.com/korotovsky/slack-mcp-server/pkg/version.Version=v${SLACK_MCP_VERSION}" \
+    -o /out/slack-mcp-server ./cmd/slack-mcp-server
 
 FROM ghcr.io/alxleo/base-images/node:26-alpine AS runtime
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
