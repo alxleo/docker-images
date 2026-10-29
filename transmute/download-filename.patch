@@ -1,0 +1,62 @@
+diff --git a/frontend/src/utils/download.ts b/frontend/src/utils/download.ts
+index 49d7d59..67a91e5 100644
+--- a/frontend/src/utils/download.ts
++++ b/frontend/src/utils/download.ts
+@@ -4,33 +4,18 @@
+ 
+ import { authFetch as fetch } from './api'
+ 
+-/**
+- * Extract filename from content-disposition header or fallback to default
+- */
+-function extractFilename(response: Response, fallback: string): string {
+-  const contentDisposition = response.headers.get('content-disposition')
+-  if (contentDisposition) {
+-    const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+-    if (match) {
+-      return match[1].replace(/['"]/g, '')
+-    }
+-  }
+-  return fallback
+-}
+-
+ /**
+  * Download a file from fetch response
+  * @param response - The fetch Response object
+- * @param fallbackFilename - Fallback filename if not provided in headers
++ * @param filename - Filename from the file or conversion metadata
+  * @returns The downloaded filename
+  */
+-export async function downloadFromResponse(response: Response, fallbackFilename: string = 'download'): Promise<string> {
++export async function downloadFromResponse(response: Response, filename: string = 'download'): Promise<string> {
+   if (!response.ok) {
+     throw new Error(`Download failed: ${response.statusText}`)
+   }
+   
+   const blob = await response.blob()
+-  const filename = extractFilename(response, fallbackFilename)
+   
+   downloadBlob(blob, filename)
+   
+@@ -67,11 +52,10 @@ export async function downloadChunked(
+ 
+   const contentLength = headResp.headers.get('content-length')
+   const totalBytes = contentLength ? parseInt(contentLength, 10) : 0
+-  const dispositionFilename = extractFilename(headResp, filename)
+ 
+   if (totalBytes === 0 || totalBytes <= chunkSize) {
+     const resp = await fetch(url)
+-    await downloadFromResponse(resp, dispositionFilename)
++    await downloadFromResponse(resp, filename)
+     return
+   }
+ 
+@@ -93,7 +77,7 @@ export async function downloadChunked(
+   }
+ 
+   const finalBlob = new Blob(chunks)
+-  downloadBlob(finalBlob, dispositionFilename)
++  downloadBlob(finalBlob, filename)
+ }
+ 
+ /**
