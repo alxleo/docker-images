@@ -66,6 +66,16 @@ pluto = "5.24.4"
 [tool_alias]
 openobserve-cli = "http:openobserve-cli"
 flux-operator-mcp = "http:flux-operator-mcp"
+kwokctl = "http:kwokctl"
+
+[tools.kwokctl]
+version = "0.8.0"
+bin = "kwokctl"
+
+[tools.kwokctl.platforms]
+macos-arm64 = { url = "https://github.com/kubernetes-sigs/kwok/releases/download/v0.8.0/kwokctl-darwin-arm64", checksum = "sha256:9323a59adb9c27854bd2a76652ad00258bcbb68acc40aba0dc21e362b67b7d6a" }
+linux-x64 = { url = "https://github.com/kubernetes-sigs/kwok/releases/download/v0.8.0/kwokctl-linux-amd64", checksum = "sha256:d5743166c657283d6e827c7c4c20cacfd9009fd94830f06718ca7b2c7099461f" }
+linux-arm64 = { url = "https://github.com/kubernetes-sigs/kwok/releases/download/v0.8.0/kwokctl-linux-arm64", checksum = "sha256:5a642b27d3e975f36040d215640cd90fb4a63cb6fca0ad5865a61bcd9c81051b" }
 
 [tools.openobserve-cli]
 version = "0.15.0"
