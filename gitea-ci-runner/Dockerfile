@@ -51,6 +51,7 @@ WORKDIR /workspace
 
 COPY --from=mise /usr/local/bin/mise /usr/local/bin/mise
 COPY mise.toml /opt/mise/config.toml
+COPY mise.lock /opt/mise/mise.lock
 
 # The runner stage supplies the reviewed Docker client, Compose, Buildx, and
 # Git LFS binaries without bringing its runner tool cache or daemon into the
