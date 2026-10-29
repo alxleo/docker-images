@@ -9,6 +9,9 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" 
 
 USER 0:0
 COPY --from=runner --chown=1001:1001 /home/runner /home/runner
+# The producer owns the toolchain lock. A runtime copy makes newer mise try
+# to refresh every global tool after a project install, under read-only /opt.
+RUN rm /opt/mise/mise.lock
 RUN groupadd --gid 1001 runner && \
     useradd --uid 1001 --gid 1001 --home-dir /home/runner --shell /bin/bash runner && \
     rm -rf /home/runner/k8s && \
