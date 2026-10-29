@@ -13,6 +13,8 @@ RUN groupadd --gid 1001 runner && \
     useradd --uid 1001 --gid 1001 --home-dir /home/runner --shell /bin/bash runner && \
     rm -rf /home/runner/k8s && \
     /home/runner/bin/installdependencies.sh && \
+    apt-get update && \
+    apt-get install --no-install-recommends --yes libgl1 && \
     rm -rf /var/lib/apt/lists/*
 ENV HOME=/home/runner
 WORKDIR /home/runner
