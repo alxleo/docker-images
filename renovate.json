@@ -1,0 +1,75 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "The shared image tool baseline updates with native mise lock hashes.",
+      "matchManagers": [
+        "mise"
+      ],
+      "groupName": "prepared CI toolchain",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "OpenTofu and conftest stay with the separately reviewed Atlantis executor pair.",
+      "matchManagers": [
+        "mise"
+      ],
+      "matchDepNames": [
+        "opentofu",
+        "conftest"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Bun is copied from the upstream image after mise installation; both version pins must move together.",
+      "matchPackageNames": [
+        "bun",
+        "oven/bun"
+      ],
+      "groupName": "prepared CI Bun"
+    },
+    {
+      "matchManagers": [
+        "mise"
+      ],
+      "matchDepNames": [
+        "node"
+      ],
+      "matchCurrentValue": "/^24\\./",
+      "allowedVersions": "/^24\\./"
+    },
+    {
+      "matchManagers": [
+        "mise"
+      ],
+      "matchDepNames": [
+        "node"
+      ],
+      "matchCurrentValue": "/^26\\./",
+      "allowedVersions": "/^26\\./"
+    },
+    {
+      "matchManagers": [
+        "mise"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "matchCurrentValue": "/^3\\.13\\./",
+      "allowedVersions": "/^3\\.13\\./"
+    },
+    {
+      "matchManagers": [
+        "mise"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "matchCurrentValue": "/^3\\.14\\./",
+      "allowedVersions": "/^3\\.14\\./"
+    }
+  ]
+}

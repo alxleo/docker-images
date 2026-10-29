@@ -1,7 +1,5 @@
-# Every tool the job image carries, installed by `mise install` in the
-# Dockerfile. Same syntax as the homelab repository's .mise.toml: that
-# repository's Lint & Validate fails when a pin there is missing from the
-# image it pins, so a version bump is the same line edited in both places.
+# Prepared tool baseline. Repository pins may install newer versions into
+# their own writable mise directory while reusing these read-only installs.
 #
 # Exact versions only: mise's lookup of a partial version would move the
 # image between rebuilds.
@@ -66,16 +64,15 @@ pluto = "5.24.4"
 [tool_alias]
 openobserve-cli = "http:openobserve-cli"
 flux-operator-mcp = "http:flux-operator-mcp"
-kwokctl = "http:kwokctl"
 
-[tools.kwokctl]
+[tools."github:kubernetes-sigs/kwok"]
 version = "0.8.0"
 bin = "kwokctl"
 
-[tools.kwokctl.platforms]
-macos-arm64 = { url = "https://github.com/kubernetes-sigs/kwok/releases/download/v0.8.0/kwokctl-darwin-arm64", checksum = "sha256:9323a59adb9c27854bd2a76652ad00258bcbb68acc40aba0dc21e362b67b7d6a" }
-linux-x64 = { url = "https://github.com/kubernetes-sigs/kwok/releases/download/v0.8.0/kwokctl-linux-amd64", checksum = "sha256:d5743166c657283d6e827c7c4c20cacfd9009fd94830f06718ca7b2c7099461f" }
-linux-arm64 = { url = "https://github.com/kubernetes-sigs/kwok/releases/download/v0.8.0/kwokctl-linux-arm64", checksum = "sha256:5a642b27d3e975f36040d215640cd90fb4a63cb6fca0ad5865a61bcd9c81051b" }
+[tools."github:kubernetes-sigs/kwok".platforms]
+macos-arm64 = { asset_pattern = "kwokctl-darwin-arm64" }
+linux-x64 = { asset_pattern = "kwokctl-linux-amd64" }
+linux-arm64 = { asset_pattern = "kwokctl-linux-arm64" }
 
 [tools.openobserve-cli]
 version = "0.15.0"
