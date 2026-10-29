@@ -7,9 +7,8 @@ FROM --platform=$BUILDPLATFORM ghcr.io/alxleo/base-images/node:26-alpine AS fron
 RUN apk add --no-cache git
 RUN git clone --branch v2.1.1 --depth 1 --filter=blob:none --sparse \
       https://github.com/transmute-app/transmute.git /src \
-    && cd /src \
-    && test "$(git rev-parse HEAD)" = 7de1265fbfbbfd073c5c9a65ed1f7e45bc3ca50c \
-    && git sparse-checkout set frontend
+    && test "$(git -C /src rev-parse HEAD)" = 7de1265fbfbbfd073c5c9a65ed1f7e45bc3ca50c \
+    && git -C /src sparse-checkout set frontend
 WORKDIR /src
 COPY download-filename.patch /tmp/download-filename.patch
 RUN git apply /tmp/download-filename.patch
