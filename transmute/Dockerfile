@@ -31,5 +31,6 @@ RUN pip install --no-cache-dir --no-deps -r /tmp/transmute-security-requirements
 
 COPY --from=frontend /src/frontend/dist /app/frontend/dist
 COPY --from=frontend /src/backend/converters/calibre_convert.py /app/backend/converters/calibre_convert.py
-COPY --from=frontend /kindleunpack/lib /app/backend/kindleunpack
+# The pinned runtime is Python 3.13; install in its native module search path.
+COPY --from=frontend /kindleunpack/lib /usr/local/lib/python3.13/site-packages/kindleunpack
 COPY --from=frontend /kindleunpack/COPYING.txt /app/licenses/KindleUnpack-COPYING.txt
