@@ -27,7 +27,8 @@
       "description": "Bun is copied from the upstream image after mise installation; both version pins must move together.",
       "matchPackageNames": [
         "bun",
-        "oven/bun"
+        "oven/bun",
+        "oven-sh/bun"
       ],
       "groupName": "prepared CI Bun"
     },
