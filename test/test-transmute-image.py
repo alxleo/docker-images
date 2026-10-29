@@ -5,11 +5,10 @@ import struct
 from pathlib import Path
 from zipfile import ZipFile
 
-from fastapi.testclient import TestClient
-from PIL import Image
-
 from converters.pillow_convert import PillowConverter
+from fastapi.testclient import TestClient
 from main import create_app
+from PIL import Image
 
 
 def segment(marker, payload):
