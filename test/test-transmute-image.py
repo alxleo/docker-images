@@ -2,7 +2,9 @@
 
 import io
 import struct
+import subprocess
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
 from converters.pillow_convert import PillowConverter
@@ -78,3 +80,22 @@ with TestClient(create_app()) as client:
     pdf = convert(client, headers, "fixture.docx", docx.getvalue(), "pdf")
     assert pdf.startswith(b"%PDF-"), pdf[:40]
     print("DOCX upload -> native PDF download passed")
+
+    # Generate a synthetic KF8 input with calibre's native writer, then exercise
+    # the shipped AZW3 -> EPUB API and bundled KindleUnpack CLI.
+    book = io.BytesIO()
+    with ZipFile(book, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip")
+        archive.writestr("META-INF/container.xml", '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>')
+        archive.writestr("content.opf", '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Synthetic KF8 acceptance</dc:title><dc:language>en</dc:language><dc:identifier id="id">urn:uuid:31a65b46-c026-4ee2-a476-90500c765735</dc:identifier></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>')
+        archive.writestr("chapter.xhtml", '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Acceptance</title></head><body><p>Synthetic KF8 body survives extraction.</p></body></html>')
+    with TemporaryDirectory() as temp:
+        original = Path(temp) / "fixture.epub"
+        original.write_bytes(book.getvalue())
+        azw3 = Path(temp) / "fixture.azw3"
+        subprocess.run(["/usr/bin/ebook-convert", str(original), str(azw3)], check=True, capture_output=True, timeout=30)
+        epub = convert(client, headers, "reader's book.azw3", azw3.read_bytes(), "epub")
+    with ZipFile(io.BytesIO(epub)) as archive:
+        chapters = [archive.read(name) for name in archive.namelist() if name.endswith((".xhtml", ".html"))]
+        assert any(b"Synthetic KF8 body survives extraction." in chapter for chapter in chapters)
+    print("AZW3 upload -> bundled KindleUnpack -> EPUB download passed")
