@@ -8,10 +8,10 @@ import aiohttp
 import certifi
 import jwt
 import pypdf
-from opentelemetry.sdk.trace import TracerProvider
 from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
     _access_group_info_for_deployments,
 )
+from opentelemetry.sdk.trace import TracerProvider
 
 COMPROMISED_ROOT = "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b"
 
