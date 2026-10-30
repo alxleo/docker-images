@@ -10,7 +10,7 @@ cp /opt/mise/mise.lock "$project/mise.lock"
 cp -R /opt/mise/.mise "$project/.mise"
 cd "$project"
 printf '%s\n' 'min_version = "2026.10.23"' '[settings]' 'npm.package_manager = "aube"' \
-    '[tools]' 'uv = "0.13.3"' "\"npm:dependency-cruiser\" = \"$baseline_npm\"" "yamllint = \"$baseline_python\"" > mise.toml
+    '[tools]' 'uv = "0.13.3"' "\"npm:dependency-cruiser\" = \"$baseline_npm\"" "yamllint = { version = \"$baseline_python\", python = \"3.13\" }" > mise.toml
 export MISE_DATA_DIR="$project/mise"
 export MISE_CACHE_DIR="$project/mise-cache"
 export MISE_SHARED_INSTALL_DIRS=/opt/mise/installs
