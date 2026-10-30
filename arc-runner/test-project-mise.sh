@@ -5,12 +5,14 @@ test ! -w /opt/mise
 test ! -w /opt/mise/installs
 baseline_npm="$(mise current npm:dependency-cruiser)"
 baseline_python="$(mise current yamllint)"
+baseline_interpreter="$(mise config get tools.yamllint.python)"
 project="$(mktemp -d)"
 cp /opt/mise/mise.lock "$project/mise.lock"
 cp -R /opt/mise/.mise "$project/.mise"
 cd "$project"
 printf '%s\n' 'min_version = "2026.10.23"' '[settings]' 'npm.package_manager = "aube"' \
-    '[tools]' 'uv = "0.13.3"' "\"npm:dependency-cruiser\" = \"$baseline_npm\"" "yamllint = \"$baseline_python\"" > mise.toml
+    '[tools]' 'uv = "0.13.3"' "\"npm:dependency-cruiser\" = \"$baseline_npm\"" \
+    "yamllint = { version = \"$baseline_python\", python = \"$baseline_interpreter\" }" > mise.toml
 export MISE_DATA_DIR="$project/mise"
 export MISE_CACHE_DIR="$project/mise-cache"
 export MISE_SHARED_INSTALL_DIRS=/opt/mise/installs
@@ -31,3 +33,7 @@ mise exec -- uv --version | grep -Eq '^uv 0[.]13[.]3([[:space:]]|$)'
 mise exec -- depcruise --version | grep -Fx "$baseline_npm"
 mise exec -- yamllint --version | grep -Fx "yamllint $baseline_python"
 mise exec -- kwokctl --version
+mise use --pin python@3.13.18
+mise install --locked
+mise exec -- python --version | grep -Fx 'Python 3.13.18'
+mise exec -- yamllint --version | grep -Fx "yamllint $baseline_python"
