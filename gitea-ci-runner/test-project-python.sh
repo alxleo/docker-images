@@ -8,7 +8,7 @@ printf '%s\n' '[tools]' 'python = "3.13.18"' >mise.toml
 export MISE_CONFIG_DIR="$project/config" MISE_DATA_DIR="$project/mise" MISE_CACHE_DIR="$project/cache"
 export MISE_GLOBAL_CONFIG_FILE=/opt/mise/config.toml MISE_SHARED_INSTALL_DIRS=/opt/mise/installs
 export MISE_TRUSTED_CONFIG_PATHS="$project" MISE_LOCKED_SCOPES=project
-mise lock --platform linux-x64,linux-arm64 python
+mise lock --platform linux-x64,linux-arm64
 mise install --locked
 test "$(mise where python)" = "$MISE_DATA_DIR/installs/python/3.13.18"
 for tool in semgrep yamllint pipx:ansible-core; do
