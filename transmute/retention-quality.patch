@@ -1,10 +1,112 @@
+diff --git a/backend/api/routes/compression_jobs.py b/backend/api/routes/compression_jobs.py
+index 8b63de2..47f9491 100644
+--- a/backend/api/routes/compression_jobs.py
++++ b/backend/api/routes/compression_jobs.py
+@@ -107,16 +107,20 @@ def create_job(
+             detail=f"No compressor found for {media_format}",
+         )
+
+-    job = job_db.insert_job({
+-        "user_id": current_user["uuid"],
+-        "source_file_id": source_id,
+-        "compression_level": request.compression_level,
+-        "compressor_name": compressor_type.__name__,
+-        "source_filename": source.get("original_filename"),
+-        "source_media_type": media_format,
+-        "source_extension": source.get("extension"),
+-        "source_size_bytes": source.get("size_bytes"),
+-    })
++    with job_db.conn:
++        job_db.conn.execute("BEGIN IMMEDIATE")
++        if not file_db.has_file_for_user(source_id, current_user["uuid"], job_db.conn):
++            raise HTTPException(status_code=404, detail="Source file no longer exists")
++        job = job_db.insert_job({
++            "user_id": current_user["uuid"],
++            "source_file_id": source_id,
++            "compression_level": request.compression_level,
++            "compressor_name": compressor_type.__name__,
++            "source_filename": source.get("original_filename"),
++            "source_media_type": media_format,
++            "source_extension": source.get("extension"),
++            "source_size_bytes": source.get("size_bytes"),
++        })
+     return _serialize_job(job)
+
+
+@@ -213,8 +217,12 @@ def retry_job(
+             detail="Source file no longer exists; re-upload before retrying",
+         )
+
+-    if not job_db.retry_terminal_job(job_id, current_user["uuid"]):
+-        raise HTTPException(status_code=409, detail="Job is no longer retryable")
++    with job_db.conn:
++        job_db.conn.execute("BEGIN IMMEDIATE")
++        if not file_db.has_file_for_user(job["source_file_id"], current_user["uuid"], job_db.conn):
++            raise HTTPException(status_code=404, detail="Source file no longer exists")
++        if not job_db.retry_terminal_job(job_id, current_user["uuid"]):
++            raise HTTPException(status_code=409, detail="Job is no longer retryable")
+     updated = job_db.get_job(job_id, user_id=current_user["uuid"])
+     return _serialize_job(updated)
+
+diff --git a/backend/api/routes/jobs.py b/backend/api/routes/jobs.py
+index ded0c6f..8a398c1 100644
+--- a/backend/api/routes/jobs.py
++++ b/backend/api/routes/jobs.py
+@@ -109,17 +109,21 @@ def create_job(
+             detail=f"No converter found for {input_format} to {output_format}",
+         )
+
+-    job = job_db.insert_job({
+-        "user_id": current_user["uuid"],
+-        "source_file_id": source_id,
+-        "output_format": output_format,
+-        "quality": request.quality,
+-        "converter_name": converter_type.__name__,
+-        "source_filename": source.get("original_filename"),
+-        "source_media_type": input_format,
+-        "source_extension": source.get("extension"),
+-        "source_size_bytes": source.get("size_bytes"),
+-    })
++    with job_db.conn:
++        job_db.conn.execute("BEGIN IMMEDIATE")
++        if not file_db.has_file_for_user(source_id, current_user["uuid"], job_db.conn):
++            raise HTTPException(status_code=404, detail="Source file no longer exists")
++        job = job_db.insert_job({
++            "user_id": current_user["uuid"],
++            "source_file_id": source_id,
++            "output_format": output_format,
++            "quality": request.quality,
++            "converter_name": converter_type.__name__,
++            "source_filename": source.get("original_filename"),
++            "source_media_type": input_format,
++            "source_extension": source.get("extension"),
++            "source_size_bytes": source.get("size_bytes"),
++        })
+     return _serialize_job(job)
+
+
+@@ -216,8 +220,12 @@ def retry_job(
+             detail="Source file no longer exists; re-upload before retrying",
+         )
+
+-    if not job_db.retry_terminal_job(job_id, current_user["uuid"]):
+-        raise HTTPException(status_code=409, detail="Job is no longer retryable")
++    with job_db.conn:
++        job_db.conn.execute("BEGIN IMMEDIATE")
++        if not file_db.has_file_for_user(job["source_file_id"], current_user["uuid"], job_db.conn):
++            raise HTTPException(status_code=404, detail="Source file no longer exists")
++        if not job_db.retry_terminal_job(job_id, current_user["uuid"]):
++            raise HTTPException(status_code=409, detail="Job is no longer retryable")
+     updated = job_db.get_job(job_id, user_id=current_user["uuid"])
+     return _serialize_job(updated)
+
 diff --git a/backend/background/cleanup.py b/backend/background/cleanup.py
-index 166493b..93445b0 100644
+index 166493b..610b4be 100644
 --- a/backend/background/cleanup.py
 +++ b/backend/background/cleanup.py
 @@ -6,9 +6,10 @@ import shutil
  import os
- 
+
  from pathlib import Path
 +from typing import Callable
  from db import (
@@ -15,21 +117,21 @@ index 166493b..93445b0 100644
  # Conversion and compression jobs share the same status vocabulary.
  from db.conversion_job_db import TERMINAL_STATUSES
 @@ -17,7 +18,7 @@ from core import delete_file_and_metadata, get_settings
- 
+
  logger = logging.getLogger(__name__)
- 
+
 -def file_cleanup_logic(file_db: FileDB, conversion_relations_db: ConversionRelationsDB = None) -> None:
 +def file_cleanup_logic(file_db: FileDB, delete_relation: Callable[[str], None] | None = None) -> None:
      """Delete files that have exceeded the configured cleanup TTL.
- 
+
      Reads cleanup settings from the first admin user's configuration.
 @@ -33,6 +34,7 @@ def file_cleanup_logic(file_db: FileDB, conversion_relations_db: ConversionRelat
      if not cleanup_enabled:
          return
- 
+
 +    job_dbs = (ConversionJobDB(), CompressionJobDB())
      all_files = file_db.list_files()
- 
+
      for file in all_files:
 @@ -40,10 +42,21 @@ def file_cleanup_logic(file_db: FileDB, conversion_relations_db: ConversionRelat
          if created_at_timestamp:
@@ -54,13 +156,45 @@ index 166493b..93445b0 100644
 +                        file_db.delete_file_metadata(file['id'])
 +                if delete_relation:
 +                    delete_relation(file['id'])
- 
- 
+
+
  def job_cleanup_logic(job_db) -> None:
-@@ -127,8 +140,19 @@ def chunk_cleanup_logic() -> None:
+@@ -67,17 +80,20 @@ def job_cleanup_logic(job_db) -> None:
+     if not cleanup_enabled:
+         return
+
+-    for job in job_db.list_jobs():
+-        if job.get("status") not in TERMINAL_STATUSES:
+-            continue
+-        # Age the job from when it finished, not when it was created, so a job
+-        # that waited in the queue still gets the full TTL to be read. Rows
+-        # written before completed_at existed fall back to created_at.
+-        finished_timestamp = job.get("completed_at") or job.get("created_at")
+-        if finished_timestamp:
+-            finished_at = calendar.timegm(time.strptime(finished_timestamp, "%Y-%m-%d %H:%M:%S"))
+-            if now - finished_at > ttl_minutes * 60:
+-                job_db.delete_job(job["id"])
++    for candidate in job_db.list_jobs():
++        with job_db.conn:
++            job_db.conn.execute("BEGIN IMMEDIATE")
++            job = job_db.get_job(candidate["id"])
++            if job is None or job.get("status") not in TERMINAL_STATUSES:
++                continue
++            # Age the job from when it finished, not when it was created, so a job
++            # that waited in the queue still gets the full TTL to be read. Rows
++            # written before completed_at existed fall back to created_at.
++            finished_timestamp = job.get("completed_at") or job.get("created_at")
++            if finished_timestamp:
++                finished_at = calendar.timegm(time.strptime(finished_timestamp, "%Y-%m-%d %H:%M:%S"))
++                if now - finished_at > ttl_minutes * 60:
++                    job_db.delete_job(job["id"])
+
+
+ def guest_cleanup_logic() -> None:
+@@ -127,8 +143,19 @@ def chunk_cleanup_logic() -> None:
              logger.exception("Failed to clean up chunk session %s", entry.name)
- 
- 
+
+
 +def cleanup_once() -> None:
 +    """Expire stored files, relations and finished jobs through the same policy."""
 +    file_cleanup_logic(FileDB())
@@ -75,10 +209,10 @@ index 166493b..93445b0 100644
  def file_cleanup_task() -> None:
 -    """Periodically run cleanup logic for uploaded and converted files.
 +    """Periodically run cleanup logic for uploaded, converted and compressed files.
- 
+
      Runs in an infinite loop, invoking file_cleanup_logic for both uploaded
      files (FileDB) and converted files (ConversionDB / ConversionRelationsDB)
-@@ -137,12 +161,7 @@ def file_cleanup_task() -> None:
+@@ -137,12 +164,7 @@ def file_cleanup_task() -> None:
      """
      while True:
          try:
@@ -92,13 +226,31 @@ index 166493b..93445b0 100644
          except Exception:
              logger.exception("Cleanup error")
          time.sleep(60) # Sleep for 1 minute
-@@ -159,4 +178,4 @@ def get_upload_cleanup_thread() -> threading.Thread:
+@@ -159,4 +181,4 @@ def get_upload_cleanup_thread() -> threading.Thread:
      """
      thread = threading.Thread(target=file_cleanup_task)
      thread.daemon = True # Allows the main program to exit even if the thread is running
 -    return thread
 \ No newline at end of file
 +    return thread
+diff --git a/backend/db/file_db.py b/backend/db/file_db.py
+index de9a69a..826d70c 100644
+--- a/backend/db/file_db.py
++++ b/backend/db/file_db.py
+@@ -173,6 +173,13 @@ class FileDB:
+             return None
+         return self._refresh_pdf_media_type(dict(row))
+
++    def has_file_for_user(self, file_id: str, user_id: str, connection: sqlite3.Connection) -> bool:
++        """Revalidate a source on the queue's existing write transaction."""
++        return connection.execute(
++            f"SELECT 1 FROM {self.TABLE_NAME} WHERE id = ? AND user_id = ?",  # nosec B608
++            (file_id, user_id),
++        ).fetchone() is not None
++
+     def list_files(self, user_id: str | None = None) -> list[dict]:
+         """Retrieve metadata for files, optionally filtered by user."""
+         cursor = self.conn.cursor()
 diff --git a/backend/db/settings_db.py b/backend/db/settings_db.py
 index 98e6cda..f40b706 100644
 --- a/backend/db/settings_db.py
@@ -111,7 +263,7 @@ index 98e6cda..f40b706 100644
 +    "cleanup_ttl_minutes": 1440,
      "datetime_display_format": DEFAULT_DATETIME_DISPLAY_FORMAT,
  }
- 
+
 @@ -186,7 +186,7 @@ class SettingsDB:
                      auto_download  INTEGER NOT NULL DEFAULT 0,
                      keep_originals INTEGER NOT NULL DEFAULT 1,
@@ -129,7 +281,7 @@ index 98e6cda..f40b706 100644
 +            "cleanup_ttl_minutes": "INTEGER NOT NULL DEFAULT 1440",
              "datetime_display_format": f"TEXT NOT NULL DEFAULT '{DEFAULT_DATETIME_DISPLAY_FORMAT}'",
          })  # nosec B608
- 
+
 diff --git a/backend/services/conversion_service.py b/backend/services/conversion_service.py
 index ab8c8a5..1ba060a 100644
 --- a/backend/services/conversion_service.py
@@ -147,7 +299,7 @@ index ab8c8a5..1ba060a 100644
      )
 +    if quality is None and converter.output_type in converter.get_formats_with_quality_options():
 +        quality = "high"
- 
+
      try:
          passthrough_base = WEB_ALIAS_PASSTHROUGH.get(input_format)
 diff --git a/frontend/src/pages/Converter.tsx b/frontend/src/pages/Converter.tsx

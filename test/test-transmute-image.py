@@ -5,11 +5,16 @@ import struct
 import subprocess
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
-from background.cleanup import cleanup_once
+from api.routes import compression_jobs
+from api.routes import jobs as conversion_jobs
+from api.schemas import CompressionJobCreateRequest, ConversionJobCreateRequest
+from background.cleanup import cleanup_once, job_cleanup_logic
 from converters.pillow_convert import PillowConverter
 from core import get_settings
 from db import (
@@ -22,6 +27,7 @@ from db import (
     FileDB,
     SettingsDB,
 )
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import create_app
 from PIL import Image
@@ -70,14 +76,15 @@ def convert(client, headers, name, contents, target, quality=None):
     return response.content
 
 
-def retention_file(db, hours):
+def retention_file(db, hours, contents=b"Synthetic retention acceptance", media_type="txt"):
     identifier = str(uuid.uuid4())
-    path = get_settings().output_dir / (identifier + ".txt")
-    path.write_text("Synthetic retention acceptance")
+    extension = "." + media_type
+    path = get_settings().output_dir / (identifier + extension)
+    path.write_bytes(contents)
     metadata = {
         "id": identifier, "storage_path": str(path),
-        "original_filename": "fixture.txt", "media_type": "txt",
-        "extension": ".txt", "size_bytes": path.stat().st_size,
+        "original_filename": "fixture" + extension, "media_type": media_type,
+        "extension": extension, "size_bytes": path.stat().st_size,
         "sha256_checksum": "0" * 64, "user_id": "retention-fixture",
     }
     db.insert_file_metadata(metadata)
@@ -135,7 +142,77 @@ def check_retention():
     print("24-hour cleanup expires uploads/conversions/compressions and relations; both queues protect queued/running sources")
 
 
+def interleave_before_transaction(action):
+    invoked = []
+
+    def trace(statement):
+        if statement.startswith("BEGIN") and not invoked:
+            invoked.append(True)
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(action).result(timeout=10)
+
+    return trace
+
+
+def check_cleanup_admission_races():
+    originals = FileDB()
+    image = io.BytesIO()
+    Image.new("RGB", (16, 16)).save(image, format="PNG")
+    user = {"uuid": "retention-fixture"}
+    for routes, job_type, request_type in (
+        (conversion_jobs, ConversionJobDB, ConversionJobCreateRequest),
+        (compression_jobs, CompressionJobDB, CompressionJobCreateRequest),
+    ):
+        for retry in (False, True):
+            identifier, path = retention_file(originals, 25, image.getvalue(), "png")
+            queue = job_type()
+            fields = {"user_id": user["uuid"], "source_file_id": identifier}
+            if job_type is ConversionJobDB:
+                fields["output_format"] = "jpeg"
+            if retry:
+                job = queue.insert_job(fields)
+                queue.mark_failed(job["id"], "Synthetic retry acceptance")
+                submit = partial(routes.retry_job, job["id"], file_db=originals, job_db=queue, current_user=user)
+            else:
+                request_fields = {"id": identifier}
+                if job_type is ConversionJobDB:
+                    request_fields["output_format"] = "jpeg"
+                submit = partial(routes.create_job, request_type(**request_fields), file_db=originals, job_db=queue, current_user=user)
+            queue.conn.set_trace_callback(interleave_before_transaction(cleanup_once))
+            try:
+                try:
+                    submit()
+                except HTTPException as exc:
+                    assert exc.status_code == 404, exc
+                else:
+                    raise AssertionError("Admission accepted a source that cleanup had already removed")
+            finally:
+                queue.conn.set_trace_callback(None)
+            assert not path.exists()
+            assert not any(row["source_file_id"] == identifier and row["status"] in {"queued", "running"} for row in queue.list_jobs())
+
+        identifier, path = retention_file(originals, 23, image.getvalue(), "png")
+        fields = {"user_id": user["uuid"], "source_file_id": identifier}
+        if job_type is ConversionJobDB:
+            fields["output_format"] = "jpeg"
+        queue = job_type()
+        job = queue.insert_job(fields)
+        queue.mark_failed(job["id"], "Synthetic terminal retry acceptance")
+        with queue.conn:
+            queue.conn.execute(f"UPDATE {queue.TABLE_NAME} SET completed_at = '2000-01-01 00:00:00' WHERE id = ?", (job["id"],))
+        retry_action = partial(routes.retry_job, job["id"], file_db=originals, job_db=queue, current_user=user)
+        queue.conn.set_trace_callback(interleave_before_transaction(retry_action))
+        try:
+            job_cleanup_logic(queue)
+        finally:
+            queue.conn.set_trace_callback(None)
+        assert queue.get_job(job["id"])["status"] == "queued" and path.exists()
+        queue.cancel_queued_job(job["id"], user["uuid"])
+    print("Cleanup/submission/retry interleavings reject expired inputs and preserve retried active jobs in both queues")
+
+
 check_retention()
+check_cleanup_admission_races()
 
 
 with TestClient(create_app()) as client:
@@ -156,9 +233,8 @@ with TestClient(create_app()) as client:
     contents = io.BytesIO()
     Image.linear_gradient("L").resize((256, 256)).convert("RGB").save(contents, format="PNG")
     implicit_high = convert(client, member_headers, "new-member.png", contents.getvalue(), "jpeg")
-    expected_high = io.BytesIO()
-    Image.new("RGB", (1, 1)).save(expected_high, format="JPEG", quality=95)
-    with Image.open(io.BytesIO(implicit_high)) as actual, Image.open(expected_high) as expected:
+    expected_high = convert(client, member_headers, "explicit-high.png", contents.getvalue(), "jpeg", quality="high")
+    with Image.open(io.BytesIO(implicit_high)) as actual, Image.open(io.BytesIO(expected_high)) as expected:
         assert actual.quantization == expected.quantization
     explicit_low = convert(client, member_headers, "explicit-low.png", contents.getvalue(), "jpeg", quality="low")
     with Image.open(io.BytesIO(implicit_high)) as high, Image.open(io.BytesIO(explicit_low)) as low:
@@ -167,7 +243,8 @@ with TestClient(create_app()) as client:
     assert response.status_code == 200, response.text
     response = client.post("/api/jobs", headers=member_headers, json={"id": response.json()["metadata"]["id"], "output_format": "jpeg"})
     assert response.status_code == 201, response.text
-    job_id = response.json()["id"]
+    job = response.json()
+    job_id = job["id"]
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         job = client.get(f"/api/jobs/{job_id}", headers=member_headers).json()
@@ -177,7 +254,7 @@ with TestClient(create_app()) as client:
     assert job["status"] == "completed", job
     response = client.get(f"/api/files/{job['output_file_id']}", headers=member_headers)
     assert response.status_code == 200, response.text
-    with Image.open(io.BytesIO(response.content)) as actual, Image.open(expected_high) as expected:
+    with Image.open(io.BytesIO(response.content)) as actual, Image.open(io.BytesIO(expected_high)) as expected:
         assert actual.quantization == expected.quantization
     print("New member without presets receives native High encoding through synchronous and queued APIs; explicit Low remains selectable")
     for extension, image_format in (("png", "PNG"), ("heic", "HEIF")):
