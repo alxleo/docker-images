@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "ignorePresets": [":ignoreModulesAndTests"],
   "constraints": { "mise": "2026.10.23" },
   "packageRules": [
     {
