@@ -3,6 +3,12 @@
 #
 # Exact versions only: mise's lookup of a partial version would move the
 # image between rebuilds.
+min_version = "2026.10.23"
+
+[settings]
+lockfile_platforms = ["linux-x64", "linux-arm64"]
+npm.package_manager = "aube"
+
 [tools]
 # Two Python and Node lines: the repository's (3.13, 24) and the newest
 # supported ones (3.14, 26), exposed as python3.13/python3.14 and node24/node26.
