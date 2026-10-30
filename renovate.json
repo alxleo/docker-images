@@ -3,8 +3,8 @@
   "extends": [
     "config:recommended"
   ],
+  "ignorePresets": [":ignoreModulesAndTests"],
   "constraints": { "mise": "2026.10.23" },
-  "ignorePaths": ["**/.mise/locks/**"],
   "packageRules": [
     {
       "description": "The shared image tool baseline updates with native mise lock hashes.",
