@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "constraints": { "mise": "2026.10.23" },
   "packageRules": [
     {
       "description": "The shared image tool baseline updates with native mise lock hashes.",

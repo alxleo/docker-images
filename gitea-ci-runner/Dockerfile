@@ -52,6 +52,7 @@ WORKDIR /workspace
 COPY --from=mise /usr/local/bin/mise /usr/local/bin/mise
 COPY mise.toml /opt/mise/config.toml
 COPY mise.lock /opt/mise/mise.lock
+COPY .mise/locks /opt/mise/.mise/locks
 
 # The runner stage supplies the reviewed Docker client, Compose, Buildx, and
 # Git LFS binaries without bringing its runner tool cache or daemon into the
@@ -144,7 +145,7 @@ RUN --mount=type=bind,from=bun,source=/usr/local/bin/bun,target=/tmp/bun \
         GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; \
         export GITHUB_TOKEN; \
     fi; \
-    mise install; \
+    mise install --locked; \
     unset GITHUB_TOKEN; \
     set -x; \
     bun_dir="$(mise where bun)"; \
