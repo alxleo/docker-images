@@ -702,7 +702,10 @@ url_api = "https://api.github.com/repos/opentofu/opentofu/releases/assets/603708
 version = "2.21.4"
 backend = "pipx:ansible-core"
 specifiers = ["2.21.4"]
-uv = { path = ".mise/locks/pipx-ansible-core/2.21.4", digest = "sha256:bed32a8f5e34d3b49f11838ab3c3e550dc2abb6e6c11b1203006a1c886dfa1bf" }
+uv = { path = ".mise/locks/pipx-ansible-core/2.21.4~b9bc26bc", digest = "sha256:d5b823636e7e069cad96651fbb5f6898e1b77132491c7bc5216d38dbab45d16d" }
+
+[tools."pipx:ansible-core".options]
+python = "3.13"
 
 [[tools.pluto]]
 version = "5.24.4"
@@ -753,7 +756,10 @@ url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/50
 [[tools.python]]
 version = "3.13.16"
 backend = "core:python"
-specifiers = ["3.13.16"]
+specifiers = [
+    "3.13",
+    "3.13.16",
+]
 
 [tools.python."platforms.linux-arm64"]
 checksum = "sha256:83621f7b2b1e5da63cae0b4c67612974547b14262676608e830e246cb832d07d"
@@ -840,7 +846,10 @@ provenance = "github-attestations"
 version = "1.179.0"
 backend = "pypi:semgrep"
 specifiers = ["1.179.0"]
-uv = { path = ".mise/locks/semgrep/1.179.0", digest = "sha256:e7e51a3e795fadeee8fb34f173013a0c9488a542d789fb03be0171b00e9abcee" }
+uv = { path = ".mise/locks/semgrep/1.179.0~7877237f", digest = "sha256:1c7ee55fd11e16463844bab779007982d13a6cfcd0996f07d3ba1334e6352a37" }
+
+[tools.semgrep.options]
+python = "3.13"
 
 [[tools.shellcheck]]
 version = "0.11.0"
@@ -1030,7 +1039,10 @@ provenance = "github-attestations"
 version = "1.38.0"
 backend = "pypi:yamllint"
 specifiers = ["1.38.0"]
-uv = { path = ".mise/locks/yamllint/1.38.0", digest = "sha256:8f3027ea28a861b792db37f5d456812ea30c41b394c17d5c73ef6363c250781e" }
+uv = { path = ".mise/locks/yamllint/1.38.0~60b8ab58", digest = "sha256:4e8ecbfacd7ad914853718481346c1eecf0ae6fedd236c91443fa2260f5109e6" }
+
+[tools.yamllint.options]
+python = "3.13"
 
 [[tools.yq]]
 version = "4.54.1"
