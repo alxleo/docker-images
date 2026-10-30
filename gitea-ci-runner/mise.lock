@@ -595,43 +595,43 @@ url = "https://nodejs.org/dist/v26.10.0/node-v26.10.0-darwin-arm64.tar.gz"
 
 [[tools."npm:@axe-core/cli"]]
 version = "4.13.0"
-aube = { path = ".mise/locks/npm-axe-core-cli/4.13.0", digest = "sha256:70949a7e99eec1962b103a61827f891ec736c0de29616a7e673c660c86f1beff" }
+aube = { path = "locks/npm-axe-core-cli/4.13.0", digest = "sha256:70949a7e99eec1962b103a61827f891ec736c0de29616a7e673c660c86f1beff" }
 backend = "npm:@axe-core/cli"
 specifiers = ["4.13.0"]
 
 [[tools."npm:@mcpjam/cli"]]
 version = "5.12.2"
-aube = { path = ".mise/locks/npm-mcpjam-cli/5.12.2", digest = "sha256:39ba07e32e9f8425670b47e307b78880c7b0a3a4086b27691c8bed543e83d0f4" }
+aube = { path = "locks/npm-mcpjam-cli/5.12.2", digest = "sha256:39ba07e32e9f8425670b47e307b78880c7b0a3a4086b27691c8bed543e83d0f4" }
 backend = "npm:@mcpjam/cli"
 specifiers = ["5.12.2"]
 
 [[tools."npm:actions-up"]]
 version = "1.21.0"
-aube = { path = ".mise/locks/npm-actions-up/1.21.0", digest = "sha256:e2076fec05607492ea9894c5910264c5c1e6185cf0d070be68ce1a9ba5b9c84f" }
+aube = { path = "locks/npm-actions-up/1.21.0", digest = "sha256:e2076fec05607492ea9894c5910264c5c1e6185cf0d070be68ce1a9ba5b9c84f" }
 backend = "npm:actions-up"
 specifiers = ["1.21.0"]
 
 [[tools."npm:dependency-cruiser"]]
 version = "18.5.0"
-aube = { path = ".mise/locks/npm-dependency-cruiser/18.5.0", digest = "sha256:b6b69c119018e68cb6f5987524f32af88aea34abf0b271140d3052c53d6769e3" }
+aube = { path = "locks/npm-dependency-cruiser/18.5.0", digest = "sha256:b6b69c119018e68cb6f5987524f32af88aea34abf0b271140d3052c53d6769e3" }
 backend = "npm:dependency-cruiser"
 specifiers = ["18.5.0"]
 
 [[tools."npm:jscpd"]]
 version = "5.2.1"
-aube = { path = ".mise/locks/npm-jscpd/5.2.1", digest = "sha256:b48e83bd0cedb1b674223b75dbfd4741950a14400634f264d08633115c96ee51" }
+aube = { path = "locks/npm-jscpd/5.2.1", digest = "sha256:b48e83bd0cedb1b674223b75dbfd4741950a14400634f264d08633115c96ee51" }
 backend = "npm:jscpd"
 specifiers = ["5.2.1"]
 
 [[tools."npm:json-schema-to-typescript"]]
 version = "16.0.0"
-aube = { path = ".mise/locks/npm-json-schema-to-typescript/16.0.0", digest = "sha256:19eb3de01774fbb2db203e06efffeb1b2f3dfb193534cbc1ff4d62323d26c2be" }
+aube = { path = "locks/npm-json-schema-to-typescript/16.0.0", digest = "sha256:19eb3de01774fbb2db203e06efffeb1b2f3dfb193534cbc1ff4d62323d26c2be" }
 backend = "npm:json-schema-to-typescript"
 specifiers = ["16.0.0"]
 
 [[tools."npm:windmill-cli"]]
 version = "1.811.1"
-aube = { path = ".mise/locks/npm-windmill-cli/1.811.1", digest = "sha256:8e5d1e3f0d9fb4e4d9b4e28094f58e9bf0b9370d3ad0a089b8c3c611bba0bacf" }
+aube = { path = "locks/npm-windmill-cli/1.811.1", digest = "sha256:8e5d1e3f0d9fb4e4d9b4e28094f58e9bf0b9370d3ad0a089b8c3c611bba0bacf" }
 backend = "npm:windmill-cli"
 specifiers = ["1.811.1"]
 
@@ -702,7 +702,10 @@ url_api = "https://api.github.com/repos/opentofu/opentofu/releases/assets/603708
 version = "2.21.4"
 backend = "pipx:ansible-core"
 specifiers = ["2.21.4"]
-uv = { path = ".mise/locks/pipx-ansible-core/2.21.4", digest = "sha256:bed32a8f5e34d3b49f11838ab3c3e550dc2abb6e6c11b1203006a1c886dfa1bf" }
+uv = { path = "locks/pipx-ansible-core/2.21.4~b9bc26bc", digest = "sha256:f2e41741be361b0bba39aae5ef5a21b7bb60badc7824330c94f29b9d59dbe66f" }
+
+[tools."pipx:ansible-core".options]
+python = "3.13"
 
 [[tools.pluto]]
 version = "5.24.4"
@@ -753,7 +756,10 @@ url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/50
 [[tools.python]]
 version = "3.13.16"
 backend = "core:python"
-specifiers = ["3.13.16"]
+specifiers = [
+    "3.13",
+    "3.13.16",
+]
 
 [tools.python."platforms.linux-arm64"]
 checksum = "sha256:83621f7b2b1e5da63cae0b4c67612974547b14262676608e830e246cb832d07d"
@@ -840,7 +846,10 @@ provenance = "github-attestations"
 version = "1.179.0"
 backend = "pypi:semgrep"
 specifiers = ["1.179.0"]
-uv = { path = ".mise/locks/semgrep/1.179.0", digest = "sha256:e7e51a3e795fadeee8fb34f173013a0c9488a542d789fb03be0171b00e9abcee" }
+uv = { path = "locks/semgrep/1.179.0~7877237f", digest = "sha256:7ec76300d45e6fb4ca38106ce7fdb888861a8ae16ec90a03ae979c63d741a573" }
+
+[tools.semgrep.options]
+python = "3.13"
 
 [[tools.shellcheck]]
 version = "0.11.0"
@@ -1030,7 +1039,10 @@ provenance = "github-attestations"
 version = "1.38.0"
 backend = "pypi:yamllint"
 specifiers = ["1.38.0"]
-uv = { path = ".mise/locks/yamllint/1.38.0", digest = "sha256:8f3027ea28a861b792db37f5d456812ea30c41b394c17d5c73ef6363c250781e" }
+uv = { path = "locks/yamllint/1.38.0~60b8ab58", digest = "sha256:6da9ac8fe7223cbf5fc92b014252bbce8b8df9d088fbbb77300e6578c718a2cb" }
+
+[tools.yamllint.options]
+python = "3.13"
 
 [[tools.yq]]
 version = "4.54.1"
