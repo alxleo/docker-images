@@ -32,3 +32,12 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "opentelemetry-instrumentation-asgi==0.66b1" \
         "protobuf>=5.29.5,<6" \
     && uv pip check --python /app/.venv/bin/python
+
+# Budget groups must also recognize Git-owned configuration deployments.
+# The temporary patch tool does not remain in the runtime image.
+RUN --mount=type=bind,source=model-access-groups.patch,target=/tmp/model-access-groups.patch \
+    apk add --no-cache --virtual .model-access-groups-build "patch>=2.8" \
+    && patch --batch --forward -p1 \
+        -d "$(/app/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
+        -i /tmp/model-access-groups.patch \
+    && apk del .model-access-groups-build
