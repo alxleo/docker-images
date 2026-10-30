@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 FROM ghcr.io/actions/actions-runner:2.338.0@sha256:4ffadc0002b2581327e06101fc8c06cd189232baf79fe561fac9caeb76f5e807 AS runner
-FROM ghcr.io/alxleo/gitea-ci-runner:latest@sha256:39ff24e74177619a047eaf0aa6a588b435e5de62a76c943b0cb3b85fc53f52a3
+FROM ghcr.io/alxleo/gitea-ci-runner:latest@sha256:20f6083402ccc385a9221dcb5adf3672258bfad0710c7a8c14217ca61a20113e
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" \
       org.opencontainers.image.title="Disposable ARC runner" \
@@ -9,9 +9,6 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" 
 
 USER 0:0
 COPY --from=runner --chown=1001:1001 /home/runner /home/runner
-# The producer owns the toolchain lock. A runtime copy makes newer mise try
-# to refresh every global tool after a project install, under read-only /opt.
-RUN rm /opt/mise/mise.lock
 RUN groupadd --gid 1001 runner && \
     useradd --uid 1001 --gid 1001 --home-dir /home/runner --shell /bin/bash runner && \
     rm -rf /home/runner/k8s && \
