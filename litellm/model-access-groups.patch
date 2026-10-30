@@ -1,0 +1,79 @@
+--- a/litellm/proxy/management_endpoints/model_access_group_management_endpoints.py
++++ b/litellm/proxy/management_endpoints/model_access_group_management_endpoints.py
+@@ -527,43 +527,42 @@
+     return model_info, True
+ 
+ 
++def _access_group_info_for_deployments(
++    deployments: Sequence[Mapping[str, Any]],
++) -> dict[str, AccessGroupInfo]:
++    deployments_by_group: dict[str, dict[str, str]] = {}
++    for index, deployment in enumerate(deployments):
++        model_info = model_info_as_mapping(deployment.get("model_info"))
++        model_id = str(model_info.get("id") or f"deployment-{index}")
++        for access_group in model_info.get("access_groups", []):
++            deployments_by_group.setdefault(access_group, {})[model_id] = deployment["model_name"]
++    return {
++        access_group: AccessGroupInfo(
++            access_group=access_group,
++            model_names=sorted(frozenset(deployments.values())),
++            deployment_count=len(deployments),
++        )
++        for access_group, deployments in deployments_by_group.items()
++    }
++
++
+ async def get_all_access_groups_from_db(
+     prisma_client: PrismaClient,
+ ) -> dict[str, AccessGroupInfo]:
+-    """
+-    Get all access groups from the database.
+-
+-    Returns:
+-        Dict[str, AccessGroupInfo]: Dictionary mapping access_group name to info
+-    """
+-    # Get all deployments
+-    deployments: Final = await ModelRepository(prisma_client).table.find_many()
+-
+-    # Build access group map
+-    model_names_by_group: Final[dict[str, list[str]]] = {}
+-
+-    for deployment in deployments:
+-        model_info = deployment.model_info or {}
+-        access_groups = model_info.get(  # pyright: ignore[reportAttributeAccessIssue]  # Json reads back as a dict
+-            "access_groups", []
+-        )
+-        model_name = deployment.model_name
+-
+-        for access_group in access_groups:
+-            if access_group not in model_names_by_group:
+-                model_names_by_group[access_group] = []
+-
+-            model_names_by_group[access_group].append(model_name)
+-
+-    # Convert to AccessGroupInfo objects
+-    return {
+-        access_group: AccessGroupInfo(
+-            access_group=access_group,
+-            model_names=sorted(frozenset(model_names)),
+-            deployment_count=len(model_names),
+-        )
+-        for access_group, model_names in model_names_by_group.items()
+-    }
++    """List database and configuration groups without counting served DB rows twice."""
++    from litellm.proxy.proxy_server import llm_router
++
++    rows = await ModelRepository(prisma_client).table.find_many()
++    deployments: list[Mapping[str, Any]] = [
++        {
++            "model_name": row.model_name,
++            "model_info": {**model_info_as_mapping(row.model_info), "id": row.model_id},
++        }
++        for row in rows
++    ]
++    if llm_router is not None:
++        deployments.extend(llm_router.model_list)
++    return _access_group_info_for_deployments(deployments)
+ 
+ 
+ @router.post(
