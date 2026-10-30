@@ -1,17 +1,17 @@
 # syntax=docker/dockerfile:1.7
 # Upstream: https://github.com/transmute-app/transmute/tree/v2.1.1
-# Keep metadata filenames instead of misparsing UTF-8 Content-Disposition.
-# Drop the frontend patch when upstream download.ts uses the supplied filename.
+# Preserve filenames/layout and use household quality and retention defaults.
+# Drop each patch when its behavior is provided by upstream.
 FROM --platform=$BUILDPLATFORM ghcr.io/alxleo/base-images/node:26-alpine AS frontend
 # hadolint ignore=DL3018
 RUN apk add --no-cache git
 RUN git clone --branch v2.1.1 --depth 1 --filter=blob:none --sparse \
       https://github.com/transmute-app/transmute.git /src \
     && test "$(git -C /src rev-parse HEAD)" = 7de1265fbfbbfd073c5c9a65ed1f7e45bc3ca50c \
-    && git -C /src sparse-checkout set frontend backend/converters
+    && git -C /src sparse-checkout set frontend backend/converters backend/background backend/db backend/services backend/api/routes
 WORKDIR /src
-COPY download-filename.patch fixed-layout-epub.patch /tmp/
-RUN git apply /tmp/download-filename.patch /tmp/fixed-layout-epub.patch
+COPY download-filename.patch fixed-layout-epub.patch retention-quality.patch /tmp/
+RUN git apply /tmp/download-filename.patch /tmp/fixed-layout-epub.patch /tmp/retention-quality.patch
 WORKDIR /src/frontend
 COPY download.test.ts src/utils/download.test.ts
 RUN npm ci && npm test -- src/utils/download.test.ts && npm run build
@@ -31,6 +31,12 @@ RUN pip install --no-cache-dir --no-deps -r /tmp/transmute-security-requirements
 
 COPY --from=frontend /src/frontend/dist /app/frontend/dist
 COPY --from=frontend /src/backend/converters/calibre_convert.py /app/backend/converters/calibre_convert.py
+COPY --from=frontend /src/backend/background/cleanup.py /app/backend/background/cleanup.py
+COPY --from=frontend /src/backend/db/settings_db.py /app/backend/db/settings_db.py
+COPY --from=frontend /src/backend/db/file_db.py /app/backend/db/file_db.py
+COPY --from=frontend /src/backend/services/conversion_service.py /app/backend/services/conversion_service.py
+COPY --from=frontend /src/backend/api/routes/jobs.py /app/backend/api/routes/jobs.py
+COPY --from=frontend /src/backend/api/routes/compression_jobs.py /app/backend/api/routes/compression_jobs.py
 # The pinned runtime is Python 3.13; install in its native module search path.
 COPY --from=frontend /kindleunpack/lib /usr/local/lib/python3.13/site-packages/kindleunpack
 COPY --from=frontend /kindleunpack/COPYING.txt /app/licenses/KindleUnpack-COPYING.txt
