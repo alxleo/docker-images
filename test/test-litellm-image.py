@@ -9,6 +9,9 @@ import certifi
 import jwt
 import pypdf
 from opentelemetry.sdk.trace import TracerProvider
+from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    _access_group_info_for_deployments,
+)
 
 COMPROMISED_ROOT = "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b"
 
@@ -29,9 +32,6 @@ assert version("litellm") == "1.106.2"
 print("Proxy dependencies import successfully")
 
 
-from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
-    _access_group_info_for_deployments,
-)
 
 groups = _access_group_info_for_deployments(
     [
@@ -48,3 +48,10 @@ assert groups["daily"].deployment_count == 3
 assert groups["monthly"].deployment_count == 2
 assert _access_group_info_for_deployments([]) == {}
 print("Configuration groups and database replicas share correctly deduplicated budgets")
+
+
+for metadata in (None, "not-json", "[]"):
+    assert _access_group_info_for_deployments(
+        [{"model_name": "unrelated", "model_info": metadata}]
+    ) == {}
+assert _access_group_info_for_deployments([{"model_name": "unrelated"}]) == {}

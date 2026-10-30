@@ -1,6 +1,6 @@
 {
   "test_commands": [
-    "docker run --rm -i --network none --entrypoint /app/.venv/bin/python \"$IMAGE_REF\" -I -B - < test/test-litellm-image.py",
+    "docker run --rm -i --network none -e LITELLM_LOCAL_MODEL_COST_MAP=True --entrypoint /app/.venv/bin/python \"$IMAGE_REF\" -I -B - < test/test-litellm-image.py",
     "docker run --rm --network none -e LITELLM_LOCAL_MODEL_COST_MAP=True \"$IMAGE_REF\" --help"
   ],
   "watch_paths": [

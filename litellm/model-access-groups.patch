@@ -9,7 +9,7 @@
 +) -> dict[str, AccessGroupInfo]:
 +    deployments_by_group: dict[str, dict[str, str]] = {}
 +    for index, deployment in enumerate(deployments):
-+        model_info = model_info_as_mapping(deployment.get("model_info"))
++        model_info = model_info_as_mapping(deployment.get("model_info")) or {}
 +        model_id = str(model_info.get("id") or f"deployment-{index}")
 +        for access_group in model_info.get("access_groups", []):
 +            deployments_by_group.setdefault(access_group, {})[model_id] = deployment["model_name"]
@@ -67,7 +67,7 @@
 +    deployments: list[Mapping[str, Any]] = [
 +        {
 +            "model_name": row.model_name,
-+            "model_info": {**model_info_as_mapping(row.model_info), "id": row.model_id},
++            "model_info": {**(model_info_as_mapping(row.model_info) or {}), "id": row.model_id},
 +        }
 +        for row in rows
 +    ]
@@ -77,3 +77,4 @@
  
  
  @router.post(
+
