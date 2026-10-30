@@ -15,7 +15,7 @@ FROM ghcr.io/jdx/mise:2026.10.23@sha256:c13bf248d1d2939fb0597df3fbeeac5bd39c53d0
 # Pin the upstream multi-arch Bun index while retaining mise's tool metadata.
 # This helper stage is mounted into the final RUN and is never published.
 # hadolint ignore=DL3049
-FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS bun
+FROM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS bun
 
 # The pinned Gitea image supplies the reviewed Docker client, Compose, Buildx,
 # and Git LFS binaries without bringing its runner tool cache or daemon into
