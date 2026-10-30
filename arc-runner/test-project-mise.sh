@@ -33,7 +33,8 @@ mise exec -- uv --version | grep -Eq '^uv 0[.]13[.]3([[:space:]]|$)'
 mise exec -- depcruise --version | grep -Fx "$baseline_npm"
 mise exec -- yamllint --version | grep -Fx "yamllint $baseline_python"
 mise exec -- kwokctl --version
-mise use --pin python@3.13.18
+printf '%s\n' 'python = "3.13.18"' >> mise.toml
+mise lock --platform linux-x64,linux-arm64 python
 mise install --locked
 mise exec -- python --version | grep -Fx 'Python 3.13.18'
 mise exec -- yamllint --version | grep -Fx "yamllint $baseline_python"
