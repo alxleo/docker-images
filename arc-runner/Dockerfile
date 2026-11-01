@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" 
       org.opencontainers.image.title="Disposable ARC runner" \
       org.opencontainers.image.description="Released GitHub runner with the shared homelab CI toolchain"
 
-USER 0:0
+USER root
 COPY --from=runner --chown=1001:1001 /home/runner /home/runner
 RUN groupadd --gid 1001 runner && \
     useradd --uid 1001 --gid 1001 --home-dir /home/runner --shell /bin/bash runner && \
@@ -16,6 +16,13 @@ RUN groupadd --gid 1001 runner && \
     apt-get update && \
     apt-get install --no-install-recommends --yes libgl1 && \
     rm -rf /var/lib/apt/lists/*
+# The pod is disposable and runs one job, so the job owns the tool tree: a locked
+# install adds versions beside the baseline in place and repoints their major and
+# minor aliases, which mise also repairs when nothing new installs. Only the
+# directories change hands; the baseline's files stay root-owned, and so do the
+# global config and lock beside them.
+RUN find /opt/mise/installs /opt/mise/shims /opt/mise/downloads -xdev -type d -exec chown 1001:1001 {} + && \
+    rm -rf /tmp/mise-cache && install -d -o 1001 -g 1001 /tmp/mise-cache
 ENV HOME=/home/runner
 WORKDIR /home/runner
 USER 1001:1001
