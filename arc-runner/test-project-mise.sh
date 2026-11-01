@@ -4,6 +4,7 @@ test "$(id -u)" = 1001
 # The job owns the tool tree: the image's own settings are the whole contract, so
 # no data directory, PATH or environment-file override is needed to install.
 test "$MISE_DATA_DIR" = /opt/mise
+test "$MISE_CACHE_DIR" = /home/runner/_work/.mise-cache
 test -w /opt/mise/installs
 test -w /opt/mise/installs/uv
 test -w /opt/mise/shims
