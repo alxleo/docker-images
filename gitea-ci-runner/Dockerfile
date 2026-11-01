@@ -20,7 +20,7 @@ FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1
 # The pinned Gitea image supplies the reviewed Docker client, Compose, Buildx,
 # and Git LFS binaries without bringing its runner tool cache or daemon into
 # the final image.
-FROM docker.gitea.com/runner-images:ubuntu-latest@sha256:8856b200466e9a5af9cc0d4de4ca96f73547833bcdddf9a567189ff772c4d372 AS runner-tools
+FROM docker.gitea.com/runner-images:ubuntu-latest@sha256:657378e5cfd898e36f820459c60ef8e69be8fcda9fd354e4381a8b654d091bbc AS runner-tools
 
 # Ubuntu publishes a multi-platform index; pinning the mirrored index keeps
 # amd64 and arm64 jobs on the same reviewed release.
