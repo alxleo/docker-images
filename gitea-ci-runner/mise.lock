@@ -483,12 +483,6 @@ aube = { path = ".mise/locks/npm-json-schema-to-typescript/16.0.0", digest = "sh
 backend = "npm:json-schema-to-typescript"
 specifiers = ["16.0.0"]
 
-[[tools."npm:windmill-cli"]]
-version = "1.855.1"
-aube = { path = ".mise/locks/npm-windmill-cli/1.855.1", digest = "sha256:cebfab050ec04467bd4da35cec5213f95988a0dca9099e1168cdb5ff9e9bc9f7" }
-backend = "npm:windmill-cli"
-specifiers = ["1.855.1"]
-
 [[tools.openbao]]
 version = "2.7.2"
 backend = "aqua:openbao/openbao/bao"
