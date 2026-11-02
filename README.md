@@ -28,8 +28,8 @@ on `/mcp`, with protocol-aware image tests and no Node.js proxy or filter
 packages.
 
 `mcp-openbb` runs the upstream `openbb-mcp` launcher on port `8080` at `/mcp`.
-It pins Core/MCP 2.0.1, the SEC/FRED/ECB/CBOE/Nasdaq/BLS/Federal Reserve/Yahoo
-Finance extensions at 2.1.0, and IMF at 3.0.0. The runtime allow-list is
+It pins Core/MCP 2.0.1, the SEC/FRED/ECB/CBOE/Nasdaq/BLS/Federal Reserve
+extensions at 2.0.0, Yahoo Finance at 2.1.0, and IMF at 3.0.0. The runtime allow-list is
 `bls,cboe,ecb,federal_reserve,fred,imf,nasdaq,sec,yfinance`; CLI tools, bundled skills,
 `run_pipeline`, and `install_skill` are disabled. OpenBB state lives under
 `/home/app/.openbb_platform`; `/cache`, `/data`, and `/tmp` are writable for
