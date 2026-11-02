@@ -1,6 +1,6 @@
 # Runtime-only image for the private homelab observer MCP. The private source
 # is mounted read-only by the homelab deployment and is never copied here.
-ARG UV_VERSION=0.12.7
+ARG UV_VERSION=0.13.6
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
@@ -13,12 +13,12 @@ COPY --from=ghcr.io/tarampampam/microcheck:1 /bin/httpcheck /bin/httpcheck
 RUN addgroup -g 10001 observer \
     && adduser -D -H -u 10001 -G observer observer \
     && uv pip install --system --break-system-packages \
-      "mcp==1.26.0" \
+      "mcp==1.30.0" \
       "pexpect==4.9.0" \
-      "pydantic==2.12.5" \
+      "pydantic==2.14.2" \
       "PyYAML==6.0.3" \
-      "requests==2.32.5" \
-      "typer==0.27.0" \
+      "requests==2.34.2" \
+      "typer==0.27.3" \
     && rm -rf /root/.cache
 
 WORKDIR /app

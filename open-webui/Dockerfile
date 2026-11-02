@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
-FROM ghcr.io/astral-sh/uv:0.13.4@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b AS uv
+FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
-FROM ghcr.io/open-webui/open-webui:v0.11.4-slim@sha256:0487ad4a5a4b986062dedace806c3ef1e88fec38c10d1e64d6a5501c66671e5e
+FROM ghcr.io/open-webui/open-webui:v0.12.5-slim@sha256:9a4db3e6c8d6174d4ed8952304115e90dcc36e9a8b98c2f8984eab321f29505e
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 
 # Preserve the application release while refreshing its runtime security dependencies.
@@ -18,26 +18,26 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "cryptography==50.0.2" \
         "mcp==1.30.0" \
         "Pillow==13.0.0" \
-        "Mako==1.4.2" \
+        "Mako==1.4.3" \
         "black==26.10.1" \
         "jaraco.context==6.1.2" \
         "setuptools==84.2.1" \
         "urllib3==2.8.0" \
-        "msgpack==1.2.3" \
-        "wheel==0.46.2" \
+        "msgpack==1.2.4" \
+        "wheel==0.48.0" \
         "pip==26.2.2" \
-        "opentelemetry-api==1.45.1" \
-        "opentelemetry-sdk==1.45.1" \
-        "opentelemetry-exporter-otlp==1.45.1" \
-        "opentelemetry-instrumentation==0.66b1" \
-        "opentelemetry-instrumentation-asgi==0.66b1" \
-        "opentelemetry-instrumentation-fastapi==0.66b1" \
-        "opentelemetry-instrumentation-logging==0.66b1" \
-        "opentelemetry-instrumentation-httpx==0.66b1" \
-        "opentelemetry-instrumentation-redis==0.66b1" \
-        "opentelemetry-instrumentation-requests==0.66b1" \
-        "opentelemetry-instrumentation-sqlalchemy==0.66b1" \
-        "opentelemetry-instrumentation-system-metrics==0.66b1" \
-        "opentelemetry-instrumentation-aiohttp-client==0.66b1" \
+        "opentelemetry-api==1.45.2" \
+        "opentelemetry-sdk==1.45.2" \
+        "opentelemetry-exporter-otlp==1.45.2" \
+        "opentelemetry-instrumentation==0.66b2" \
+        "opentelemetry-instrumentation-asgi==0.66b2" \
+        "opentelemetry-instrumentation-fastapi==0.66b2" \
+        "opentelemetry-instrumentation-logging==0.66b2" \
+        "opentelemetry-instrumentation-httpx==0.66b2" \
+        "opentelemetry-instrumentation-redis==0.66b2" \
+        "opentelemetry-instrumentation-requests==0.66b2" \
+        "opentelemetry-instrumentation-sqlalchemy==0.66b2" \
+        "opentelemetry-instrumentation-system-metrics==0.66b2" \
+        "opentelemetry-instrumentation-aiohttp-client==0.66b2" \
         "protobuf>=5.29.5,<6" \
     && uv pip check --system

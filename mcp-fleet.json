@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "toolhive_version": "0.46.0",
-  "mcpjam_version": "5.3.0",
+  "toolhive_version": "0.59.0",
+  "mcpjam_version": "6.0.1",
   "secrets_provider": "environment",
   "group": "homelab",
   "defaults": {
@@ -38,7 +38,7 @@
       "name": "mcp-brave",
       "port": 19101,
       "state": "ready",
-      "source": {"type": "npx", "package": "@brave/brave-search-mcp-server", "version": "2.1.3"},
+      "source": {"type": "npx", "package": "@brave/brave-search-mcp-server", "version": "2.1.4"},
       "secrets": [{"name": "BRAVE_API_KEY", "target": "BRAVE_API_KEY"}]
     },
     {
@@ -66,7 +66,7 @@
       "name": "mcp-searxng",
       "port": 19105,
       "state": "ready",
-      "source": {"type": "npx", "package": "mcp-searxng", "version": "2.1.0"},
+      "source": {"type": "npx", "package": "mcp-searxng", "version": "2.9.0"},
       "environment": [{"name": "SEARXNG_URL", "required": true}],
       "network": "mcp-network",
       "isolate_network": false,
@@ -85,7 +85,7 @@
       "source": {
         "type": "npx",
         "package": "@modelcontextprotocol/server-sequential-thinking",
-        "version": "2026.7.4"
+        "version": "2.0.0"
       },
       "contract": "mcp-contracts/mcp-sequential-thinking.json",
       "allow_tools": ["sequentialthinking"]
@@ -94,7 +94,7 @@
       "name": "mcp-firecrawl",
       "port": 19107,
       "state": "ready",
-      "source": {"type": "npx", "package": "firecrawl-mcp", "version": "3.24.0"},
+      "source": {"type": "npx", "package": "firecrawl-mcp", "version": "3.36.0"},
       "secrets": [{"name": "FIRECRAWL_API_KEY", "target": "FIRECRAWL_API_KEY"}]
     },
     {
@@ -156,7 +156,7 @@
       "port": 19111,
       "state": "legacy-wrapper",
       "remove_when": "the Git dependency is represented by a locked Python project",
-      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.7.0", "target_port": 29111},
+      "source": {"type": "oci", "image": "ghcr.io/alxleo/mcp-youtube:0.8.3", "target_port": 29111},
       "environment": [{"name": "MCP_PORT", "value": "29111"}],
       "contract": "mcp-contracts/mcp-youtube.json",
       "allow_tools": ["get_available_languages", "get_timed_transcript", "get_transcript", "get_video_info"]
@@ -231,14 +231,14 @@
       "name": "mcp-exa",
       "port": 19114,
       "state": "ready",
-      "source": {"type": "npx", "package": "exa-mcp-server", "version": "3.4.1"},
+      "source": {"type": "npx", "package": "exa-mcp-server", "version": "3.4.2"},
       "secrets": [{"name": "EXA_API_KEY", "target": "EXA_API_KEY"}]
     },
     {
       "name": "mcp-karakeep",
       "port": 19115,
       "state": "ready",
-      "source": {"type": "npx", "package": "@karakeep/mcp", "version": "0.33.0"},
+      "source": {"type": "npx", "package": "@karakeep/mcp", "version": "0.34.0"},
       "secrets": [
         {"name": "KARAKEEP_API_KEY", "target": "KARAKEEP_API_KEY"},
         {"name": "KARAKEEP_ADDR", "target": "KARAKEEP_ADDR"}

@@ -2,6 +2,6 @@
   "name": "mise-npm-install",
   "private": true,
   "dependencies": {
-    "@axe-core/cli": "4.13.0"
+    "jscpd": "5.4.2"
   }
 }

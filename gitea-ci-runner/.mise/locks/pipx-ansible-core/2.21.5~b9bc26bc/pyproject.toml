@@ -2,4 +2,4 @@
 name = "mise-pypi-tool-environment"
 version = "0.0.0"
 requires-python = "==3.13.*"
-dependencies = ["semgrep==1.179.0"]
+dependencies = ["ansible-core==2.21.5"]

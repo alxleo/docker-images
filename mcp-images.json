@@ -9,8 +9,8 @@
   {
     "name": "mcp-brave",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.1.3",
-    "tag": "2.1.3",
+    "build_args": "MCP_PACKAGE=@brave/brave-search-mcp-server@2.1.4",
+    "tag": "2.1.4",
     "description": "Web search via Brave Search API (official)",
     "secrets": [
       "BRAVE_API_KEY"
@@ -49,23 +49,23 @@
   {
     "name": "mcp-searxng",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=mcp-searxng@2.1.0",
-    "tag": "2.1.0",
+    "build_args": "MCP_PACKAGE=mcp-searxng@2.9.0",
+    "tag": "2.9.0",
     "description": "Self-hosted metasearch via SearXNG",
     "contract": "mcp-contracts/mcp-searxng.json"
   },
   {
     "name": "mcp-sequential-thinking",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2026.7.4",
-    "tag": "2026.7.4",
+    "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2.0.0",
+    "tag": "2.0.0",
     "description": "Structured step-by-step reasoning via MCP"
   },
   {
     "name": "mcp-firecrawl",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.24.0",
-    "tag": "3.24.0",
+    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.36.0",
+    "tag": "3.36.0",
     "description": "Web scraping and crawling with JS rendering",
     "secrets": [
       "FIRECRAWL_API_KEY"
@@ -74,8 +74,8 @@
   {
     "name": "mcp-jina",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=mcp-remote@0.8.2",
-    "tag": "0.8.2",
+    "build_args": "MCP_PACKAGE=mcp-remote@0.16.0",
+    "tag": "0.16.0",
     "description": "URL to clean markdown conversion",
     "secrets": [
       "JINA_API_KEY"
@@ -108,8 +108,8 @@
   {
     "name": "mcp-youtube",
     "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.7.0\nMCP_ENTRYPOINT=mcp-youtube-transcript",
-    "tag": "0.7.0",
+    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.8.3\nMCP_ENTRYPOINT=mcp-youtube-transcript",
+    "tag": "0.8.3",
     "description": "YouTube transcript and video metadata extraction",
     "contract": "mcp-contracts/mcp-youtube.json",
     "test_commands": [
@@ -119,7 +119,7 @@
   {
     "name": "mcp-arxiv",
     "dockerfile": "Dockerfile.arxiv",
-    "build_args": "ARXIV_MCP_VERSION=0.7.2\nMCP_PROXY_VERSION=6.7.21\nUV_VERSION=0.13.5",
+    "build_args": "ARXIV_MCP_VERSION=0.7.2\nMCP_PROXY_VERSION=6.7.21\nUV_VERSION=0.13.6",
     "tag": "0.7.2",
     "description": "Search and retrieve academic papers from arXiv",
     "contract": "mcp-contracts/mcp-arxiv.json",
@@ -150,8 +150,8 @@
   {
     "name": "mcp-exa",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=exa-mcp-server@3.4.1",
-    "tag": "3.4.1",
+    "build_args": "MCP_PACKAGE=exa-mcp-server@3.4.2",
+    "tag": "3.4.2",
     "description": "Semantic web search, code search, and company research",
     "secrets": [
       "EXA_API_KEY"
@@ -160,8 +160,8 @@
   {
     "name": "mcp-karakeep",
     "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@karakeep/mcp@0.33.0",
-    "tag": "0.33.0",
+    "build_args": "MCP_PACKAGE=@karakeep/mcp@0.34.0",
+    "tag": "0.34.0",
     "description": "Karakeep bookmark and note management",
     "secrets": [
       "KARAKEEP_API_KEY",
