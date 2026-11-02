@@ -76,7 +76,7 @@ runs:
     # cache-to only on non-PR builds — PR cache export adds 80-130s with no benefit
     # (PR branch caches rarely hit again). mode=min caches final layers only.
     - name: Build for local testing
-      uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
       with:
         # zizmor: ignore[template-injection] — context is from our manifest, not user input
         context: ${{ inputs.context }}
