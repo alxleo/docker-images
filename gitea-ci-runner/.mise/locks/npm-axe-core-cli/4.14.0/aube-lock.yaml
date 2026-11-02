@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@axe-core/cli':
-        specifier: 4.13.0
-        version: 4.13.0(debug@4.4.3)
+        specifier: 4.14.0
+        version: 4.14.0(debug@4.4.3)
 
 packages:
 
-  '@axe-core/cli@4.13.0':
-    resolution: {integrity: sha512-LWjR4MQ28J/nDPC6mXG2kStRz/27jexFZzPeB40zMMkpW5dY1r+rMExEtsfY2aK8HHd2nLVphEn2ONsa6r2jEQ==}
-    engines: {node: '>=8'}
+  '@axe-core/cli@4.14.0':
+    resolution: {integrity: sha512-Icgv+iAXcQuJ+oXpbTCHOYcBoOniBwwe7mOn17JIOxVO+7QEZ+4+NW0Hnm3jad6KVqJevvGvQYRN9ZJJhv3KPQ==}
+    engines: {node: '>=22.12.0'}
     hasBin: true
 
   '@axe-core/webdriverjs@4.14.0':
@@ -50,10 +50,6 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
-  axe-core@4.13.0:
-    resolution: {integrity: sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==}
-    engines: {node: '>=4'}
-
   axe-core@4.14.0:
     resolution: {integrity: sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==}
     engines: {node: '>=4'}
@@ -69,8 +65,8 @@ packages:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
     engines: {node: '>= 0.4'}
 
-  chromedriver@156.0.1:
-    resolution: {integrity: sha512-4W/2SBw2ELUnlNXC/qOQq3H1f80K78x25+qPJwIYFT2CDiU4wt1J3tZQWAlhPMl4fB4nvv5F7ODLk4Ef5wJreA==}
+  chromedriver@152.0.3:
+    resolution: {integrity: sha512-6v3pquS2kgb1HedzALRZeaoFZVCgghW2u1QjlzaoZruw75QBxKQtv/PKzJ8Scb3L8Vx32gcFwvUKcHmW7xjIVg==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -82,9 +78,9 @@ packages:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
 
-  commander@9.5.0:
-    resolution: {integrity: sha512-KRs7WVDKg86PWiuAqhDrAQnTXZKraVcCc6vFdL14qrZ/DcWwuRo7VoiYXalXO7S5GKpqYiVEwCbgFDfxNHKJBQ==}
-    engines: {node: ^12.20.0 || >=14}
+  commander@15.0.0:
+    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
+    engines: {node: '>=22.12.0'}
 
   compare-versions@6.1.1:
     resolution: {integrity: sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg==}
@@ -323,9 +319,9 @@ packages:
   safe-buffer@5.1.2:
     resolution: {integrity: sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==}
 
-  selenium-webdriver@4.44.0:
-    resolution: {integrity: sha512-7RbYoKK0zET+KMVak11UDCtKvNulOU6gFZp8HI5GN9K8+BhqrliIJU/FP6QADrvRAXFMr3wHxfE3JHOcAxO3GQ==}
-    engines: {node: '>= 20.0.0'}
+  selenium-webdriver@4.47.0:
+    resolution: {integrity: sha512-nxxJnH25tsJxz+pdMxtvH89tbrMnfff6W//uBIVlOWz1KZlADiQ7dyRPehknKdYiC3HwEypTy1l+tozxO0I2Qw==}
+    engines: {node: '>= 22.0.0'}
 
   setimmediate@1.0.5:
     resolution: {integrity: sha512-MATJdZp8sLqDl/68LfQmbP8zKPLQNV6BIZoIgrscFDQ+RsvK/BxeDQOgyxKKoh0y/8h3BqVFnCqQ/gd+reiIXA==}
@@ -356,14 +352,14 @@ packages:
     resolution: {integrity: sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw==}
     engines: {node: '>=14.14'}
 
-  tslib@2.8.1:
-    resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+  tslib@2.9.1:
+    resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  ws@8.22.0:
-    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+  ws@8.22.1:
+    resolution: {integrity: sha512-oyL6OPYme/CmiFvNuGzeoxCJ4nOrZE2O1FwM9MWM1AsGri6nLXB2pg+lNA8aLeXMSav0J6eIVS1j6vUPzUtK9g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -376,15 +372,15 @@ packages:
 
 snapshots:
 
-  '@axe-core/cli@4.13.0(debug@4.4.3)':
+  '@axe-core/cli@4.14.0(debug@4.4.3)':
     dependencies:
-      '@axe-core/webdriverjs': 4.14.0(selenium-webdriver@4.44.0)
-      axe-core: 4.13.0
-      chromedriver: 156.0.1(debug@4.4.3)
+      '@axe-core/webdriverjs': 4.14.0(selenium-webdriver@4.47.0)
+      axe-core: 4.14.0
+      chromedriver: 152.0.3(debug@4.4.3)
       colors: 1.4.0
-      commander: 9.5.0
+      commander: 15.0.0
       dotenv: 17.4.2
-      selenium-webdriver: 4.44.0
+      selenium-webdriver: 4.47.0
     transitivePeerDependencies:
       - bufferutil
       - debug
@@ -392,10 +388,10 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@axe-core/webdriverjs@4.14.0(selenium-webdriver@4.44.0)':
+  '@axe-core/webdriverjs@4.14.0(selenium-webdriver@4.47.0)':
     dependencies:
       axe-core: 4.14.0
-      selenium-webdriver: 4.44.0
+      selenium-webdriver: 4.47.0
 
   '@bazel/runfiles@6.5.0': {}
 
@@ -413,11 +409,9 @@ snapshots:
 
   ast-types@0.13.4:
     dependencies:
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   asynckit@0.4.0: {}
-
-  axe-core@4.13.0: {}
 
   axe-core@4.14.0: {}
 
@@ -438,7 +432,7 @@ snapshots:
       es-errors: 1.3.0
       function-bind: 1.1.2
 
-  chromedriver@156.0.1(debug@4.4.3):
+  chromedriver@152.0.3(debug@4.4.3):
     dependencies:
       '@testim/chrome-version': 1.1.4
       adm-zip: 0.6.1
@@ -458,7 +452,7 @@ snapshots:
     dependencies:
       delayed-stream: 1.0.0
 
-  commander@9.5.0: {}
+  commander@15.0.0: {}
 
   compare-versions@6.1.1: {}
 
@@ -700,12 +694,12 @@ snapshots:
 
   safe-buffer@5.1.2: {}
 
-  selenium-webdriver@4.44.0:
+  selenium-webdriver@4.47.0:
     dependencies:
       '@bazel/runfiles': 6.5.0
       jszip: 3.10.2
       tmp: 0.2.7
-      ws: 8.22.0
+      ws: 8.22.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -743,8 +737,8 @@ snapshots:
 
   tmp@0.2.7: {}
 
-  tslib@2.8.1: {}
+  tslib@2.9.1: {}
 
   util-deprecate@1.0.2: {}
 
-  ws@8.22.0: {}
+  ws@8.22.1: {}

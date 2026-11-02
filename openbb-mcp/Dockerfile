@@ -36,7 +36,7 @@ RUN apt-get update \
         "openbb-cboe==2.0.0" \
         "openbb-nasdaq==2.0.0" \
         "openbb-bls==2.0.0" \
-        "openbb-yfinance==2.0.0" \
+        "openbb-yfinance==2.1.0" \
         "openbb-federal-reserve==2.0.0" \
     && pip check \
     && pip uninstall --yes pip \

@@ -6,11 +6,11 @@
       "name": "get_available_languages"
     },
     {
-      "input_schema_sha256": "sha256:3a41d1a483a8c75a6f0d2e15cd1952238043cd1a93117f65c78c5497bfd5d8ff",
+      "input_schema_sha256": "sha256:2c3a0a416221099c15b78bafa20f80a9205820dc41e881c38810a335b9d8b406",
       "name": "get_timed_transcript"
     },
     {
-      "input_schema_sha256": "sha256:b7d5f758640f1806161a1d6811d40cbad057f539421a8600a14b5a26974f73ba",
+      "input_schema_sha256": "sha256:65eb3c590cfe8dee9e4f695d6799b3001c5d31dda7cead619d9f7d2f64f6338b",
       "name": "get_transcript"
     },
     {

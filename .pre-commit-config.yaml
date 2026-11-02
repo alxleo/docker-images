@@ -24,13 +24,13 @@ repos:
       - id: gitleaks
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.23.1
+    rev: v1.31.1
     hooks:
       - id: zizmor
         args: ['--config=.zizmor.yml']
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
+    rev: v0.17.3
     hooks:
       - id: ruff
         args: [--fix]

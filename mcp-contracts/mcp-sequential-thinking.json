@@ -2,7 +2,7 @@
   "lock_version": 1,
   "tools": [
     {
-      "input_schema_sha256": "sha256:bc2bcac34793982f4be4d766c6155aab9ed2c63758adadb6a1a38becf548ad59",
+      "input_schema_sha256": "sha256:838ba62e6f7ce9ce81dcfcbd46a187047f1de6dd2bcc8b6b051dfbf3688aa00e",
       "name": "sequentialthinking"
     }
   ]

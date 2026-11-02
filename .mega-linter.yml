@@ -21,10 +21,13 @@ ADDITIONAL_EXCLUDED_DIRECTORIES:
   - .next
   - .nuxt
 
-# Trivy Dockerfile misconfig scanning runs in maintenance.yml (weekly).
+# Use native, path-scoped Trivy exceptions for upstream-pinned scanner dependencies.
+REPOSITORY_TRIVY_CUSTOM_ARGUMENTS:
+  - "--ignorefile"
+  - ".trivyignore.yaml"
+
 # dclint is for docker-compose files -- not applicable here.
 DISABLE_LINTERS:
-  - REPOSITORY_TRIVY_CUSTOM
   - DOCKERFILE_DCLINT
 
 # Semgrep arguments: must replicate base excludes since EXTENDS replaces arrays.

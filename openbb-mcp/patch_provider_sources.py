@@ -1,9 +1,9 @@
-"""Patch SEC/yfinance 2.0.0 at build time until upstream releases include these fixes."""
+"""Patch pinned SEC/yfinance releases until upstream includes these fixes."""
 
 from importlib.metadata import distribution, version
 from pathlib import Path
 
-EXPECTED_VERSIONS = {"openbb-sec": "2.0.0", "openbb-yfinance": "2.0.0"}
+EXPECTED_VERSIONS = {"openbb-sec": "2.0.0", "openbb-yfinance": "2.1.0"}
 
 
 def lines(*source_lines: str) -> str:
