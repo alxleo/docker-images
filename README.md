@@ -10,17 +10,14 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + Sablier plugins | Never (plugins aren't in upstream) |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
-| `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
-| `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
 | `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
-| `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 
 ## MCP Service Images
 
-14 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
+16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
 The shared legacy images follow this pattern:
 - npm-based: `mcp/Dockerfile.npm` | Python-based: `mcp/Dockerfile.python`
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
@@ -31,8 +28,8 @@ on `/mcp`, with protocol-aware image tests and no Node.js proxy or filter
 packages.
 
 `mcp-openbb` runs the upstream `openbb-mcp` launcher on port `8080` at `/mcp`.
-It pins Core/MCP 2.0.1, the SEC/FRED/ECB/CBOE/Nasdaq/BLS/Federal Reserve/Yahoo
-Finance extensions at 2.0.0, and IMF at 3.0.0. The runtime allow-list is
+It pins Core/MCP 2.0.1, the SEC/FRED/ECB/CBOE/Nasdaq/BLS/Federal Reserve
+extensions at 2.0.0, Yahoo Finance at 2.1.0, and IMF at 3.0.0. The runtime allow-list is
 `bls,cboe,ecb,federal_reserve,fred,imf,nasdaq,sec,yfinance`; CLI tools, bundled skills,
 `run_pipeline`, and `install_skill` are disabled. OpenBB state lives under
 `/home/app/.openbb_platform`; `/cache`, `/data`, and `/tmp` are writable for
@@ -48,22 +45,6 @@ The pinned BLS 2.0.0 series fetcher inherits mandatory credential validation,
 despite upstream documentation describing the key as optional. Keyless metadata
 search works; series retrieval needs a BLS key or a supported upstream fix.
 
-`finrobot-mcp` uses the FinRobot V2 source at commit
-`2717499b8e30f242640af08c4ad9afd1113c2d45`. Run the same image with `api` for
-the native `finrobot.server:app` on port `8000`, or `mcp` for the thin FastMCP
-OpenAPI facade on port `8080` at `/mcp`. FinRobot dependencies use this image's
-frozen compatibility lockfile. Its allow-list contains compute POSTs,
-run creation/status reads, and artifact reads; settings, secrets, chat,
-coverage mutations, cancellation, deletion, and viewed-state writes are
-excluded. `runs_create` starts persistent research and LLM/provider work;
-callers must be trusted and deployment must limit the model consumer's scope
-and budget. `FINROBOT_API_URL` selects the API endpoint and
-`FINROBOT_CAPABILITY_TOKEN` is forwarded as `Authorization: Bearer ...` and
-`FINROBOT_API_HOST_HEADER` defaults to `127.0.0.1` for FinRobot's host allow-list.
-FinRobot state persists under `/home/app/.finrobot`, with
-`FINROBOT_CACHE_DB_PATH` defaulting to `/cache/finrobot/data_cache.db`; mount
-`.secrets` and `settings.json` there from homelab infrastructure.
-
 ## ToolHive MCP Fleet
 
 [`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 17
@@ -74,9 +55,10 @@ catalog without inheriting image-generation or tool-filter logic; it remains
 responsible for secret values, host paths, Docker networks, supervision, and
 gateway exposure.
 
-Hacker News and Sequential Thinking run directly from their pinned upstream
-packages through ToolHive. Their contracts remain here as runtime acceptance
-oracles, but this repository no longer publishes wrapper images for them.
+The ToolHive plan runs Hacker News and Sequential Thinking directly from their
+pinned upstream packages. Their contracts remain here as runtime acceptance
+oracles. Wrapper images remain published until downstream consumers complete
+their cutover.
 
 Secret-bearing plans use ToolHive's read-only environment provider. Consumers
 set `TOOLHIVE_SECRETS_PROVIDER=environment` and expose only the named
@@ -116,13 +98,8 @@ News lane also proves that an allow-list hides and rejects a blocked tool. It
 uses an isolated temporary ToolHive state directory and removes only its
 uniquely named test workloads.
 
-MCPJam 5.3.0's `server probe` passes this endpoint. Its higher-level
-`server doctor` and `tools list` currently time out during version negotiation
-against ToolHive even though the initialize probe and deterministic
-contract succeed. The client sends the draft `server/discover` request before
-legacy initialization; older servers can leave it unanswered. Keep the
-deterministic contract plus `server probe` as the fleet oracle until that
-upstream negotiation gap is fixed; do not add a compatibility proxy.
+The live fleet oracle uses deterministic tool contracts and MCPJam’s native
+`server probe` to verify initialization independently.
 
 Jina is direct-remote and no longer uses `mcp-remote`. Its ToolHive secret
 `JINA_AUTHORIZATION` must contain the complete header value
