@@ -3,8 +3,12 @@
   "extends": [
     "config:recommended"
   ],
-  "ignorePresets": [":ignoreModulesAndTests"],
-  "constraints": { "mise": "v2026.10.25" },
+  "ignorePresets": [
+    ":ignoreModulesAndTests"
+  ],
+  "constraints": {
+    "mise": "v2026.10.25"
+  },
   "packageRules": [
     {
       "description": "The shared image tool baseline updates with native mise lock hashes.",
@@ -73,6 +77,17 @@
       ],
       "matchCurrentValue": "/^3\\.14\\./",
       "allowedVersions": "/^3\\.14\\./"
+    },
+    {
+      "description": "Mise owns these generated npm and Python graphs; update tool pins in mise.toml and regenerate with native mise lock.",
+      "matchManagers": [
+        "npm",
+        "pep621"
+      ],
+      "matchFileNames": [
+        "gitea-ci-runner/.mise/locks/**"
+      ],
+      "enabled": false
     }
   ]
 }
