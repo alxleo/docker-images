@@ -6,11 +6,14 @@ forwards calls to the API container. Financial computation stays in FinRobot.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 import re
 
 import httpx
 from fastmcp import FastMCP
+from fastmcp.server.auth import AccessToken, TokenVerifier
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 from finrobot.server import app as finrobot_app
 
@@ -32,6 +35,19 @@ ROUTE_NAMES: dict[tuple[str, str], str] = {
     ("GET", "/api/artifacts/{artifact_id}"): "artifacts_get",
     ("GET", "/api/artifacts/{a_id}/diff/{b_id}"): "artifacts_diff",
 }
+
+
+class GatewayTokenVerifier(TokenVerifier):
+    """Verify the gateway credential without sharing the private API capability."""
+
+    def __init__(self, token: str) -> None:
+        super().__init__(required_scopes=["finrobot"])
+        self._digest = hashlib.sha256(token.encode()).digest()
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not hmac.compare_digest(hashlib.sha256(token.encode()).digest(), self._digest):
+            return None
+        return AccessToken(token=token, client_id="finrobot-gateway", scopes=["finrobot"])
 
 
 def route_maps() -> list[RouteMap]:
@@ -64,6 +80,9 @@ def build_mcp() -> FastMCP:
     # host allow-list value across a Docker network.
     backend_host = os.environ.get("FINROBOT_API_HOST_HEADER", "127.0.0.1")
     token = os.environ.get("FINROBOT_CAPABILITY_TOKEN")
+    gateway_token = os.environ.get("FINROBOT_MCP_TOKEN")
+    if not token or not gateway_token:
+        raise RuntimeError("FINROBOT_CAPABILITY_TOKEN and FINROBOT_MCP_TOKEN are required")
 
     async def backend_headers(request: httpx.Request) -> None:
         # OpenAPI builds Host from the service URL before merging client
@@ -71,8 +90,7 @@ def build_mcp() -> FastMCP:
         # forward a caller's gateway credential to the private API.
         request.headers["Host"] = backend_host
         request.headers.pop("Authorization", None)
-        if token:
-            request.headers["Authorization"] = f"Bearer {token}"
+        request.headers["Authorization"] = f"Bearer {token}"
 
     client = httpx.AsyncClient(
         base_url=api_url,
@@ -87,6 +105,7 @@ def build_mcp() -> FastMCP:
         route_maps=route_maps(),
         mcp_component_fn=_name_component,
         strict_input_validation=True,
+        auth=GatewayTokenVerifier(gateway_token),
     )
 
 

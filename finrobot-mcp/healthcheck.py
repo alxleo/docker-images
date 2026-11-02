@@ -42,6 +42,7 @@ connection = http.client.HTTPConnection("127.0.0.1", port, timeout=6)
 headers = {}
 if body is not None:
     headers = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
+    headers["Authorization"] = f"Bearer {os.environ['FINROBOT_MCP_TOKEN']}"
 connection.request("POST" if body is not None else "GET", path, body=body, headers=headers)
 session_id = None
 with connection.getresponse() as response:
@@ -53,7 +54,7 @@ if mode == "mcp" and '"capabilities"' not in payload:
     raise SystemExit("MCP initialize returned no capabilities")
 if session_id:
     close_connection = http.client.HTTPConnection("127.0.0.1", port, timeout=4)
-    close_connection.request("DELETE", path, headers={"Mcp-Session-Id": session_id})
+    close_connection.request("DELETE", path, headers={**headers, "Mcp-Session-Id": session_id})
     with close_connection.getresponse() as response:
         response.read()
         if response.status // 100 != 2 and response.status != 404:

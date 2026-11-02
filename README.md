@@ -58,6 +58,9 @@ callers must be trusted and deployment must limit the model consumer's scope
 and budget. `FINROBOT_API_URL` selects the API endpoint and
 `FINROBOT_CAPABILITY_TOKEN` is forwarded as `Authorization: Bearer ...` and
 `FINROBOT_API_HOST_HEADER` defaults to `127.0.0.1` for FinRobot's host allow-list.
+The MCP facade requires a separate `FINROBOT_MCP_TOKEN` bearer credential;
+the API capability stays private to FinRobot. Deploy the facade behind the
+finance gateway, which supplies the MCP credential after authorizing its client.
 FinRobot state persists under `/home/app/.finrobot`, with
 `FINROBOT_CACHE_DB_PATH` defaulting to `/cache/finrobot/data_cache.db`; mount
 `.secrets` and `settings.json` there from homelab infrastructure.
