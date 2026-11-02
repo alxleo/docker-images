@@ -4,13 +4,13 @@ test ! -w /opt/mise/installs
 project="$(mktemp -d)"
 cp /opt/mise/mise.lock "$project/mise.lock"
 cd "$project"
-printf '%s\n' '[tools]' 'python = "3.13.18"' >mise.toml
+printf '%s\n' '[tools]' 'python = "3.13.17"' >mise.toml
 export MISE_CONFIG_DIR="$project/config" MISE_DATA_DIR="$project/mise" MISE_CACHE_DIR="$project/cache"
 export MISE_GLOBAL_CONFIG_FILE=/opt/mise/config.toml MISE_SHARED_INSTALL_DIRS=/opt/mise/installs
 export MISE_TRUSTED_CONFIG_PATHS="$project" MISE_LOCKED_SCOPES=project
 mise lock --platform linux-x64,linux-arm64
 mise install --locked
-test "$(mise where python)" = "$MISE_DATA_DIR/installs/python/3.13.18"
+test "$(mise where python)" = "$MISE_DATA_DIR/installs/python/3.13.17"
 for tool in semgrep yamllint pipx:ansible-core; do
     case "$(mise where "$tool")" in
     /opt/mise/installs/*) ;;
@@ -21,5 +21,5 @@ for tool in semgrep yamllint pipx:ansible-core; do
     esac
 done
 mise install --locked
-mise exec -- python --version | grep -Fx 'Python 3.13.18'
+mise exec -- python --version | grep -Fx 'Python 3.13.17'
 mise exec -- yamllint --version

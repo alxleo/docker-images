@@ -16,7 +16,7 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "PyJWT==2.15.1" \
         "aiohttp==3.14.5" \
         "cryptography==50.0.2" \
-        "mcp==1.30.0" \
+        "mcp==2.3.0" \
         "Pillow==13.0.0" \
         "Mako==1.4.3" \
         "black==26.10.1" \

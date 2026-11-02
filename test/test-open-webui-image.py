@@ -18,5 +18,5 @@ with TestClient(app) as client:
     response = client.get("/health")
     assert response.status_code == 200 and response.json()["status"] is True
     response = client.get("/api/version")
-    assert response.status_code == 200 and response.json()["version"] == "0.11.4"
+    assert response.status_code == 200 and response.json()["version"] == "0.12.5"
 print("Native application lifespan, health and version passed")

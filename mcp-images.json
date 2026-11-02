@@ -108,12 +108,12 @@
   {
     "name": "mcp-youtube",
     "dockerfile": "Dockerfile.python",
-    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.8.3\nMCP_ENTRYPOINT=mcp-youtube-transcript",
+    "build_args": "MCP_PACKAGE=git+https://github.com/jkawamoto/mcp-youtube-transcript@v0.8.3\nMCP_ENTRYPOINT=mcp-youtube-transcript\nMCP_SDK_SPEC=mcp>=2,<3",
     "tag": "0.8.3",
     "description": "YouTube transcript and video metadata extraction",
     "contract": "mcp-contracts/mcp-youtube.json",
     "test_commands": [
-      "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('1.'); from mcp.server import FastMCP\""
+      "docker run --rm --entrypoint python3 \"$IMAGE_REF\" -c \"from importlib.metadata import version; assert version('mcp').startswith('2.'); from mcp.server.mcpserver import MCPServer\""
     ]
   },
   {
