@@ -17,7 +17,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 
 ## MCP Service Images
 
-14 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
+16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
 The shared legacy images follow this pattern:
 - npm-based: `mcp/Dockerfile.npm` | Python-based: `mcp/Dockerfile.python`
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
@@ -29,7 +29,7 @@ packages.
 
 `mcp-openbb` runs the upstream `openbb-mcp` launcher on port `8080` at `/mcp`.
 It pins Core/MCP 2.0.1, the SEC/FRED/ECB/CBOE/Nasdaq/BLS/Federal Reserve/Yahoo
-Finance extensions at 2.0.0, and IMF at 3.0.0. The runtime allow-list is
+Finance extensions at 2.1.0, and IMF at 3.0.0. The runtime allow-list is
 `bls,cboe,ecb,federal_reserve,fred,imf,nasdaq,sec,yfinance`; CLI tools, bundled skills,
 `run_pipeline`, and `install_skill` are disabled. OpenBB state lives under
 `/home/app/.openbb_platform`; `/cache`, `/data`, and `/tmp` are writable for
@@ -55,9 +55,10 @@ catalog without inheriting image-generation or tool-filter logic; it remains
 responsible for secret values, host paths, Docker networks, supervision, and
 gateway exposure.
 
-Hacker News and Sequential Thinking run directly from their pinned upstream
-packages through ToolHive. Their contracts remain here as runtime acceptance
-oracles, but this repository no longer publishes wrapper images for them.
+The ToolHive plan runs Hacker News and Sequential Thinking directly from their
+pinned upstream packages. Their contracts remain here as runtime acceptance
+oracles. Wrapper images remain published until downstream consumers complete
+their cutover.
 
 Secret-bearing plans use ToolHive's read-only environment provider. Consumers
 set `TOOLHIVE_SECRETS_PROVIDER=environment` and expose only the named
@@ -97,13 +98,8 @@ News lane also proves that an allow-list hides and rejects a blocked tool. It
 uses an isolated temporary ToolHive state directory and removes only its
 uniquely named test workloads.
 
-MCPJam 5.3.0's `server probe` passes this endpoint. Its higher-level
-`server doctor` and `tools list` currently time out during version negotiation
-against ToolHive even though the initialize probe and deterministic
-contract succeed. The client sends the draft `server/discover` request before
-legacy initialization; older servers can leave it unanswered. Keep the
-deterministic contract plus `server probe` as the fleet oracle until that
-upstream negotiation gap is fixed; do not add a compatibility proxy.
+The live fleet oracle uses deterministic tool contracts and MCPJam’s native
+`server probe` to verify initialization independently.
 
 Jina is direct-remote and no longer uses `mcp-remote`. Its ToolHive secret
 `JINA_AUTHORIZATION` must contain the complete header value
