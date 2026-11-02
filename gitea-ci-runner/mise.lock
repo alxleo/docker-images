@@ -466,10 +466,10 @@ backend = "npm:actions-up"
 specifiers = ["2.0.0"]
 
 [[tools."npm:dependency-cruiser"]]
-version = "18.7.0"
-aube = { path = ".mise/locks/npm-dependency-cruiser/18.7.0", digest = "sha256:745fc323f49538f2130d3d33ccbe785a7de56032a4795884e5b6d6570efb14ca" }
+version = "18.7.1"
+aube = { path = ".mise/locks/npm-dependency-cruiser/18.7.1", digest = "sha256:dc3ff2475d233a8dd5f7e55475444e99bc1afc16a244099384cde4ff99bda369" }
 backend = "npm:dependency-cruiser"
-specifiers = ["18.7.0"]
+specifiers = ["18.7.1"]
 
 [[tools."npm:jscpd"]]
 version = "5.4.2"
