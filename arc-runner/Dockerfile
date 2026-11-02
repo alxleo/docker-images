@@ -16,7 +16,17 @@ RUN groupadd --gid 1001 runner && \
     apt-get update && \
     apt-get install --no-install-recommends --yes libgl1 && \
     rm -rf /var/lib/apt/lists/*
-ENV HOME=/home/runner
+# The pod is disposable and runs one job, so the job owns the tool tree: a locked
+# install adds versions beside the baseline in place and repoints their major and
+# minor aliases, which mise also repairs when nothing new installs. Only the
+# directories change hands; the baseline's files stay root-owned, and so do the
+# global config and lock beside them.
+RUN find /opt/mise/installs /opt/mise/shims /opt/mise/downloads -xdev -type d -exec chown 1001:1001 {} +
+# A project install downloads several hundred megabytes of archives and package
+# caches. The pod's /tmp is a small volume, so they go to its work volume, whose
+# mount point does not exist in the image.
+ENV HOME=/home/runner \
+    MISE_CACHE_DIR=/home/runner/_work/.mise-cache
 WORKDIR /home/runner
 USER 1001:1001
 CMD ["/home/runner/run.sh"]
