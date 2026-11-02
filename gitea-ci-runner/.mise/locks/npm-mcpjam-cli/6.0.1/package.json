@@ -2,6 +2,6 @@
   "name": "mise-npm-install",
   "private": true,
   "dependencies": {
-    "@mcpjam/cli": "5.12.2"
+    "@mcpjam/cli": "6.0.1"
   }
 }
