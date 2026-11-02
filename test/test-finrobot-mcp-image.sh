@@ -8,6 +8,7 @@ mcp="finrobot-mcp-image-test"
 api_port=18083
 mcp_port=18082
 token="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+mcp_token="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 cleanup() {
     docker rm -f "$mcp" "$api" >/dev/null 2>&1 || true
     docker network rm "$network" >/dev/null 2>&1 || true
@@ -30,6 +31,7 @@ test "$ready" = true
 docker run -d --name "$mcp" --network "$network" -p "${mcp_port}:8080" \
     -e FINROBOT_API_URL="http://${api}:8000" \
     -e FINROBOT_CAPABILITY_TOKEN="$token" \
+    -e FINROBOT_MCP_TOKEN="$mcp_token" \
     -e FINROBOT_API_HOST_HEADER=127.0.0.1 "$image" mcp >/dev/null
 ready=false
 for _ in $(seq 1 90); do
@@ -41,35 +43,36 @@ for _ in $(seq 1 90); do
 done
 test "$ready" = true
 
-TEST_URL="http://127.0.0.1:${mcp_port}/mcp" python3 - <<'PY'
-import importlib.util
+status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:${mcp_port}/mcp")"
+test "$status" = 401
+status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $token" "http://127.0.0.1:${mcp_port}/mcp")"
+test "$status" = 401
+
+docker exec -i "$mcp" /usr/local/bin/python - <<'PY'
+import asyncio
+import json
 import os
 
-spec = importlib.util.spec_from_file_location("mcp_contract", "scripts/mcp-contract.py")
-assert spec and spec.loader
-contract = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(contract)
-client = contract.MCPClient(os.environ["TEST_URL"])
-client.initialize()
-names = {tool["name"] for tool in client.list_tools()}
-expected = {"compute_wacc", "compute_dcf", "runs_create", "runs_get", "artifacts_list", "artifacts_get"}
-assert expected <= names
-assert "artifacts_delete" not in names
-assert "artifacts_view" not in names
-assert "runs_cancel" not in names
-assert "chat" not in names
-result = client._request("tools/call", {
-    "name": "compute_wacc",
-    "arguments": {"risk_free_rate": 0.03, "beta": 1.1, "equity_risk_premium": 0.05,
-                  "cost_of_debt": 0.04, "tax_rate": 0.21, "debt_ratio": 0.2},
-})
-assert not result.get("isError"), result
-import json
-computed = result.get("structuredContent")
-if not computed:
-    computed = json.loads(result["content"][0]["text"])
-assert abs(computed["wacc"] - 0.07432) < 1e-8, computed
-print(f"FinRobot MCP tools: {len(names)}; destructive routes absent")
+from fastmcp import Client
+
+
+async def main():
+    async with Client("http://127.0.0.1:8080/mcp", auth=os.environ["FINROBOT_MCP_TOKEN"]) as client:
+        names = {tool.name for tool in await client.list_tools()}
+        expected = {"compute_wacc", "compute_dcf", "runs_create", "runs_get", "artifacts_list", "artifacts_get"}
+        assert expected <= names
+        assert not {"artifacts_delete", "artifacts_view", "runs_cancel", "chat"} & names
+        result = await client.call_tool("compute_wacc", {
+            "risk_free_rate": 0.03, "beta": 1.1, "equity_risk_premium": 0.05,
+            "cost_of_debt": 0.04, "tax_rate": 0.21, "debt_ratio": 0.2,
+        })
+        assert not result.is_error, result
+        computed = result.structured_content or json.loads(result.content[0].text)
+        assert abs(computed["wacc"] - 0.07432) < 1e-8, computed
+        print(f"FinRobot MCP tools: {len(names)}; authenticated WACC passed; destructive routes absent")
+
+
+asyncio.run(main())
 PY
 
 wacc="$(curl -fsS -H 'Content-Type: application/json' -H "Authorization: Bearer $token" \
