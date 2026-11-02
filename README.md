@@ -10,13 +10,10 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + Sablier plugins | Never (plugins aren't in upstream) |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
-| `dagu-ops` | Dagu + restic + rclone + Docker CLI | Never (ops tooling layer) |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
-| `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
 | `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
-| `pihole-exporter` | Upstream exporter wrapped for Docker secret injection | When upstream supports file-based secret ingestion |
 
 ## MCP Service Images
 
@@ -47,22 +44,6 @@ settings belong in homelab-projected files rather than the image.
 The pinned BLS 2.0.0 series fetcher inherits mandatory credential validation,
 despite upstream documentation describing the key as optional. Keyless metadata
 search works; series retrieval needs a BLS key or a supported upstream fix.
-
-`finrobot-mcp` uses the FinRobot V2 source at commit
-`2717499b8e30f242640af08c4ad9afd1113c2d45`. Run the same image with `api` for
-the native `finrobot.server:app` on port `8000`, or `mcp` for the thin FastMCP
-OpenAPI facade on port `8080` at `/mcp`. FinRobot dependencies use this image's
-frozen compatibility lockfile. Its allow-list contains compute POSTs,
-run creation/status reads, and artifact reads; settings, secrets, chat,
-coverage mutations, cancellation, deletion, and viewed-state writes are
-excluded. `runs_create` starts persistent research and LLM/provider work;
-callers must be trusted and deployment must limit the model consumer's scope
-and budget. `FINROBOT_API_URL` selects the API endpoint and
-`FINROBOT_CAPABILITY_TOKEN` is forwarded as `Authorization: Bearer ...` and
-`FINROBOT_API_HOST_HEADER` defaults to `127.0.0.1` for FinRobot's host allow-list.
-FinRobot state persists under `/home/app/.finrobot`, with
-`FINROBOT_CACHE_DB_PATH` defaulting to `/cache/finrobot/data_cache.db`; mount
-`.secrets` and `settings.json` there from homelab infrastructure.
 
 ## ToolHive MCP Fleet
 

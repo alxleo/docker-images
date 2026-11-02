@@ -1,6 +1,0 @@
-{
-  "tag": "2.25.1",
-  "test_commands": [
-    "docker run --rm $IMAGE_REF sh -eu -c \"dagu version | grep -Fx 2.25.1; restic version | grep -F 'restic 0.19.1 '; rclone version | head -1 | grep -Fx 'rclone v1.75.2'; docker --version | grep -F 'Docker version 29.9.2,'; ssh -V 2>&1; curl --version | head -1\""
-  ]
-}
