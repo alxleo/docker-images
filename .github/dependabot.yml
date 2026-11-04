@@ -1,6 +1,7 @@
 version: 2
 
 # Renovate owns version updates; Dependabot retains security updates.
+# Zero disables version PRs only; GitHub applies a separate security-update limit.
 updates:
   # GitHub Actions security updates.
   - package-ecosystem: github-actions
