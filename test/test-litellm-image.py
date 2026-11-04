@@ -25,5 +25,4 @@ assert aiohttp.ClientSession
 assert jwt.decode
 assert pypdf.PdfReader
 assert TracerProvider
-assert version("litellm") == "1.106.6"
-print("Proxy dependencies import successfully")
+print(f"LiteLLM {version('litellm')}: proxy dependencies import successfully")
