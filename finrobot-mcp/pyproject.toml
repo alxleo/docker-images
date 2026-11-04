@@ -8,6 +8,6 @@ dependencies = [
     # FinRobot supplies httpx clients to these existing provider adapters.
     "pydantic-ai==2.65.0",
     "openai>=3.44,<4",
-    "anthropic>=2.4,<3",
+    "anthropic>=1.15,<2",
     "google-genai>=2.34,<3",
 ]
