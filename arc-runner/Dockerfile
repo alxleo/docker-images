@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.28
 
 FROM ghcr.io/actions/actions-runner:2.338.2@sha256:759a1d94a15b05941aba5196974ff43fe15b4cbba29b694b35cbc32a1166b232 AS runner
 FROM ghcr.io/alxleo/gitea-ci-runner:latest@sha256:072d20c5b8c95d7bf1ad0382fb5474833d69853a6c3733d7fe396e34b7623d07
