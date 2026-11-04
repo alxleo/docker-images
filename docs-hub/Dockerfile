@@ -48,7 +48,7 @@ ENV NODE_ENV=production \
 COPY --chown=1000:1000 --from=dependencies /app/node_modules ./node_modules
 COPY --from=renderers /usr/local/bin/d2 /usr/local/bin/d2
 COPY --from=renderers /opt/plantuml.jar /opt/plantuml.jar
-COPY --chown=1000:1000 astro.config.mjs package.json package-lock.json ./
+COPY --chown=1000:1000 astro.config.mjs tsconfig.json package.json package-lock.json ./
 COPY --chown=1000:1000 server ./server
 COPY --chown=1000:1000 scripts ./scripts
 COPY --chown=1000:1000 src ./src
