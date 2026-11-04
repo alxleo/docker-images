@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # One pinned proxy image for the native Helm and workstation deployments.
-FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 FROM ghcr.io/berriai/litellm:1.106.6@sha256:37e2dafb088a7723beb998590682957386dfc83ffea1848486f8e0e5cfac0b06
 
