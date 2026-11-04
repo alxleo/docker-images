@@ -37,6 +37,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import create_app
 from PIL import Image
+from pip._vendor import certifi as pip_certifi
 
 
 payload = b"dependency acceptance fixture"
@@ -52,9 +53,10 @@ except JoseError:
 else:
     raise AssertionError("unsigned JWS JSON payload was accepted")
 assert brotli.decompress(brotli.compress(payload)) == payload
-roots = ssl.create_default_context(cafile=certifi.where()).get_ca_certs()
-assert len(roots) > 100
-assert not any("emSign Root CA - G3" in str(root["subject"]) for root in roots)
+for bundle in (certifi.where(), pip_certifi.where()):
+    roots = ssl.create_default_context(cafile=bundle).get_ca_certs()
+    assert len(roots) > 100
+    assert not any("emSign ECC Root CA - G3" in str(root["subject"]) for root in roots)
 print("JWS signature rejection, Brotli roundtrip and certificate trust store passed")
 
 
