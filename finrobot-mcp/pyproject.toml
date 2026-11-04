@@ -7,7 +7,7 @@ dependencies = [
     "fastmcp==3.4.11",
     # FinRobot supplies httpx clients to these existing provider adapters.
     "pydantic-ai==1.107.9",
-    "openai>=2.30.0,<3",
+    "openai>=3.45,<4",
     "anthropic>=0.108.0,<1",
     "google-genai>=1.70.0,<2",
 ]
