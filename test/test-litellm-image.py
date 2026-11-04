@@ -25,4 +25,4 @@ assert aiohttp.ClientSession
 assert jwt.decode
 assert pypdf.PdfReader
 assert TracerProvider
-print(f"LiteLLM {version("litellm")}: proxy dependencies import successfully")
+print(f"LiteLLM {version('litellm')}: proxy dependencies import successfully")
