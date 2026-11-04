@@ -14,6 +14,8 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
     && uv pip install --system --upgrade \
         "certifi==2026.10.23" \
         "PyJWT==2.15.1" \
+        "Authlib==1.9.1" \
+        "joserfc==1.7.5" \
         "aiohttp==3.14.5" \
         "cryptography==50.0.2" \
         "mcp==2.3.0" \
