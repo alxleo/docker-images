@@ -67,14 +67,13 @@ jobs:
             echo "path=" >> "$GITHUB_OUTPUT"
           fi
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        uses: docker://ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
         with:
-          image-ref: ghcr.io/alxleo/${{ matrix.name }}:latest
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          trivyignores: ${{ steps.trivyignore.outputs.path }}
+          args: >-
+            image --image-src remote --exit-code 1 --severity CRITICAL
+            --ignore-unfixed --scanners vuln
+            ${{ steps.trivyignore.outputs.path != '' && format('--ignorefile {0}', steps.trivyignore.outputs.path) || '' }}
+            ghcr.io/alxleo/${{ matrix.name }}:latest
 
   trivy-mcp:
     name: Trivy MCP ${{ matrix.name }}
@@ -86,13 +85,12 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.mcp) }}
     steps:
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        uses: docker://ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
         with:
-          image-ref: ghcr.io/alxleo/${{ matrix.name }}:latest
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
+          args: >-
+            image --image-src remote --exit-code 1 --severity CRITICAL
+            --ignore-unfixed --scanners vuln
+            ghcr.io/alxleo/${{ matrix.name }}:latest
 
   # ---------------------------------------------------------------------------
   # Dockle CIS benchmark -- scans built images for runtime security issues
