@@ -19,14 +19,18 @@ RUN npm ci && npm test -- src/utils/download.test.ts && npm run build
 # KindleUnpack owns KF8 reconstruction, including fixed-layout EPUB3 viewports.
 ADD https://github.com/kevinhendricks/KindleUnpack.git#bf0ca6ece4e73494625e7950be3e259b6260774c /kindleunpack
 
-# Drop the dependency rebuild when an upstream release includes Pillow's decoder fixes:
+# Drop the dependency rebuild when upstream includes the decoder and trust-store fixes:
 # https://github.com/python-pillow/Pillow/security/advisories/GHSA-8g5g-8vmr-9782
 FROM ghcr.io/transmute-app/transmute:v2.1.1@sha256:87b669d835d9e68bdbc4082ab061cb361cd3ecee69c14ccfa9a3814d326b6707
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 
 COPY requirements.txt /tmp/transmute-security-requirements.txt
 # conftest:exempt=user_required -- preserve upstream startup identity; deployments own their UID
-RUN pip install --no-cache-dir --no-deps -r /tmp/transmute-security-requirements.txt \
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes --only-upgrade ca-certificates libbrotli1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r /tmp/transmute-security-requirements.txt \
     && rm /tmp/transmute-security-requirements.txt
 
 COPY --from=frontend /src/frontend/dist /app/frontend/dist
