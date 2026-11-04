@@ -27,7 +27,8 @@
         "anthropic",
         "google-genai"
       ],
-      "groupName": "FinRobot runtime"
+      "groupName": "FinRobot runtime",
+      "separateMajorMinor": false
     },
     {
       "description": "The shared image tool baseline updates with native mise lock hashes.",
