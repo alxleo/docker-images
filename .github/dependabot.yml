@@ -1,23 +1,20 @@
 version: 2
 
+# Renovate owns version updates; Dependabot retains security updates.
 updates:
-  # Keep GHA action versions current
+  # GitHub Actions security updates.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "ci"
       include: "scope"
     cooldown:
       default-days: 7
 
-  # Base-image tag bumps. Only FROMs that point at real upstream registries
-  # can move on their own (golang builders) — the
-  # ghcr.io/alxleo/base-images/* mirrors only ever hold tags that
-  # scripts/mirror-base-images.sh pushes, so a new base minor still starts
-  # with a mirror-list edit. mcp-images.json pins stay manual.
+  # Container security updates; mirrored base tags stay with the mirror owner.
   - package-ecosystem: docker
     directories:
       - /arc-runner
@@ -28,32 +25,31 @@ updates:
       - /mcp-reddit
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "docker"
       include: "scope"
     cooldown:
       default-days: 7
 
-  # Locked Python deps for the native MCP servers
+  # Locked Python security updates for the native MCP servers.
   - package-ecosystem: uv
     directory: /mcp-reddit
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "fix"
       include: "scope"
     cooldown:
       default-days: 7
 
-  # docs-hub's npm graph is the largest dependency surface in the repo —
-  # grouped monthly to cap noise; security updates still arrive immediately
+  # Docs Hub security updates.
   - package-ecosystem: npm
     directory: /docs-hub
     schedule:
       interval: monthly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     groups:
       docs-hub-deps:
         patterns: ["*"]
