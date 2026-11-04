@@ -6,6 +6,8 @@
   "ignorePresets": [
     ":ignoreModulesAndTests"
   ],
+  "prHourlyLimit": 8,
+  "prConcurrentLimit": 20,
   "constraints": {
     "mise": "v2026.10.25"
   },
