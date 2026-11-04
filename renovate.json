@@ -13,6 +13,23 @@
   },
   "packageRules": [
     {
+      "description": "FinRobot provider SDKs and the MCP facade share Pydantic AI constraints and must resolve as one runtime cohort.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchFileNames": [
+        "finrobot-mcp/pyproject.toml"
+      ],
+      "matchPackageNames": [
+        "fastmcp",
+        "pydantic-ai",
+        "openai",
+        "anthropic",
+        "google-genai"
+      ],
+      "groupName": "FinRobot runtime"
+    },
+    {
       "description": "The shared image tool baseline updates with native mise lock hashes.",
       "matchManagers": [
         "mise"

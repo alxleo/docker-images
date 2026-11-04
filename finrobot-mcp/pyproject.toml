@@ -4,10 +4,10 @@ version = "0.0.0"
 requires-python = ">=3.14"
 dependencies = [
     "finrobot @ git+https://github.com/AI4Finance-Foundation/FinRobot.git@2717499b8e30f242640af08c4ad9afd1113c2d45#subdirectory=finrobot_desktop",
-    "fastmcp==3.4.11",
+    "fastmcp==4.1.6",
     # FinRobot supplies httpx clients to these existing provider adapters.
-    "pydantic-ai==1.107.9",
-    "openai>=2.30.0,<3",
-    "anthropic>=0.108.0,<1",
-    "google-genai>=1.70.0,<2",
+    "pydantic-ai==2.65.0",
+    "openai>=3.44,<4",
+    "anthropic>=2.4,<3",
+    "google-genai>=2.34,<3",
 ]
