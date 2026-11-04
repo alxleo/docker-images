@@ -28,7 +28,7 @@ COPY requirements.txt /tmp/transmute-security-requirements.txt
 # conftest:exempt=user_required -- preserve upstream startup identity; deployments own their UID
 # hadolint ignore=DL3008
 RUN apt-get update \
-    && apt-get install --no-install-recommends --yes --only-upgrade libbrotli1 \
+    && apt-get install --no-install-recommends --yes --only-upgrade ca-certificates libbrotli1 \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -r /tmp/transmute-security-requirements.txt \
     && rm /tmp/transmute-security-requirements.txt

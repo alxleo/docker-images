@@ -15,11 +15,11 @@ from zipfile import ZipFile
 
 import brotli
 import certifi
-from authlib.jose import JsonWebSignature
-from authlib.jose.errors import JoseError
 from api.routes import compression_jobs
 from api.routes import jobs as conversion_jobs
 from api.schemas import CompressionJobCreateRequest, ConversionJobCreateRequest
+from authlib.jose import JsonWebSignature
+from authlib.jose.errors import JoseError
 from background.cleanup import cleanup_once, job_cleanup_logic
 from converters.pillow_convert import PillowConverter
 from core import get_settings
@@ -39,7 +39,6 @@ from main import create_app
 from PIL import Image
 from pip._vendor import certifi as pip_certifi
 
-
 payload = b"dependency acceptance fixture"
 key = b"synthetic-acceptance-key-material"
 jws = JsonWebSignature(algorithms=["HS256"])
@@ -53,8 +52,13 @@ except JoseError:
 else:
     raise AssertionError("unsigned JWS JSON payload was accepted")
 assert brotli.decompress(brotli.compress(payload)) == payload
-for bundle in (certifi.where(), pip_certifi.where()):
-    roots = ssl.create_default_context(cafile=bundle).get_ca_certs()
+trust_stores = (
+    ssl.create_default_context(),
+    ssl.create_default_context(cafile=certifi.where()),
+    ssl.create_default_context(cafile=pip_certifi.where()),
+)
+for context in trust_stores:
+    roots = context.get_ca_certs()
     assert len(roots) > 100
     assert not any("emSign ECC Root CA - G3" in str(root["subject"]) for root in roots)
 print("JWS signature rejection, Brotli roundtrip and certificate trust store passed")
