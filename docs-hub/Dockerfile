@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.28
 FROM ghcr.io/alxleo/base-images/node:26-alpine AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
