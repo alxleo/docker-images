@@ -1,6 +1,8 @@
 """Exercise the native decoder boundary and conversion API in the rebuilt image."""
 
+import base64
 import io
+import ssl
 import struct
 import subprocess
 import time
@@ -11,6 +13,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
+import brotli
+import certifi
+from authlib.jose import JsonWebSignature
+from authlib.jose.errors import JoseError
 from api.routes import compression_jobs
 from api.routes import jobs as conversion_jobs
 from api.schemas import CompressionJobCreateRequest, ConversionJobCreateRequest
@@ -31,6 +37,25 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import create_app
 from PIL import Image
+
+
+payload = b"dependency acceptance fixture"
+key = b"synthetic-acceptance-key-material"
+jws = JsonWebSignature(algorithms=["HS256"])
+signed = jws.serialize_json({"protected": {"alg": "HS256"}}, payload, key)
+assert jws.deserialize_json(signed, key)["payload"] == payload
+forged = {"payload": base64.urlsafe_b64encode(payload).rstrip(b"=").decode(), "signatures": []}
+try:
+    jws.deserialize_json(forged, key)
+except JoseError:
+    pass
+else:
+    raise AssertionError("unsigned JWS JSON payload was accepted")
+assert brotli.decompress(brotli.compress(payload)) == payload
+roots = ssl.create_default_context(cafile=certifi.where()).get_ca_certs()
+assert len(roots) > 100
+assert not any("emSign Root CA - G3" in str(root["subject"]) for root in roots)
+print("JWS signature rejection, Brotli roundtrip and certificate trust store passed")
 
 
 def segment(marker, payload):
