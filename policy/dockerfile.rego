@@ -36,6 +36,14 @@ last_user := input[last_user_index].Value[0] if {
 	last_user_index != null
 }
 
+# USER takes user[:group]; only the user part decides who the process runs as.
+last_user_name := lower(split(last_user, ":")[0])
+
+# /root itself or anything beneath it (not /rootfs, /root-data, ...)
+_under_root(path) if path == "/root"
+
+_under_root(path) if startswith(path, "/root/")
+
 # Collect exemption comments from anywhere in the Dockerfile
 exemptions contains rule if {
 	some i
@@ -55,7 +63,7 @@ deny contains msg if {
 
 deny contains msg if {
 	_is_dockerfile
-	last_user in {"root", "0"}
+	last_user_name in {"root", "0"}
 	not "user_required" in exemptions
 	msg := sprintf("Final USER should not be root (found: %s). Use a non-root UID.", [last_user])
 }
@@ -78,7 +86,7 @@ deny contains msg if {
 	cmd := lower(input[i].Cmd)
 	cmd in {"copy", "add"}
 	dest := input[i].Value[count(input[i].Value) - 1]
-	startswith(dest, "/root")
+	_under_root(dest)
 	not "no_root_paths" in exemptions
 	msg := sprintf(
 		"%s destination %s is under /root/ — inaccessible to non-root USER. Use /app/ or /usr/local/bin/ instead.",
@@ -92,7 +100,7 @@ deny contains msg if {
 	input[i].Stage == final_stage
 	lower(input[i].Cmd) == "workdir"
 	wd := input[i].Value[0]
-	startswith(wd, "/root")
+	_under_root(wd)
 	not "no_root_paths" in exemptions
 	msg := sprintf(
 		"WORKDIR %s is under /root/ — inaccessible to non-root USER. Use /app/ instead.",
