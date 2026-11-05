@@ -26,11 +26,13 @@ Tests are not a `.ci.json` field. Each image's acceptance tests live in
 `IMAGE_REF`. Discovery emits it as `test_file`; a manifest test requires one
 per image and rejects shell `test_commands` in `.ci.json`.
 
-### Composite Action
+### Build Flow
 
-`.github/actions/build-image/action.yml` handles the common build flow:
-QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build (with GHA cache).
-Callers handle tests, GHCR login, and pushing the final image.
+Custom images build through the reusable `.github/workflows/build-custom-image.yml`:
+a native-architecture matrix builds and tests each platform, then publishes the
+tested digests. BuildKit is `docker.io/moby/buildkit`, digest-pinned.
+`.github/actions/build-image/action.yml` (QEMU -> buildx -> build with GHA cache)
+is kept, but no workflow in this repository calls it.
 Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 Trivy exceptions live beside the image: `.trivyignore.yaml` scopes each CVE to
 one file path inside the image (so a tool version bump expires it), plain
@@ -48,17 +50,25 @@ one file path inside the image (so a tool version bump expires it), plain
 
 | Base | Used by | Why |
 |------|---------|-----|
-| `node:26-alpine` | Dockerfile.npm, Dockerfile.python | Smallest viable Node base, no setuid binaries |
-| `node:26-slim` | Dockerfile.arxiv proxy stage | Python C extensions (pymupdf) need glibc |
+| `node:26-alpine` | Dockerfile.npm, Dockerfile.python, Dockerfile.slack, docs-hub, transmute (frontend stage) | Smallest viable Node base, no setuid binaries |
+| `node:26-slim` | Dockerfile.arxiv proxy stage | Supplies a glibc Node binary for the python-slim final image |
 | `python:3.14-alpine` | homelab-observer | Pure Python deps, Alpine viable |
 | `python:3.15-alpine` | mcp-reddit | Pure Python deps, Alpine viable |
-| `alpine:3.23` | mcp-auth-proxy (runtime) | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
+| `python:3.14-slim` | finrobot-mcp, openbb-mcp, Dockerfile.arxiv | glibc wheels (pymupdf in Dockerfile.arxiv) |
+| `alpine:3.23` | mcp-auth-proxy (runtime), docs-hub | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
+| `golang:1.26-bookworm` | mcp-auth-proxy, Dockerfile.slack (build stages) | Build stages that rebuild upstream Go sources |
+| `caddy:2.11` / `2.11-builder` | caddy-cloudflare | xcaddy plugin build |
+| `ubuntu:24.04` | gitea-ci-runner (arc-runner inherits it) | CI runner base |
 
-All images build multi-arch (amd64 + arm64). All have `USER` (non-root) and `HEALTHCHECK` where applicable.
+All images build multi-arch (amd64 + arm64) and have `HEALTHCHECK` where they
+`EXPOSE`. All have a non-root `USER` except the four with a recorded
+`conftest:exempt=user_required` reason: caddy-cloudflare, litellm,
+mcp-auth-proxy and transmute.
 
 ### Versioning
 
-Each image gets a monotonically incrementing build counter tracked via git tags.
+Each custom image gets a monotonically incrementing build counter tracked via
+git tags. MCP images from `mcp-images.json` publish only `:{tag}` and `:latest`.
 
 - Base version: the `tag` field in `.ci.json` (defaults to `latest`)
 - Build counter: stored as `{name}/{tag}-build.{N}` git tags, auto-incremented on every push to main
@@ -87,8 +97,14 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
+<<<<<<< HEAD
 | NixOS runner | `build-nixos-runner-image.yml` | push, dispatch | Build and publish the nixos-runner image from its Containerfile |
 | ToolHive fleet | `toolhive-fleet.yml` | PRs, push | Live-verify the MCP fleet catalog against running containers |
+||||||| parent of ce28ee4 (docs: bring CLAUDE.md in line with the repository)
+=======
+| NixOS runner | `build-nixos-runner-image.yml` | push main, PRs (path-filtered), dispatch | Build the NixOS runner image |
+| ToolHive fleet | `toolhive-fleet.yml` | push main, PRs (path-filtered), dispatch | Live MCP contract checks for the ToolHive fleet |
+>>>>>>> ce28ee4 (docs: bring CLAUDE.md in line with the repository)
 
 ### Dockerfile Policies
 
