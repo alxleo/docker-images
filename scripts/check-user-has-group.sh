@@ -14,9 +14,15 @@
 #   - `USER <uid>` or `USER <uid>:<gid>` must be preceded by an addgroup/
 #     adduser/useradd/groupadd RUN statement in the SAME build stage.
 #
+#   - `USER 0` / `USER 0:0` is accepted: root and its group always exist.
+#
 # Build-stage scope: a `FROM` line starts a new stage; user/group created
 # in an earlier stage does not carry into a later one. The scanner resets
 # its "saw addgroup?" flag on each FROM.
+#
+# Instructions are matched on logical lines: `\`-continued physical lines
+# are joined first (comment lines inside a continuation are dropped, as the
+# Dockerfile parser does), so `RUN apt-get ... \ && addgroup ...` counts.
 
 set -eu
 
@@ -31,16 +37,38 @@ for f in "$@"; do
     # user-creation RUN in the current stage; reset on each FROM.
     saw_addgroup=0
     lineno=0
-    while IFS= read -r raw_line; do
+    logical=""
+    start=0
+    while IFS= read -r physical || [ -n "$physical" ]; do
         lineno=$((lineno + 1))
 
+        # A comment is a line whose first non-blank character is `#`. It is
+        # never continued, and inside a continuation it is dropped.
+        trimmed="${physical#"${physical%%[![:space:]]*}"}"
+        case "$trimmed" in
+        \#*) continue ;;
+        *) ;;
+        esac
+        if [ -z "$logical" ]; then
+            start=$lineno
+        fi
+        case "$physical" in
+        *\\)
+            logical="$logical${physical%\\} "
+            continue
+            ;;
+        *) ;;
+        esac
+        raw_line="$logical$physical"
+        raw_line="${raw_line#"${raw_line%%[![:space:]]*}"}"
+        logical=""
+
         case "$raw_line" in
-        [[:space:]]*\#* | \#*) continue ;; # comment line — skip
-        FROM\ * | [[:space:]]*FROM\ *)
+        FROM\ *)
             saw_addgroup=0
             continue
             ;;
-        RUN\ * | [[:space:]]*RUN\ *)
+        RUN\ *)
             case "$raw_line" in
             *addgroup* | *adduser* | *useradd* | *groupadd*)
                 saw_addgroup=1
@@ -49,14 +77,15 @@ for f in "$@"; do
             esac
             continue
             ;;
-        USER\ * | [[:space:]]*USER\ *)
+        USER\ *)
             # Parse out the user spec; handle both `USER uid` and `USER uid:gid`.
             user_spec=$(printf '%s\n' "$raw_line" | sed -E 's/^[[:space:]]*USER[[:space:]]+//' | awk '{print $1}')
             user_part=${user_spec%%:*}
 
             # Named user (contains any non-digit) — always accepted.
+            # uid 0 is root, whose group always exists.
             case "$user_part" in
-            "" | *[!0-9]*)
+            "" | *[!0-9]* | 0)
                 continue
                 ;;
             *) ;;
@@ -68,7 +97,7 @@ for f in "$@"; do
             fi
 
             # shellcheck disable=SC2016  # backticks in format strings are literal display, not command substitution
-            printf '%s:%s — numeric USER %s without a preceding addgroup/adduser/useradd in this build stage\n' "$f" "$lineno" "$user_spec"
+            printf '%s:%s — numeric USER %s without a preceding addgroup/adduser/useradd in this build stage\n' "$f" "$start" "$user_spec"
             # shellcheck disable=SC2016
             printf '  Fix: add `RUN addgroup -g %s app && adduser -u %s -G app -S -D app` and `USER app`,\n' "$user_part" "$user_part"
             # shellcheck disable=SC2016
