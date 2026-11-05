@@ -45,6 +45,16 @@ test_deny_tmpfs_root_no_options if {
 	count(result) > 0
 }
 
+test_deny_tmpfs_root_single_string if {
+	result := deny with input as {"services": {"web": {"tmpfs": "/root/.cache"}}}
+	count(result) == 1
+}
+
+test_allow_tmpfs_tmp_single_string if {
+	result := deny with input as {"services": {"web": {"tmpfs": "/tmp"}}}
+	count(result) == 0
+}
+
 test_allow_tmpfs_tmp if {
 	result := deny with input as {"services": {"web": {"tmpfs": ["/tmp/.npm:exec"]}}}
 	count(result) == 0

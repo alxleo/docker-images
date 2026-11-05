@@ -74,10 +74,15 @@ deny contains msg if {
 	)
 }
 
+# Compose accepts tmpfs as one string or a list of strings.
+_tmpfs_entries(svc_def) := [svc_def.tmpfs] if is_string(svc_def.tmpfs)
+
+_tmpfs_entries(svc_def) := svc_def.tmpfs if is_array(svc_def.tmpfs)
+
 # tmpfs entries targeting /root/
 deny contains msg if {
 	some svc_name, svc_def in input.services
-	some tmpfs_entry in svc_def.tmpfs
+	some tmpfs_entry in _tmpfs_entries(svc_def)
 	is_string(tmpfs_entry)
 	mount_point := split(tmpfs_entry, ":")[0]
 	_targets_root(mount_point)
