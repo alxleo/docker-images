@@ -78,7 +78,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, dispatch, mirror refresh | Auto-discover, matrix build, test, push; gitleaks scan on PRs; a successful mirror run rebuilds everything |
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
-| Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan |
+| Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
 
 ### Dockerfile Policies
