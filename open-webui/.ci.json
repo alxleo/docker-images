@@ -4,5 +4,11 @@
   ],
   "watch_paths": [
     "test/test-open-webui-image.py"
-  ]
+  ],
+  "dockle": {
+    "accept_keys": {
+      "TIKTOKEN_CACHE_DIR": "Upstream ENV with the tokenizer cache path (/app/backend/data/cache/tiktoken), not a credential.",
+      "TIKTOKEN_ENCODING_NAME": "Upstream ENV naming the tokenizer encoding (cl100k_base), not a credential."
+    }
+  }
 }

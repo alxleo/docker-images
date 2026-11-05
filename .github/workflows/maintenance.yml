@@ -106,9 +106,30 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.discover.outputs.custom) }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Repository-wide ignores cover upstream layers that dockle 0.4.15
+      # misreads; our own layers are linted statically instead:
+      # - DKL-DI-0004: apk-add layers inside upstream bases such as
+      #   python:*-alpine (ours: hadolint DL3019).
+      # - DKL-DI-0005: Debian's `apt-get dist-clean` in python:*-slim and
+      #   BuildKit cache-mounted apt lists both leave no lists in the image,
+      #   but dockle only recognises `rm -rf /var/lib/apt/lists` (ours: DL3009).
+      # Per-image exemptions live in <context>/.ci.json under "dockle", each
+      # mapped to its reason; test_manifests.py validates them.
       - name: Run dockle
+        env:
+          IMAGE_CONTEXT: ${{ matrix.context }}
+          IMAGE_NAME: ${{ matrix.name }}
         run: |
-          # DKL-DI-0004 fires on apk-add layers inside upstream base images (e.g. python:3.13-alpine); our own layers are covered by hadolint DL3019
+          per_image=()
+          if [ -f "${IMAGE_CONTEXT}/.ci.json" ]; then
+            mapfile -t per_image < <(jq -r '
+              (.dockle.ignore // {} | keys[] | ("--ignore", .)),
+              (.dockle.accept_keys // {} | keys[] | ("--accept-key", .))
+            ' "${IMAGE_CONTEXT}/.ci.json")
+          fi
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             goodwithtech/dockle:v0.4.15 \
@@ -118,5 +139,7 @@ jobs:
             --ignore CIS-DI-0005 \
             --ignore DKL-DI-0006 \
             --ignore DKL-DI-0004 \
+            --ignore DKL-DI-0005 \
             -af settings.py \
-            "ghcr.io/alxleo/${{ matrix.name }}:latest"
+            "${per_image[@]}" \
+            "ghcr.io/alxleo/${IMAGE_NAME}:latest"

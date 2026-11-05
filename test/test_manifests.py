@@ -305,6 +305,54 @@ class TestMCPPipelineRouting:
 
 
 # =========================================================================
+# Weekly scan exemptions (read by maintenance.yml)
+# =========================================================================
+
+DOCKLE_CHECKPOINT = re.compile(r"^(CIS-DI|DKL-DI|DKL-LI)-[0-9]{4}$")
+ENV_KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _dockle_configs():
+    for entry in CUSTOM_IMAGES:
+        ci_json = REPO_ROOT / entry["context"] / ".ci.json"
+        if ci_json.is_file():
+            config = json.loads(ci_json.read_text()).get("dockle")
+            if config is not None:
+                yield entry["name"], config
+
+
+class TestScanExemptions:
+    """Every scanner exemption is scoped and carries its reason."""
+
+    def test_dockle_exemptions_are_reasoned(self):
+        for name, config in _dockle_configs():
+            assert isinstance(config, dict) and config, (
+                f"{name}: dockle must be a non-empty object"
+            )
+            assert set(config) <= {"ignore", "accept_keys"}, (
+                f"{name}: dockle supports only ignore and accept_keys"
+            )
+            for field, pattern in (("ignore", DOCKLE_CHECKPOINT), ("accept_keys", ENV_KEY)):
+                exemptions = config.get(field, {})
+                assert isinstance(exemptions, dict), (
+                    f"{name}: dockle.{field} must map each entry to its reason"
+                )
+                for key, reason in exemptions.items():
+                    assert pattern.match(key), f"{name}: invalid dockle.{field} key {key!r}"
+                    assert isinstance(reason, str) and len(reason.strip()) >= 20, (
+                        f"{name}: dockle.{field}.{key} needs a real reason"
+                    )
+
+    def test_dockle_credential_check_is_never_ignored_wholesale(self):
+        # Accept the specific false-positive keys so every other credential
+        # in the image still fails CIS-DI-0010.
+        for name, config in _dockle_configs():
+            assert "CIS-DI-0010" not in config.get("ignore", {}), (
+                f"{name}: use dockle.accept_keys instead of ignoring CIS-DI-0010"
+            )
+
+
+# =========================================================================
 # images.json (public downstream contract)
 # =========================================================================
 

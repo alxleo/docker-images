@@ -19,6 +19,7 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 | platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
 | tests | none | `"test_commands": [...]` |
+| dockle exemptions | none | `"dockle": {"ignore": {CODE: reason}, "accept_keys": {ENV_KEY: reason}}` |
 
 ### Composite Action
 

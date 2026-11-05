@@ -7,5 +7,13 @@
     "test \"$(docker inspect \"$IMAGE_REF\" --format '{{ index .Config.Labels \"org.opencontainers.image.source\" }}')\" = \"https://github.com/alxleo/docker-images\"",
     "test -z \"$(docker inspect \"$IMAGE_REF\" --format '{{json .Config.Env}}' | grep -Eio '(token|password|secret|credential)' || true)\"",
     "docker run --rm -i --cap-drop ALL --security-opt no-new-privileges --entrypoint bash \"$IMAGE_REF\" -euo pipefail < gitea-ci-runner/test-project-python.sh"
-  ]
+  ],
+  "dockle": {
+    "ignore": {
+      "DKL-DI-0001": "CI jobs need passwordless sudo for system packages; the image is a disposable runner, not a service."
+    },
+    "accept_keys": {
+      "GITHUB_TOKEN": "Read from a BuildKit secret mount for mise's GitHub lookups and unset in the same RUN; the Config.Env test proves nothing persists."
+    }
+  }
 }
