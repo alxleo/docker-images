@@ -32,6 +32,9 @@ per image and rejects shell `test_commands` in `.ci.json`.
 QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build (with GHA cache).
 Callers handle tests, GHCR login, and pushing the final image.
 Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
+Trivy exceptions live beside the image: `.trivyignore.yaml` scopes each CVE to
+one file path inside the image (so a tool version bump expires it), plain
+`.trivyignore` applies image-wide; an image may carry only one of the two.
 
 ### Image Types
 

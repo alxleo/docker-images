@@ -59,10 +59,19 @@ jobs:
         id: trivyignore
         env:
           IMAGE_CONTEXT: ${{ matrix.context }}
+        # .trivyignore.yaml scopes an exception to one file path (and so one
+        # tool version); plain .trivyignore applies to the whole image. Trivy
+        # reads a single ignore file, so an image may carry only one of them.
         run: |
-          path="${IMAGE_CONTEXT}/.trivyignore"
-          if [ -f "$path" ]; then
-            echo "path=${path}" >> "$GITHUB_OUTPUT"
+          scoped="${IMAGE_CONTEXT}/.trivyignore.yaml"
+          plain="${IMAGE_CONTEXT}/.trivyignore"
+          if [ -f "$scoped" ] && [ -f "$plain" ]; then
+            echo "::error::${IMAGE_CONTEXT} has both .trivyignore and .trivyignore.yaml; keep one"
+            exit 1
+          elif [ -f "$scoped" ]; then
+            echo "path=${scoped}" >> "$GITHUB_OUTPUT"
+          elif [ -f "$plain" ]; then
+            echo "path=${plain}" >> "$GITHUB_OUTPUT"
           else
             echo "path=" >> "$GITHUB_OUTPUT"
           fi

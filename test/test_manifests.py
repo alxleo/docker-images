@@ -367,6 +367,30 @@ class TestScanExemptions:
                 f"{name}: use dockle.accept_keys instead of ignoring CIS-DI-0010"
             )
 
+    def test_trivy_ignore_files(self):
+        for entry in CUSTOM_IMAGES:
+            context = REPO_ROOT / entry["context"]
+            scoped = context / ".trivyignore.yaml"
+            assert not (scoped.is_file() and (context / ".trivyignore").is_file()), (
+                f"{entry['name']}: Trivy reads one ignore file; keep only one"
+            )
+            if not scoped.is_file():
+                continue
+            document = yaml.safe_load(scoped.read_text())
+            assert set(document) == {"vulnerabilities"}, (
+                f"{entry['name']}: .trivyignore.yaml holds vulnerability exceptions only"
+            )
+            for item in document["vulnerabilities"]:
+                assert item.get("paths"), (
+                    f"{entry['name']}: {item.get('id')} must be scoped to file paths"
+                )
+                assert all(not p.startswith("/") for p in item["paths"]), (
+                    f"{entry['name']}: Trivy image paths are relative to the image root"
+                )
+                assert len(str(item.get("statement", "")).strip()) >= 40, (
+                    f"{entry['name']}: {item.get('id')} needs a reachability statement"
+                )
+
 
 # =========================================================================
 # images.json (public downstream contract)
