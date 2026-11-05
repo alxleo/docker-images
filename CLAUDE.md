@@ -18,6 +18,7 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 | name | directory name | `"name": "published-image-name"` |
 | platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
+| dockle exemptions | none | `"dockle": {"ignore": {CODE: reason}, "accept_keys": {ENV_KEY: reason}}` |
 
 Tests are not a `.ci.json` field. Each image's acceptance tests live in
 `<dir>/test_<dir with - as _>.py`, a pytest module that uses the root

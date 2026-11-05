@@ -1,4 +1,12 @@
 {
   "platforms": "linux/amd64,linux/arm64",
-  "tag": "latest"
+  "tag": "latest",
+  "dockle": {
+    "ignore": {
+      "DKL-DI-0001": "CI jobs need passwordless sudo for system packages; the image is a disposable runner, not a service."
+    },
+    "accept_keys": {
+      "GITHUB_TOKEN": "Read from a BuildKit secret mount for mise's GitHub lookups and unset in the same RUN; the Config.Env test proves nothing persists."
+    }
+  }
 }
