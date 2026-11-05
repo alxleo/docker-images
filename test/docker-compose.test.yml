@@ -1,6 +1,7 @@
 services:
   caddy:
-    build: ../caddy-cloudflare
+    # The image under test (CI's build or `just test-image`), never a rebuild.
+    image: ${IMAGE_REF:?set IMAGE_REF to the caddy-cloudflare image under test}
     ports: ["8080:80"]
     volumes:
       - ./Caddyfile.test:/etc/caddy/Caddyfile
