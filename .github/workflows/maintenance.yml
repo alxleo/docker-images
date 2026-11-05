@@ -5,9 +5,18 @@
 # avoids blocking merges on upstream CVE churn.
 name: Maintenance
 
+# Scan after the weekly mirror refresh has rebuilt the images. A cron here
+# shared Monday 03:23 with the mirror, and GitHub starts both hours late at
+# about the same moment, so the scan graded the previous week's :latest
+# (2 Nov: scan 11:23, mirror 11:27, rebuild done 11:33). The chain is
+# Mirror (schedule) -> Build Custom Images -> Maintenance, within GitHub's
+# three-level workflow_run limit. A failed mirror still completes a
+# (skipped) build run, so the scan still happens that week.
 on:
-  schedule:
-    - cron: '23 3 * * 1'  # Monday 03:23 UTC
+  workflow_run:
+    workflows: ["Build Custom Images"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +33,11 @@ jobs:
   # ---------------------------------------------------------------------------
   discover:
     name: Discover images
+    # Build Custom Images also completes on every push to main; only its
+    # mirror-triggered run is the weekly rebuild.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.event == 'workflow_run'
     runs-on: ubuntu-latest
     outputs:
       custom: ${{ steps.custom.outputs.images }}

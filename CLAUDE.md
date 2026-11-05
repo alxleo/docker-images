@@ -85,7 +85,7 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Build | `build-images.yml` | push main, PRs, dispatch, mirror refresh | Auto-discover, matrix build, test, push; gitleaks scan on PRs; a successful mirror run rebuilds everything |
 | Build custom image | `build-custom-image.yml` | reusable (`workflow_call`) | Per-image build/test/publish flow called per matrix entry |
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
-| Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan |
+| Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
 | NixOS runner | `build-nixos-runner-image.yml` | push, dispatch | Build and publish the nixos-runner image from its Containerfile |
 | ToolHive fleet | `toolhive-fleet.yml` | PRs, push | Live-verify the MCP fleet catalog against running containers |
