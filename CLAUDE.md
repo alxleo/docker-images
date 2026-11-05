@@ -19,13 +19,19 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 | platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
 | tests | none | `"test_commands": [...]` |
+| dockle exemptions | none | `"dockle": {"ignore": {CODE: reason}, "accept_keys": {ENV_KEY: reason}}` |
 
-### Composite Action
+### Build Flow
 
-`.github/actions/build-image/action.yml` handles the common build flow:
-QEMU setup -> buildx (GHCR-mirrored BuildKit) -> build (with GHA cache).
-Callers handle tests, GHCR login, and pushing the final image.
+Custom images build through the reusable `.github/workflows/build-custom-image.yml`:
+a native-architecture matrix builds and tests each platform, then publishes the
+tested digests. BuildKit is `docker.io/moby/buildkit`, digest-pinned.
+`.github/actions/build-image/action.yml` (QEMU -> buildx -> build with GHA cache)
+is kept, but no workflow in this repository calls it.
 Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
+Trivy exceptions live beside the image: `.trivyignore.yaml` scopes each CVE to
+one file path inside the image (so a tool version bump expires it), plain
+`.trivyignore` applies image-wide; an image may carry only one of the two.
 
 ### Image Types
 
@@ -39,16 +45,24 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 | Base | Used by | Why |
 |------|---------|-----|
-| `node:26-alpine` | Dockerfile.npm, Dockerfile.python | Smallest viable Node base, no setuid binaries |
-| `node:26-slim` | Dockerfile.arxiv proxy stage | Python C extensions (pymupdf) need glibc |
-| `python:3.14-alpine` | mcp-reddit | Pure Python deps, Alpine viable |
-| `alpine:3.23` | mcp-auth-proxy (runtime) | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
+| `node:26-alpine` | Dockerfile.npm, Dockerfile.python, Dockerfile.slack, docs-hub, transmute (frontend stage) | Smallest viable Node base, no setuid binaries |
+| `node:26-slim` | Dockerfile.arxiv proxy stage | Supplies a glibc Node binary for the python-slim final image |
+| `python:3.14-alpine` | mcp-reddit, homelab-observer | Pure Python deps, Alpine viable |
+| `python:3.14-slim` | finrobot-mcp, openbb-mcp, Dockerfile.arxiv | glibc wheels (pymupdf in Dockerfile.arxiv) |
+| `alpine:3.23` | mcp-auth-proxy (runtime), docs-hub | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
+| `golang:1.26-bookworm` | mcp-auth-proxy, Dockerfile.slack (build stages) | Build stages that rebuild upstream Go sources |
+| `caddy:2.11` / `2.11-builder` | caddy-cloudflare | xcaddy plugin build |
+| `ubuntu:24.04` | gitea-ci-runner (arc-runner inherits it) | CI runner base |
 
-All images build multi-arch (amd64 + arm64). All have `USER` (non-root) and `HEALTHCHECK` where applicable.
+All images build multi-arch (amd64 + arm64) and have `HEALTHCHECK` where they
+`EXPOSE`. All have a non-root `USER` except the five with a recorded
+`conftest:exempt=user_required` reason: caddy-cloudflare, litellm,
+mcp-auth-proxy, open-webui and transmute.
 
 ### Versioning
 
-Each image gets a monotonically incrementing build counter tracked via git tags.
+Each custom image gets a monotonically incrementing build counter tracked via
+git tags. MCP images from `mcp-images.json` publish only `:{tag}` and `:latest`.
 
 - Base version: the `tag` field in `.ci.json` (defaults to `latest`)
 - Build counter: stored as `{name}/{tag}-build.{N}` git tags, auto-incremented on every push to main
@@ -74,8 +88,10 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, dispatch, mirror refresh | Auto-discover, matrix build, test, push; gitleaks scan on PRs; a successful mirror run rebuilds everything |
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
-| Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan |
+| Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
+| NixOS runner | `build-nixos-runner-image.yml` | push main, PRs (path-filtered), dispatch | Build the NixOS runner image |
+| ToolHive fleet | `toolhive-fleet.yml` | push main, PRs (path-filtered), dispatch | Live MCP contract checks for the ToolHive fleet |
 
 ### Dockerfile Policies
 

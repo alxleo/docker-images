@@ -5,9 +5,18 @@
 # avoids blocking merges on upstream CVE churn.
 name: Maintenance
 
+# Scan after the weekly mirror refresh has rebuilt the images. A cron here
+# shared Monday 03:23 with the mirror, and GitHub starts both hours late at
+# about the same moment, so the scan graded the previous week's :latest
+# (2 Nov: scan 11:23, mirror 11:27, rebuild done 11:33). The chain is
+# Mirror (schedule) -> Build Custom Images -> Maintenance, within GitHub's
+# three-level workflow_run limit. A failed mirror still completes a
+# (skipped) build run, so the scan still happens that week.
 on:
-  schedule:
-    - cron: '23 3 * * 1'  # Monday 03:23 UTC
+  workflow_run:
+    workflows: ["Build Custom Images"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +33,11 @@ jobs:
   # ---------------------------------------------------------------------------
   discover:
     name: Discover images
+    # Build Custom Images also completes on every push to main; only its
+    # mirror-triggered run is the weekly rebuild.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.event == 'workflow_run'
     runs-on: ubuntu-latest
     outputs:
       custom: ${{ steps.custom.outputs.images }}
@@ -59,10 +73,19 @@ jobs:
         id: trivyignore
         env:
           IMAGE_CONTEXT: ${{ matrix.context }}
+        # .trivyignore.yaml scopes an exception to one file path (and so one
+        # tool version); plain .trivyignore applies to the whole image. Trivy
+        # reads a single ignore file, so an image may carry only one of them.
         run: |
-          path="${IMAGE_CONTEXT}/.trivyignore"
-          if [ -f "$path" ]; then
-            echo "path=${path}" >> "$GITHUB_OUTPUT"
+          scoped="${IMAGE_CONTEXT}/.trivyignore.yaml"
+          plain="${IMAGE_CONTEXT}/.trivyignore"
+          if [ -f "$scoped" ] && [ -f "$plain" ]; then
+            echo "::error::${IMAGE_CONTEXT} has both .trivyignore and .trivyignore.yaml; keep one"
+            exit 1
+          elif [ -f "$scoped" ]; then
+            echo "path=${scoped}" >> "$GITHUB_OUTPUT"
+          elif [ -f "$plain" ]; then
+            echo "path=${plain}" >> "$GITHUB_OUTPUT"
           else
             echo "path=" >> "$GITHUB_OUTPUT"
           fi
@@ -106,9 +129,30 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.discover.outputs.custom) }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Repository-wide ignores cover upstream layers that dockle 0.4.15
+      # misreads; our own layers are linted statically instead:
+      # - DKL-DI-0004: apk-add layers inside upstream bases such as
+      #   python:*-alpine (ours: hadolint DL3019).
+      # - DKL-DI-0005: Debian's `apt-get dist-clean` in python:*-slim and
+      #   BuildKit cache-mounted apt lists both leave no lists in the image,
+      #   but dockle only recognises `rm -rf /var/lib/apt/lists` (ours: DL3009).
+      # Per-image exemptions live in <context>/.ci.json under "dockle", each
+      # mapped to its reason; test_manifests.py validates them.
       - name: Run dockle
+        env:
+          IMAGE_CONTEXT: ${{ matrix.context }}
+          IMAGE_NAME: ${{ matrix.name }}
         run: |
-          # DKL-DI-0004 fires on apk-add layers inside upstream base images (e.g. python:3.13-alpine); our own layers are covered by hadolint DL3019
+          per_image=()
+          if [ -f "${IMAGE_CONTEXT}/.ci.json" ]; then
+            mapfile -t per_image < <(jq -r '
+              (.dockle.ignore // {} | keys[] | ("--ignore", .)),
+              (.dockle.accept_keys // {} | keys[] | ("--accept-key", .))
+            ' "${IMAGE_CONTEXT}/.ci.json")
+          fi
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             goodwithtech/dockle:v0.4.15 \
@@ -118,5 +162,7 @@ jobs:
             --ignore CIS-DI-0005 \
             --ignore DKL-DI-0006 \
             --ignore DKL-DI-0004 \
+            --ignore DKL-DI-0005 \
             -af settings.py \
-            "ghcr.io/alxleo/${{ matrix.name }}:latest"
+            "${per_image[@]}" \
+            "ghcr.io/alxleo/${IMAGE_NAME}:latest"

@@ -44,8 +44,11 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64,linux/arm64"')
     build_args=$(echo "$ci_json" | jq -r '.build_args // ""')
     test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
-    test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
-    watch_paths=$(echo "$ci_json" | jq -c '.watch_paths // []')
+    # Wrongly typed lists would make CI iterate nothing and pass; fail instead.
+    test_commands=$(echo "$ci_json" | jq -ce --arg f "$name/.ci.json" \
+        '.test_commands // [] | if type == "array" and all(type == "string") then . else error("\($f): test_commands must be an array of strings") end')
+    watch_paths=$(echo "$ci_json" | jq -ce --arg f "$name/.ci.json" \
+        '.watch_paths // [] | if type == "array" and all(type == "string") then . else error("\($f): watch_paths must be an array of strings") end')
 
     # Build matrix entry
     entry=$(jq -n \

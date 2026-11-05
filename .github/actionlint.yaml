@@ -1,0 +1,6 @@
+# actionlint 1.7.12, the newest release, predates GitHub's ubuntu-26.04
+# hosted runners and rejects that label. Declaring it here is actionlint's
+# documented escape hatch; drop the entry once actionlint knows the label.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

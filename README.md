@@ -151,7 +151,7 @@ whose changes require that image's build and tests.
 |----------|---------|------|
 | **Build** | Push to main, PRs, dispatch | Auto-discover + matrix build, test, push to GHCR; gitleaks scan on PRs |
 | **Lint** | Push, PRs | ruff, shellcheck, hadolint, actionlint, yamllint, zizmor, lychee |
-| **Maintenance** | Weekly, dispatch | Trivy vuln scan, dockle CIS scan |
+| **Maintenance** | After the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | **Mirror base images** | Weekly, dispatch | Mirrors Docker Hub base images to GHCR |
 
 Base images mirrored to `ghcr.io/alxleo/base-images/` -- zero Docker Hub dependency for builds.

@@ -51,6 +51,7 @@ jobs:
           "test/test_custom_images.py::TestImageReferenceResolution"
           test/test_mcp_contract.py
           test/test_toolhive_fleet.py
+          test/test_check_user_has_group.py
 
   conftest:
     name: conftest (Dockerfile + Compose policies)
