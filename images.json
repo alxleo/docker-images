@@ -27,7 +27,6 @@
     "mcp-openbb",
     "litellm",
     "arc-runner",
-    "open-webui",
     "transmute"
   ]
 }
