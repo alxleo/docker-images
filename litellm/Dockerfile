@@ -2,7 +2,7 @@
 # One pinned proxy image for the native Helm and workstation deployments.
 FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
-FROM ghcr.io/berriai/litellm:v1.108.0@sha256:c560d317136880ea92d62334d4367ab10955b1af189dd3ea24f6551290b1d6c1
+FROM ghcr.io/berriai/litellm:v1.108.2@sha256:d8b4ac356743d647a13bb93f45b941fcd5f5354122cfd205948a1b192790389d
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 
