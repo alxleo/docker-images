@@ -82,7 +82,8 @@ image_dockerfile="$(jq -r '.dockerfile' <<<"$entry")"
 image_tag="$(jq -r '.tag' <<<"$entry")"
 configured_platforms="$(jq -r '.platforms' <<<"$entry")"
 build_args="$(jq -r '.build_args' <<<"$entry")"
-test_commands="$(jq -c '.test_commands' <<<"$entry")"
+test_file="$(jq -r '.test_file // ""' <<<"$entry")"
+test_commands="$(jq -c '.test_commands // []' <<<"$entry")"
 
 docker_arch="$(docker info --format '{{.Architecture}}')"
 case "$docker_arch" in
@@ -130,6 +131,13 @@ echo "==> Building $image_name as $image_ref ($build_platform)"
 export GITHUB_WORKSPACE="$repo_root"
 export IMAGE_NAME="$image_name"
 export IMAGE_REF="$image_ref"
+
+# Custom images carry a pytest module; CI runs the same command.
+if [[ -n "$test_file" ]]; then
+    echo "==> Running $test_file"
+    cd "$repo_root"
+    exec uv run --with pytest -- pytest -v --tb=short "$test_file"
+fi
 
 test_count="$(jq 'length' <<<"$test_commands")"
 if [[ "$test_count" -eq 0 ]]; then

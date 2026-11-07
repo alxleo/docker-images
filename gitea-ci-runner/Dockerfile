@@ -134,6 +134,7 @@ RUN --mount=type=bind,from=bun,source=/usr/local/bin/bun,target=/tmp/bun \
         wget \
         xz-utils \
         zip \
+        zsh \
         zstd \
         zlib1g-dev; \
     usermod --append --groups sudo ubuntu; \

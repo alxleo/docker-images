@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 import requests
+
 from conftest import extract_json_from_sse, mcp_initialize, mcp_tools_list
 
 # Load runtime defaults from the manifest (source of truth for downstream)

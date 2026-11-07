@@ -8,9 +8,10 @@
 #   platforms: linux/amd64,linux/arm64
 #   tag: latest
 #   build_args: ""
-#   test_setup: ""
-#   test_commands: []
 #   watch_paths: []
+#
+# Tests: <dir>/test_<dir with - as _>.py, a pytest module run against the
+# image just built (IMAGE_REF); see conftest.py at the repository root.
 #
 # Output: JSON array suitable for GitHub Actions matrix.
 
@@ -43,21 +44,22 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     tag=$(echo "$ci_json" | jq -r '.tag // "latest"')
     platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64,linux/arm64"')
     build_args=$(echo "$ci_json" | jq -r '.build_args // ""')
-    test_setup=$(echo "$ci_json" | jq -r '.test_setup // ""')
-    test_commands=$(echo "$ci_json" | jq -c '.test_commands // []')
     watch_paths=$(echo "$ci_json" | jq -c '.watch_paths // []')
+    test_file="$name/test_${name//-/_}.py"
+    if [[ ! -f "$REPO_ROOT/$test_file" ]]; then
+        test_file=""
+    fi
 
     # Build matrix entry
     entry=$(jq -n \
         --arg name "$image_name" \
-        --arg context "$(basename "$dir")" \
+        --arg context "$name" \
         --arg tag "$tag" \
         --arg platforms "$platforms" \
         --arg build_args "$build_args" \
-        --arg test_setup "$test_setup" \
-        --argjson test_commands "$test_commands" \
+        --arg test_file "$test_file" \
         --argjson watch_paths "$watch_paths" \
-        '{name: $name, context: $context, tag: $tag, platforms: $platforms, build_args: $build_args, test_setup: $test_setup, test_commands: $test_commands, watch_paths: $watch_paths}')
+        '{name: $name, context: $context, tag: $tag, platforms: $platforms, build_args: $build_args, test_file: $test_file, watch_paths: $watch_paths}')
 
     images=$(echo "$images" | jq --argjson entry "$entry" '. + [$entry]')
 done

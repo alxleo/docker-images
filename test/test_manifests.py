@@ -176,6 +176,22 @@ class TestCustomImagesManifest:
                 f"{entry['name']}: context dir '{entry['context']}' not found"
             )
 
+    def test_every_image_has_a_pytest_module(self):
+        for entry in CUSTOM_IMAGES:
+            expected = f"{entry['context']}/test_{entry['context'].replace('-', '_')}.py"
+            assert entry["test_file"] == expected, (
+                f"{entry['name']}: add {expected}, run against IMAGE_REF"
+            )
+
+    def test_ci_json_holds_no_shell_tests(self):
+        for entry in CUSTOM_IMAGES:
+            ci_path = REPO_ROOT / entry["context"] / ".ci.json"
+            if ci_path.exists():
+                legacy = {"test_commands", "test_setup"} & json.loads(ci_path.read_text()).keys()
+                assert not legacy, (
+                    f"{entry['name']}: move {sorted(legacy)} into {entry['test_file']}"
+                )
+
     def test_watch_paths_are_valid(self):
         for entry in CUSTOM_IMAGES:
             assert isinstance(entry["watch_paths"], list), (
@@ -222,15 +238,15 @@ class TestCustomImagesManifest:
         assert selected("test/test-native-mcp-image-smoke.sh") == {
             "mcp-reddit",
         }
-        assert selected("test/test_custom_images.py") == {
-            "caddy-cloudflare",
-            "mcp-auth-proxy",
-        }
+        assert selected("test/docker-compose.test.yml") == {"caddy-cloudflare"}
         assert selected(
-            "test/test_custom_images.py", include_watch_paths=False
+            "test/docker-compose.test.yml", include_watch_paths=False
         ) == set()
         assert selected(
             "caddy-cloudflare/Dockerfile", include_watch_paths=False
+        ) == {"caddy-cloudflare"}
+        assert selected(
+            "caddy-cloudflare/test_caddy_cloudflare.py", include_watch_paths=False
         ) == {"caddy-cloudflare"}
         assert selected("docs-hub/package.json") == {"docs-hub"}
         assert selected("README.md", ci_changed=True) == {

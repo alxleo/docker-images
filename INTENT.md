@@ -14,7 +14,7 @@ builds.
 - [ ] One local command validates image discovery, manifest parity, unit tests,
       and Dockerfile/Compose policies.
 - [ ] One local command builds a named custom image for the Docker host's native
-      architecture and runs that image's existing `.ci.json` test commands.
+      architecture and runs that image's pytest module, as CI does.
 - [ ] CI functional tests target the image built in the current job.
 - [ ] `images.json` contains exactly the auto-discovered custom images and
       `mcp-images.json` images, with no duplicates.
@@ -34,7 +34,7 @@ builds.
 
 1. A maintainer runs `just test-image <name-or-context>`.
 2. The repository resolves the image's `.ci.json`, builds a local image, and
-   exports that exact image reference to its existing test commands.
+   runs `<image>/test_<image>.py` against that exact image reference.
 3. The command fails before publication if the build or contract tests fail.
 
 ### Error Flow: Unknown image
@@ -63,8 +63,8 @@ builds.
   A: No. They use the Docker host's native architecture, matching CI's loaded
      test image while keeping feedback fast.
 - Q: Should CI bootstrap commands such as `sudo apt-get` run locally?
-  A: No. Local prerequisites are explicit; `.ci.json` `test_setup` remains
-     CI-only.
+  A: No. Local prerequisites are explicit, and image tests need only uv and
+     Docker on the host.
 
 ## Fit with Wider Picture
 

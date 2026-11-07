@@ -151,10 +151,10 @@ jobs:
           changed_dirs=$(echo "$changed_files" | cut -d/ -f1 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
           changed_files_json=$(echo "$changed_files" | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
-          # CI infra changed if build action, discovery scripts, or either custom
-          # image workflow changed.
+          # CI infra changed if build action, discovery scripts, either custom
+          # image workflow, or the shared image-test fixtures changed.
           ci_changed="false"
-          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-(images|custom-image)\.yml)' <<<"$changed_files"; then
+          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-(images|custom-image)\.yml|conftest\.py$|pytest\.ini$)' <<<"$changed_files"; then
             ci_changed="true"
           fi
           include_watch_paths="false"
@@ -278,8 +278,7 @@ jobs:
       tag: ${{ matrix.tag }}
       platforms: ${{ matrix.platforms }}
       build_args: ${{ matrix.build_args }}
-      test_setup: ${{ matrix.test_setup }}
-      test_commands: ${{ toJson(matrix.test_commands) }}
+      test_file: ${{ matrix.test_file }}
       version: ${{ matrix.version }}
       tag_name: ${{ matrix.tag_name }}
       publish: ${{ github.event_name != 'pull_request' }}
