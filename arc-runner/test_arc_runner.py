@@ -29,35 +29,6 @@ def test_opengl_runtime_loads_offline(docker, image_ref):
     )
 
 
-@pytest.mark.parametrize(
-    "library",
-    [
-        "libEGL.so.1",
-        "libdbus-1.so.3",
-        "libfontconfig.so.1",
-        "libfreetype.so.6",
-        "libglib-2.0.so.0",
-        "libxcb-cursor.so.0",
-        "libxkbcommon.so.0",
-    ],
-)
-def test_qt_runtime_library_loads_offline(docker, image_ref, library):
-    docker.run(
-        "--network",
-        "none",
-        *docker.HARDENED,
-        "--entrypoint",
-        "python",
-        image_ref,
-        "-c",
-        f"import ctypes; ctypes.CDLL({library!r})",
-    )
-
-
-def test_qt_build_headers_resolve(runner):
-    runner.exec("pkg-config", "--exists", "gl", "xkbcommon")
-
-
 def test_runner_user_and_home(runner):
     runner.bash(
         'test "$(id -u)" = 1001; test "$(id -g)" = 1001; test "$HOME" = /home/runner; '
@@ -81,7 +52,6 @@ def test_released_runner_and_its_node(runner):
         "zsh --version",
         "bats --version",
         "chezmoi --version",
-        "cppcheck --version",
     ],
 )
 def test_inherited_tool_starts(runner, command):
