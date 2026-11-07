@@ -23,13 +23,17 @@ on:
         description: Newline-separated Docker build arguments
         required: true
         type: string
+      test_file:
+        description: Pytest module run against the built image with IMAGE_REF set
+        default: ''
+        type: string
       test_setup:
-        description: Optional shell setup before image tests
-        required: true
+        description: Legacy shell setup before test_commands, for callers without a test_file
+        default: ''
         type: string
       test_commands:
-        description: JSON array of image test commands
-        required: true
+        description: Legacy JSON array of shell test commands, for callers without a test_file
+        default: '[]'
         type: string
       version:
         description: Monotonic build version
@@ -199,6 +203,18 @@ jobs:
             docker tag "$source_ref" "$image_ref"
           fi
           echo "image-ref=${image_ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up uv for image tests
+        if: inputs.test_file != ''
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Run image tests
+        if: inputs.test_file != ''
+        env:
+          IMAGE_NAME: ${{ inputs.name }}
+          IMAGE_REF: ${{ steps.image.outputs.image-ref }}
+          TEST_FILE: ${{ inputs.test_file }}
+        run: uv run --with pytest -- pytest -v --tb=short "$TEST_FILE"
 
       - name: Test setup
         if: inputs.test_setup != ''

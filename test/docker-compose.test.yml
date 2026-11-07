@@ -1,6 +1,7 @@
 services:
   caddy:
-    build: ../caddy-cloudflare
+    # The caddy-cloudflare image under test, never a separate build of it.
+    image: ${IMAGE_REF:?IMAGE_REF must name the caddy-cloudflare image under test}
     ports: ["8080:80"]
     volumes:
       - ./Caddyfile.test:/etc/caddy/Caddyfile

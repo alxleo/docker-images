@@ -136,14 +136,28 @@ That's it. The CI auto-discovers images from `*/Dockerfile`. Optional `.ci.json`
 ```json
 {
   "platforms": "linux/amd64,linux/arm64",
-  "test_commands": ["docker run --rm $IMAGE_REF sh -c 'tool --version'"],
   "watch_paths": ["test/shared-tool-smoke.sh"]
 }
 ```
 
 Conventions (no `.ci.json` needed): platforms=linux/amd64+linux/arm64,
-tag=latest, no tests. Use `watch_paths` for files outside the image context
-whose changes require that image's build and tests.
+tag=latest. Use `watch_paths` for files outside the image context whose changes
+require that image's build and tests.
+
+Tests live beside the Dockerfile in `my-image/test_my_image.py`, a pytest module
+that CI runs natively on each architecture against the image it just built:
+
+```python
+def test_tool_starts_unprivileged(docker, image_ref):
+    docker.run(*docker.HARDENED, "--entrypoint", "tool", image_ref, "--version")
+```
+
+The fixtures in the root `conftest.py` are `image_ref` (the build under test,
+never a published fallback) and `docker`. `docker.run`, `docker.start` (a
+detached container to `exec` into, removed at teardown) and `docker.host` (a
+compose stack or repository script) fail with the command's full output. Every
+`docker run` flag is written in the test, so the hardening a check depends on
+sits next to it.
 
 ## CI & Automation
 
@@ -160,7 +174,7 @@ Base images mirrored to `ghcr.io/alxleo/base-images/` -- zero Docker Hub depende
 
 | Suite | What | Trigger |
 |-------|------|---------|
-| Per-image tests | `.ci.json` `test_commands` (smoke tests, pytest) | Image changes |
+| Per-image tests | `<image>/test_<image>.py` (pytest against `IMAGE_REF`) | Image changes |
 | Caddy routing E2E | Snippet imports, handle_path, redirects | caddy-cloudflare changes |
 | MCP E2E stack | Full Caddy -> mcp-proxy -> MCP server chain | MCP or caddy changes |
 | MCP smoke | Standalone health + MCP initialize | MCP canaries (npm + Python) |
@@ -171,8 +185,8 @@ Run the fast local preflight before pushing:
 just check
 ```
 
-Build and exercise one custom image with the same `.ci.json` test commands CI
-uses, or one shared MCP image from `mcp-images.json`:
+Build and exercise one custom image with the same pytest command CI uses, or one
+shared MCP image from `mcp-images.json`:
 
 ```bash
 just test-image mcp-auth-proxy
@@ -204,5 +218,4 @@ independent protocol oracle (`server doctor`, `tools list`, and harmless
 free.
 
 Local prerequisites are Docker, `just`, `jq`, `uv`, and `conftest`. Targeted
-image tests may require additional tools named by their test commands (for
-example npm or ripgrep). CI-only `test_setup` commands are not run locally.
+image tests may require additional host tools that their test module calls.
