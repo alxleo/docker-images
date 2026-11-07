@@ -9,12 +9,18 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" 
 
 USER 0:0
 COPY --from=runner --chown=1001:1001 /home/runner /home/runner
+# The pod has no root and no Docker, so system libraries a job links against
+# come from here: the OpenGL runtime for CAD checks; the Qt runtime libraries
+# and the GL and xkbcommon headers for offscreen Qt builds and tests; cppcheck
+# for C/C++ source scans.
 RUN groupadd --gid 1001 runner && \
     useradd --uid 1001 --gid 1001 --home-dir /home/runner --shell /bin/bash runner && \
     rm -rf /home/runner/k8s && \
     /home/runner/bin/installdependencies.sh && \
     apt-get update && \
-    apt-get install --no-install-recommends --yes libgl1 && \
+    apt-get install --no-install-recommends --yes \
+        cppcheck libdbus-1-3 libegl1 libfontconfig1 libfreetype6 libgl1 \
+        libgl1-mesa-dev libglib2.0-0t64 libxcb-cursor0 libxkbcommon-dev && \
     rm -rf /var/lib/apt/lists/*
 # The pod is disposable and runs one job, so the job owns the tool tree: a locked
 # install adds versions beside the baseline in place and repoints their major and
