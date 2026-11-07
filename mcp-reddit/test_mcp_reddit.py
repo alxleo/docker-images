@@ -1,8 +1,5 @@
 """Acceptance tests for the native Reddit MCP image (run with IMAGE_REF set)."""
 
-import time
-import urllib.request
-
 import pytest
 
 
@@ -38,16 +35,10 @@ def server(docker, image_ref):
 
 
 def test_serves_mcp_contract(docker, server):
-    for _ in range(20):
-        try:
-            with urllib.request.urlopen("http://127.0.0.1:18081/ping", timeout=2) as response:
-                body = response.read().decode()
-            break
-        except OSError:
-            time.sleep(1)
-    else:
-        pytest.fail("the server never answered /ping")
-    assert body == "pong"
+    ping = docker.host(
+        "curl", "-fsS", "--retry", "20", "--retry-all-errors", "--retry-delay", "1", "http://127.0.0.1:18081/ping"
+    )
+    assert ping == "pong"
     docker.host("bash", "test/test-native-mcp-image-smoke.sh", server.id, "18081", "mcp-contracts/mcp-reddit.json")
 
 

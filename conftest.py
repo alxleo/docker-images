@@ -94,7 +94,7 @@ class Docker:
 @pytest.fixture(scope="session")
 def image_ref() -> str:
     """The image under test. There is no fallback, so a test can never exercise a stale published image."""
-    ref = os.environ.get("IMAGE_REF")
+    ref = os.environ.get("IMAGE_REF", "")
     if not ref:
         pytest.fail("IMAGE_REF must name the locally built image under test", pytrace=False)
     return ref
