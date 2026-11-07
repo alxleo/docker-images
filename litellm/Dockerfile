@@ -9,6 +9,10 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 # The upstream base pins these APK versions in /etc/apk/world, so ordinary
 # apk upgrade retains them: https://github.com/BerriAI/litellm/issues/47904.
 # These proxy deployments do not use the separately bundled AI admin agent.
+# The bundled litellm-admin-mcp metadata pins mcp==2.2.0 while the venv ships
+# mcp 2.3.0 (v1.108.3 lock override), which fails `uv pip check`; the proxy
+# extra itself requires mcp>=2.3.0,<3, so drop the unused package instead.
+# uv skips the uninstall with a warning once upstream stops bundling it.
 # conftest:exempt=user_required -- upstream Prisma client generation requires its existing /app permissions
 RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
     apk add --no-cache --upgrade \
@@ -19,6 +23,7 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "libcrypt1-2.44>=2.44-r8" \
     && apk upgrade --no-cache \
     && rm -rf /opt/liteadmin \
+    && uv pip uninstall --python /app/.venv/bin/python litellm-admin-mcp \
     && uv pip install --python /app/.venv/bin/python --upgrade \
         "certifi==2026.10.23" \
         "PyJWT==2.15.1" \
