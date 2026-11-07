@@ -17,7 +17,7 @@
     "@astrojs/starlight": "0.42.8",
     "@excalidraw/excalidraw": "0.18.1",
     "@google/model-viewer": "4.4.0",
-    "@scalar/api-reference": "1.76.4",
+    "@scalar/api-reference": "1.77.0",
     "astro": "7.4.7",
     "clsx": "2.1.1",
     "leaflet": "1.9.4",
