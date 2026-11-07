@@ -41,9 +41,27 @@ def test_released_runner_and_its_node(runner):
     assert runner.exec("/home/runner/externals/node24/bin/node", "-e", "console.log(1 + 1)").strip() == "2"
 
 
-@pytest.mark.parametrize("command", ["git --version", "kwokctl --version", "uv --version", "jq --version", "python --version"])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git --version",
+        "kwokctl --version",
+        "uv --version",
+        "jq --version",
+        "python --version",
+        "zsh --version",
+        "bats --version",
+        "chezmoi --version",
+    ],
+)
 def test_inherited_tool_starts(runner, command):
     runner.exec(*command.split())
+
+
+def test_zsh_at_both_paths_and_bats_runs_it(runner):
+    runner.bash("test -x /bin/zsh; test -x /usr/bin/zsh")
+    runner.bash("""printf '%s\\n' '@test "bats-ok" { run zsh -c "print -r zsh-ok"; [ "$output" = zsh-ok ]; }' > /tmp/ci.bats""")
+    assert "ok 1 bats-ok" in runner.exec("bats", "/tmp/ci.bats")
 
 
 def test_inherited_tool_tree_is_complete(runner):
