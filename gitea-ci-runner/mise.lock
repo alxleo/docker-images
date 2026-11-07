@@ -566,6 +566,7 @@ url_api = "https://api.github.com/repos/opentofu/opentofu/releases/assets/603708
 version = "2.22.0"
 backend = "pipx:ansible-core"
 specifiers = ["2.22.0"]
+uv = { path = ".mise/locks/pipx-ansible-core/2.22.0~b9bc26bc", digest = "sha256:7b60985b4f7b8ddfbcb8763bad128f3b77b35650000637daa5c51cf995817825" }
 
 [tools."pipx:ansible-core".options]
 python = "3.13"
