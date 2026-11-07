@@ -13,7 +13,6 @@ TOOL_COMMANDS = [
     "mise --version",
     "pre-commit --version",
     "actions-up --version",
-    "just --version",
     "zsh --version",
     "bats --version",
     "chezmoi --version",

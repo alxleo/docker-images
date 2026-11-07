@@ -19,7 +19,6 @@ node = ["24.22.2", "26.13.0"]
 # fails the build if its version differs from this pin.
 bun = "1.4.4"
 uv = "0.13.6"
-just = "1.59.0"
 bats = "1.13.0"
 chezmoi = "2.70.3"
 
