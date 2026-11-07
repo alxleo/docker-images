@@ -37,19 +37,19 @@ url_api = "https://api.github.com/repos/FiloSottile/age/releases/assets/53554190
 provenance = "github-attestations"
 
 [[tools.bats]]
-version = "1.13.0"
+version = "1.14.0"
 backend = "aqua:bats-core/bats-core"
-specifiers = ["1.13.0"]
+specifiers = ["1.14.0"]
 
 [tools.bats."platforms.linux-arm64"]
-checksum = "sha256:a85e12b8828271a152b338ca8109aa23493b57950987c8e6dff97ba492772ff3"
-url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.13.0.tar.gz"
-url_api = "https://api.github.com/repos/bats-core/bats-core/tarball/v1.13.0"
+checksum = "sha256:bb537b70b15b732f6d8827dd6578e3d8ce166636ce1f18ea9a074184fcce9177"
+url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.14.0.tar.gz"
+url_api = "https://api.github.com/repos/bats-core/bats-core/tarball/v1.14.0"
 
 [tools.bats."platforms.linux-x64"]
-checksum = "sha256:a85e12b8828271a152b338ca8109aa23493b57950987c8e6dff97ba492772ff3"
-url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.13.0.tar.gz"
-url_api = "https://api.github.com/repos/bats-core/bats-core/tarball/v1.13.0"
+checksum = "sha256:bb537b70b15b732f6d8827dd6578e3d8ce166636ce1f18ea9a074184fcce9177"
+url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.14.0.tar.gz"
+url_api = "https://api.github.com/repos/bats-core/bats-core/tarball/v1.14.0"
 
 [[tools.bun]]
 version = "1.4.4"
@@ -81,38 +81,38 @@ checksum = "sha256:6e9c37098b293920aed28bfb51ab240e26d23bfdd9bbfecb3ad428ac16654
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64-musl-baseline.zip"
 
 [[tools.caddy]]
-version = "2.11.7"
+version = "2.11.8"
 backend = "aqua:caddyserver/caddy"
-specifiers = ["2.11.7"]
+specifiers = ["2.11.8"]
 
 [tools.caddy."platforms.linux-arm64"]
-checksum = "sha256:d8fc6d179a5d283028a472a5618564f6ad8a86fed513e64f032b3b0b7cc45e42"
+checksum = "sha256:6781a68e090fecda8c563b5a3b00115e18d7134084099ae804a017622471bed1"
 checksum_source = "mise-versions"
-url = "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/607244906"
+url = "https://github.com/caddyserver/caddy/releases/download/v2.11.8/caddy_2.11.8_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/707697363"
 
 [tools.caddy."platforms.linux-x64"]
-checksum = "sha256:727b91701a392de6ebc5027509f548bf39979e5216340d0faed8fa5e69c84f8b"
+checksum = "sha256:f032f8805e4df2ce5e1a8a624495c91e9ff763d8ff3ceddadd4784a07c472f40"
 checksum_source = "mise-versions"
-url = "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/607245028"
+url = "https://github.com/caddyserver/caddy/releases/download/v2.11.8/caddy_2.11.8_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/707697419"
 
 [[tools.chezmoi]]
-version = "2.70.3"
+version = "2.74.0"
 backend = "aqua:twpayne/chezmoi"
-specifiers = ["2.70.3"]
+specifiers = ["2.74.0"]
 
 [tools.chezmoi."platforms.linux-arm64"]
-checksum = "sha256:f094f9baccbe1e5e9744fc70f74974ba1793f2cba550f8b4a9d0fe5310f4a38f"
-checksum_source = "mise-versions"
-url = "https://github.com/twpayne/chezmoi/releases/download/v2.70.3/chezmoi_2.70.3_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/414712743"
+checksum = "sha256:bf89495d1aab5e4fa0fc1ba9457837b34ee8dec9b787570f2de3e1c12a5835a5"
+url = "https://github.com/twpayne/chezmoi/releases/download/v2.74.0/chezmoi_2.74.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/698495649"
+provenance = "cosign"
 
 [tools.chezmoi."platforms.linux-x64"]
-checksum = "sha256:ed3a131a7e71798513255d8c05534a14a16d98839820708e839d3403be5b46b2"
-checksum_source = "mise-versions"
-url = "https://github.com/twpayne/chezmoi/releases/download/v2.70.3/chezmoi_2.70.3_linux-glibc_amd64.tar.gz"
-url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/414712776"
+checksum = "sha256:1b98a567f726f41540414aea4caf912699d53e248b29ccf8369cf553657b2374"
+url = "https://github.com/twpayne/chezmoi/releases/download/v2.74.0/chezmoi_2.74.0_linux-glibc_amd64.tar.gz"
+url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/698495837"
+provenance = "cosign"
 
 [[tools.cilium-hubble]]
 version = "1.20.2"
@@ -498,10 +498,10 @@ backend = "npm:actions-up"
 specifiers = ["2.0.0"]
 
 [[tools."npm:dependency-cruiser"]]
-version = "18.7.1"
-aube = { path = ".mise/locks/npm-dependency-cruiser/18.7.1", digest = "sha256:dc3ff2475d233a8dd5f7e55475444e99bc1afc16a244099384cde4ff99bda369" }
+version = "18.7.2"
+aube = { path = ".mise/locks/npm-dependency-cruiser/18.7.2", digest = "sha256:6f391ac00f1f025bc2d794db95397d7416d78b5733333f8983a959c73c4792d4" }
 backend = "npm:dependency-cruiser"
-specifiers = ["18.7.1"]
+specifiers = ["18.7.2"]
 
 [[tools."npm:jscpd"]]
 version = "5.4.2"
@@ -563,29 +563,28 @@ url = "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.
 url_api = "https://api.github.com/repos/opentofu/opentofu/releases/assets/603708017"
 
 [[tools."pipx:ansible-core"]]
-version = "2.21.5"
+version = "2.22.0"
 backend = "pipx:ansible-core"
-specifiers = ["2.21.5"]
-uv = { path = ".mise/locks/pipx-ansible-core/2.21.5~b9bc26bc", digest = "sha256:1ee762ac2477602c0cc901fc7554fcc92d5bc43f03f7c15c55fdaa623b7f6cd7" }
+specifiers = ["2.22.0"]
 
 [tools."pipx:ansible-core".options]
 python = "3.13"
 
 [[tools.pluto]]
-version = "5.24.4"
+version = "5.24.5"
 backend = "aqua:FairwindsOps/pluto"
-specifiers = ["5.24.4"]
+specifiers = ["5.24.5"]
 
 [tools.pluto."platforms.linux-arm64"]
-checksum = "sha256:46afed19dec949bd9f7c1da0422ce9d1bdb22c15ae8441552374642ac72f0882"
-url = "https://github.com/FairwindsOps/pluto/releases/download/v5.24.4/pluto_5.24.4_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/FairwindsOps/pluto/releases/assets/566228169"
+checksum = "sha256:2b00f52285f0298ae7cec55d34e2387ed725584d072e67c8fa88bee662169f10"
+url = "https://github.com/FairwindsOps/pluto/releases/download/v5.24.5/pluto_5.24.5_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/FairwindsOps/pluto/releases/assets/706695058"
 provenance = "cosign"
 
 [tools.pluto."platforms.linux-x64"]
-checksum = "sha256:1e5077ce1016fb0bb8ce0103c12b7ca8666eb3959d787ecfc95d9b8acd507147"
-url = "https://github.com/FairwindsOps/pluto/releases/download/v5.24.4/pluto_5.24.4_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/FairwindsOps/pluto/releases/assets/566228176"
+checksum = "sha256:80076e01a320e1f4db30f5dbc927d204e61cd8abed66fa0b4644ca61cd86b39e"
+url = "https://github.com/FairwindsOps/pluto/releases/download/v5.24.5/pluto_5.24.5_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/FairwindsOps/pluto/releases/assets/706694977"
 provenance = "cosign"
 
 [[tools.pre-commit]]
@@ -801,20 +800,20 @@ url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/66225
 provenance = "cosign"
 
 [[tools.uv]]
-version = "0.13.6"
+version = "0.13.7"
 backend = "aqua:astral-sh/uv"
-specifiers = ["0.13.6"]
+specifiers = ["0.13.7"]
 
 [tools.uv."platforms.linux-arm64"]
-checksum = "sha256:229e194255c7958d86d56e8790d969a6f74736592133f0dfd0076f754c642c1d"
-url = "https://github.com/astral-sh/uv/releases/download/0.13.6/uv-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/679980412"
+checksum = "sha256:71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc"
+url = "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/704009469"
 provenance = "github-attestations"
 
 [tools.uv."platforms.linux-x64"]
-checksum = "sha256:f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
-url = "https://github.com/astral-sh/uv/releases/download/0.13.6/uv-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/679980644"
+checksum = "sha256:c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83"
+url = "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/704009823"
 provenance = "github-attestations"
 
 [[tools.yamllint]]
@@ -844,18 +843,18 @@ url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/597222595"
 provenance = "cosign"
 
 [[tools.zizmor]]
-version = "1.31.1"
+version = "1.32.0"
 backend = "aqua:zizmorcore/zizmor"
-specifiers = ["1.31.1"]
+specifiers = ["1.32.0"]
 
 [tools.zizmor."platforms.linux-arm64"]
-checksum = "sha256:37eebbd5762a44f262d94875431b14a6d2402991e90a685113ea97b8b41be833"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/645467282"
+checksum = "sha256:cb152b207f815116d7fa1c1ee4614f61578803351395052908095e79adfd9fd0"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v1.32.0/zizmor-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/703541931"
 provenance = "github-attestations"
 
 [tools.zizmor."platforms.linux-x64"]
-checksum = "sha256:d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/645467284"
+checksum = "sha256:bb110cc765eca9cd7efb2e284a956be5974c60027b0970f16397d86208a9957b"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v1.32.0/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/703541932"
 provenance = "github-attestations"
