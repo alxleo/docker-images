@@ -18,7 +18,12 @@ Any directory with a `Dockerfile` is an image. No central manifest to maintain.
 | name | directory name | `"name": "published-image-name"` |
 | platforms | `linux/amd64,linux/arm64` | `"platforms": "linux/arm64"` |
 | tag | `latest` | `"tag": "v2.11"` |
-| tests | none | `"test_commands": [...]` |
+
+Tests are not a `.ci.json` field. Each image's acceptance tests live in
+`<dir>/test_<dir with - as _>.py`, a pytest module that uses the root
+`conftest.py` fixtures (`image_ref`, `docker`) against the image named by
+`IMAGE_REF`. Discovery emits it as `test_file`; a manifest test requires one
+per image and rejects shell `test_commands` in `.ci.json`.
 
 ### Composite Action
 
@@ -31,7 +36,7 @@ Vulnerability scanning runs weekly in `maintenance.yml`, not inline.
 
 | Type | How | Examples |
 |------|-----|---------|
-| **Custom images** | `*/Dockerfile` + `.ci.json` | caddy-cloudflare, docs-hub, mcp-reddit |
+| **Custom images** | `*/Dockerfile` + pytest module + optional `.ci.json` | caddy-cloudflare, docs-hub, mcp-reddit |
 | **MCP images** | `mcp-images.json` -> purpose-fit Dockerfile | mcp-brave, mcp-arxiv |
 | **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose) |
 
@@ -102,8 +107,9 @@ gitleaks, shellcheck, hadolint, check-user-has-group (USER numeric ID must have 
 
 1. Create `my-image/Dockerfile`
 2. Add `LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images`
-3. Optional: `my-image/.ci.json` for tests, multi-platform, or custom tag
-4. Push. CI auto-discovers and builds it.
+3. Add `my-image/test_my_image.py` with its acceptance tests (required)
+4. Optional: `my-image/.ci.json` for platforms, custom tag, or name
+5. Push. CI auto-discovers and builds it.
 
 ### Patched upstream pattern
 
@@ -126,12 +132,12 @@ Edit `mcp-images.json` to add/update. Fields: `name`, `dockerfile`, `build_args`
 # Fast discovery, manifest, unit, and policy preflight
 just check
 
-# Build one image and run its .ci.json tests against that exact local image
+# Build one image and run its pytest module against that exact local image
 just test-image caddy-cloudflare
 
 # Mirror base images (run after bumping a base image version)
 bash scripts/mirror-base-images.sh
 ```
 
-Keep `justfile` recipes thin. Image-specific behavior belongs in `.ci.json` so
-local and GitHub Actions verification use the same test commands.
+Keep `justfile` recipes thin. Image-specific checks belong in the image's pytest
+module so local and GitHub Actions verification run the same tests.
