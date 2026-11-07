@@ -13,12 +13,12 @@
     "test": "DOCS_HUB_CONFIG_ROOT=./test-config node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@astrojs/react": "7.1.2",
+    "@astrojs/react": "7.1.4",
     "@astrojs/starlight": "0.42.8",
     "@excalidraw/excalidraw": "0.18.1",
     "@google/model-viewer": "4.4.0",
     "@scalar/api-reference": "1.76.4",
-    "astro": "7.4.5",
+    "astro": "7.4.7",
     "clsx": "2.1.1",
     "leaflet": "1.9.4",
     "mermaid": "12.3.0",
