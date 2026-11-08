@@ -24,6 +24,7 @@ images=(
     "node:26-slim"
     "python:3.14-alpine"
     "python:3.14-slim"
+    "python:3.15-alpine"
     "ubuntu:24.04"
 )
 

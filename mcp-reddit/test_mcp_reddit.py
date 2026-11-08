@@ -12,7 +12,7 @@ def test_project_unit_suite(docker):
 
 
 def test_python_line(docker, image_ref):
-    assert _python(docker, image_ref, "import sys; print(sys.version)").startswith("3.14.")
+    assert _python(docker, image_ref, "import sys; print(sys.version)").startswith("3.15.")
 
 
 def test_image_ships_the_locked_mcp_sdk(docker, image_ref):
