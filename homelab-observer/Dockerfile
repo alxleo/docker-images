@@ -4,7 +4,7 @@ ARG UV_VERSION=0.13.7
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ghcr.io/alxleo/base-images/python:3.14-alpine
+FROM ghcr.io/alxleo/base-images/python:3.15-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 COPY --from=uv /uv /usr/local/bin/uv
