@@ -128,6 +128,11 @@ jobs:
     permissions:
       contents: read
       packages: write  # push the tested per-architecture digest to GHCR
+    # Each leg sets only its own architecture's output; GitHub combines a
+    # matrix's outputs and never lets an empty value override another leg's.
+    outputs:
+      digest_amd64: ${{ steps.digest.outputs.amd64 }}
+      digest_arm64: ${{ steps.digest.outputs.arm64 }}
     strategy:
       fail-fast: false
       matrix:
@@ -239,21 +244,17 @@ jobs:
             echo "::endgroup::"
           done
 
-      - name: Save published digest
+      # A job output, not an artifact: artifact storage is one small allowance
+      # shared by every repository in the account.
+      - name: Hand the published digest to publish
+        id: digest
         if: inputs.publish
         env:
           IMAGE_ARCH: ${{ matrix.arch }}
           BUILD_DIGEST: ${{ steps.build.outputs.digest }}
-        run: printf '%s\n' "$BUILD_DIGEST" > "digest-${IMAGE_ARCH}"
-
-      - name: Upload published digest
-        if: inputs.publish
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: custom-image-digest-${{ inputs.name }}-${{ matrix.arch }}-${{ github.run_id }}
-          path: digest-${{ matrix.arch }}
-          if-no-files-found: error
-          overwrite: true
+        run: |
+          [[ "$BUILD_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf '%s=%s\n' "$IMAGE_ARCH" "$BUILD_DIGEST" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Publish ${{ inputs.name }}
@@ -284,13 +285,6 @@ jobs:
             [registry."docker.io"]
               mirrors = ["mirror.gcr.io"]
 
-      - name: Download architecture digests
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: custom-image-digest-${{ inputs.name }}-*-${{ github.run_id }}
-          path: ${{ runner.temp }}/custom-image-digests
-          merge-multiple: true
-
       - name: Merge tested digests and advance tags
         env:
           IMAGE_NAME: ${{ inputs.name }}
@@ -298,7 +292,8 @@ jobs:
           IMAGE_PLATFORMS: ${{ inputs.platforms }}
           IMAGE_VERSION: ${{ inputs.version }}
           TAG_NAME: ${{ inputs.tag_name }}
-          DIGEST_DIR: ${{ runner.temp }}/custom-image-digests
+          DIGEST_AMD64: ${{ needs.build.outputs.digest_amd64 }}
+          DIGEST_ARM64: ${{ needs.build.outputs.digest_arm64 }}
         run: |
           set -euo pipefail
           image="${REGISTRY}/${OWNER}/${IMAGE_NAME}"
@@ -306,16 +301,17 @@ jobs:
           while IFS= read -r platform; do
             [[ -n "$platform" ]] || continue
             case "$platform" in
-              linux/amd64) arch=amd64 ;;
-              linux/arm64) arch=arm64 ;;
+              linux/amd64) digest=$DIGEST_AMD64 ;;
+              linux/arm64) digest=$DIGEST_ARM64 ;;
               *)
                 echo "Unsupported custom image platform: ${platform}" >&2
                 exit 1
                 ;;
             esac
-            digest_file="${DIGEST_DIR}/digest-${arch}"
-            test -s "$digest_file"
-            digest=$(<"$digest_file")
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "No tested digest for ${platform}" >&2
+              exit 1
+            fi
             sources+=("${image}@${digest}")
           done < <(tr ',' '\n' <<< "${IMAGE_PLATFORMS}")
           test "${#sources[@]}" -gt 0

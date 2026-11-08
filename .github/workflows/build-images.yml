@@ -256,7 +256,7 @@ jobs:
 
   # One reusable workflow call per image keeps publication scoped to that
   # image's architecture matrix. A failed image cannot block unrelated images,
-  # and a failed current rerun cannot promote an older digest artifact.
+  # and a failed current rerun cannot promote an older run's digest.
   custom-images:
     name: ${{ matrix.name }}
     needs: [discover, resolve-custom-matrix]
