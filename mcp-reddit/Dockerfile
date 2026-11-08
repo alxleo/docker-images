@@ -7,23 +7,27 @@
 # near-real-time archive with full comment trees. The server exposes native
 # Streamable HTTP. Read-only; no secrets required.
 
-# Stage 1: resolve the locked Python 3.14 environment.
-FROM ghcr.io/alxleo/base-images/python:3.14-alpine AS build
+# Stage 1: resolve the locked Python 3.15 environment.
+FROM ghcr.io/alxleo/base-images/python:3.15-alpine AS build
 WORKDIR /app
+# The lock requires ==3.15.*, which the base interpreter satisfies; pinning
+# uv to system-only keeps it from silently provisioning a managed CPython
+# whose binary would not exist in the runtime stage's copied venv.
+ENV UV_PYTHON_PREFERENCE=only-system
 RUN pip install --no-cache-dir uv==0.13.6
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Stage 2: Runtime
-FROM ghcr.io/alxleo/base-images/python:3.14-alpine
+FROM ghcr.io/alxleo/base-images/python:3.15-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 
 ENV PATH="/app/.venv/bin:${PATH}"
 COPY --from=build /app/.venv /app/.venv
 
 # The service runs its locked venv and needs no package bootstrap at runtime.
-RUN /usr/local/bin/python3.14 -m pip uninstall --yes pip setuptools \
-    && rm -rf /usr/local/lib/python3.14/ensurepip
+RUN /usr/local/bin/python3.15 -m pip uninstall --yes pip setuptools \
+    && rm -rf /usr/local/lib/python3.15/ensurepip
 
 # Copy server code
 COPY server.py /app/server.py
