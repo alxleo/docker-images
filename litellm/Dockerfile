@@ -2,13 +2,17 @@
 # One pinned proxy image for the native Helm and workstation deployments.
 FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
-FROM ghcr.io/berriai/litellm:v1.108.0@sha256:c560d317136880ea92d62334d4367ab10955b1af189dd3ea24f6551290b1d6c1
+FROM ghcr.io/berriai/litellm:v1.108.3@sha256:f14d0a035d84d1a8bc98538faf5999e456641fd4cfa191822fd4be1934c1f4f6
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 
 # The upstream base pins these APK versions in /etc/apk/world, so ordinary
 # apk upgrade retains them: https://github.com/BerriAI/litellm/issues/47904.
 # These proxy deployments do not use the separately bundled AI admin agent.
+# The bundled litellm-admin-mcp metadata pins mcp==2.2.0 while the venv ships
+# mcp 2.3.0 (v1.108.3 lock override), which fails `uv pip check`; the proxy
+# extra itself requires mcp>=2.3.0,<3, so drop the unused package instead.
+# uv skips the uninstall with a warning once upstream stops bundling it.
 # conftest:exempt=user_required -- upstream Prisma client generation requires its existing /app permissions
 RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
     apk add --no-cache --upgrade \
@@ -19,6 +23,7 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "libcrypt1-2.44>=2.44-r8" \
     && apk upgrade --no-cache \
     && rm -rf /opt/liteadmin \
+    && uv pip uninstall --python /app/.venv/bin/python litellm-admin-mcp \
     && uv pip install --python /app/.venv/bin/python --upgrade \
         "certifi==2026.10.23" \
         "PyJWT==2.15.1" \
