@@ -97,4 +97,21 @@ shared_path = library.storage.path(shared.path_within_library)
 require_status(request(http, write, "POST", "/models/merge", {models: [child.public_id], target: parent.public_id}), 302)
 raise "shared bytes removed" unless File.binread(shared_path) == "solid shared\nendsolid shared\n"
 raise "shared target row removed" unless parent.reload.model_files.exists?(alias_file.id)
+# A stale equal-digest row is not proof that its physical bytes still exist.
+stale_target = make_model(library, "stale-target")
+only_source = make_model(library, "only-source")
+stale = add_file(stale_target, "missing.stl", "solid only-copy\nendsolid only-copy\n")
+File.unlink(library.storage.path(stale.path_within_library))
+retained = add_file(only_source, "missing.stl", "solid only-copy\nendsolid only-copy\n")
+require_status(request(http, write, "POST", "/models/merge", {models: [only_source.public_id], target: stale_target.public_id}), 302)
+raise "only remaining copy removed" unless retained.reload.attachment.read == "solid only-copy\nendsolid only-copy\n"
+# Native file writeback updates bytes before asynchronous digest recalculation.
+stale_digest = make_model(library, "stale-digest")
+incoming = make_model(library, "incoming")
+changed = add_file(stale_digest, "changed.stl", "solid old\nendsolid old\n")
+File.binwrite(library.storage.path(changed.path_within_library), "solid changed\nendsolid changed\n")
+original = add_file(incoming, "changed.stl", "solid old\nendsolid old\n")
+require_status(request(http, write, "POST", "/models/merge", {models: [incoming.public_id], target: stale_digest.public_id}), 302)
+raise "changed target bytes lost" unless changed.reload.attachment.read == "solid changed\nendsolid changed\n"
+raise "stale digest destroyed distinct bytes" unless original.reload.attachment.read == "solid old\nendsolid old\n"
 puts "native merge, scope boundaries, collection references, unlinked streams, metadata and collision preservation passed"
