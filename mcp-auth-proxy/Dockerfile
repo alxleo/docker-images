@@ -26,9 +26,11 @@ RUN go get golang.org/x/net@v0.62.0 google.golang.org/grpc@v1.85.0 \
 # before its custom callback runs. Remove when upstream recovery suppresses
 # http.ErrAbortHandler before logging it.
 # https://github.com/sigbit/mcp-auth-proxy/issues/103
-COPY quiet-abort-handler.patch /tmp/quiet-abort-handler.patch
-RUN git apply /tmp/quiet-abort-handler.patch \
-    && go test ./pkg/mcp-proxy
+# Remove the conformance patch when upstream validates redirect transports at
+# registration and authorization, and sends Bearer discovery challenges on 401.
+COPY quiet-abort-handler.patch oauth-conformance.patch /tmp/
+RUN git apply /tmp/quiet-abort-handler.patch /tmp/oauth-conformance.patch \
+    && go test -count=1 ./pkg/idp ./pkg/proxy ./pkg/mcp-proxy
 
 # Test on the native builder once, then cross-compile the static binary for each
 # requested image platform. Running the test inside an emulated arm64 builder

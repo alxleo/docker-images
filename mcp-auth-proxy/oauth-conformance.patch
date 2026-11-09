@@ -1,0 +1,347 @@
+diff --git a/pkg/idp/idp.go b/pkg/idp/idp.go
+index e7088da..92a757d 100644
+--- a/pkg/idp/idp.go
++++ b/pkg/idp/idp.go
+@@ -136,6 +136,11 @@ func (a *IDPRouter) handleAuth(c *gin.Context) {
+ 	}
+ 
+ 	ar, err := a.provider.NewAuthorizeRequest(ctx, c.Request)
++	// Fosite can redirect errors after resolving an older client's callback.
++	if ar != nil && ar.GetRedirectURI() != nil && !validRedirectURI(ar.GetRedirectURI().String()) {
++		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "error_description": "Redirect URI must use HTTPS or loopback HTTP"})
++		return
++	}
+ 	if err != nil {
+ 		a.provider.WriteAuthorizeError(ctx, c.Writer, ar, err)
+ 		return
+@@ -187,6 +192,10 @@ func (a *IDPRouter) handleAuthorizationReturn(c *gin.Context) {
+ 			a.logger.Error("Failed to delete authorize requester", zap.Error(err))
+ 		}
+ 	}()
++	if ar.GetRedirectURI() == nil || !validRedirectURI(ar.GetRedirectURI().String()) {
++		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "error_description": "Redirect URI must use HTTPS or loopback HTTP"})
++		return
++	}
+ 
+ 	for _, scope := range ar.GetRequestedScopes() {
+ 		ar.GrantScope(scope)
+@@ -346,6 +355,16 @@ func (a *IDPRouter) handleRegister(c *gin.Context) {
+ 		c.JSON(400, gin.H{"error": "invalid_request", "error_description": err.Error()})
+ 		return
+ 	}
++	if len(req.RedirectURIs) == 0 {
++		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_redirect_uri", "error_description": "At least one redirect URI is required"})
++		return
++	}
++	for _, redirect := range req.RedirectURIs {
++		if !validRedirectURI(redirect) {
++			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_redirect_uri", "error_description": "Redirect URI must use HTTPS or loopback HTTP"})
++			return
++		}
++	}
+ 
+ 	clientID, err := utils.GenerateClientID()
+ 	if err != nil {
+diff --git a/pkg/idp/redirect_policy.go b/pkg/idp/redirect_policy.go
+new file mode 100644
+index 0000000..0799064
+--- /dev/null
++++ b/pkg/idp/redirect_policy.go
+@@ -0,0 +1,27 @@
++package idp
++
++import (
++	"net/netip"
++	"net/url"
++	"strings"
++)
++
++// MCP callbacks use HTTPS, except for local native-client HTTP listeners.
++func validRedirectURI(raw string) bool {
++	uri, err := url.Parse(raw)
++	if err != nil || uri.Opaque != "" || uri.Hostname() == "" || uri.User != nil || strings.Contains(raw, "#") {
++		return false
++	}
++	switch strings.ToLower(uri.Scheme) {
++	case "https":
++		return true
++	case "http":
++		if strings.EqualFold(uri.Hostname(), "localhost") {
++			return true
++		}
++		address, err := netip.ParseAddr(uri.Hostname())
++		return err == nil && address.Zone() == "" && address.Unmap().IsLoopback()
++	default:
++		return false
++	}
++}
+diff --git a/pkg/idp/redirect_policy_test.go b/pkg/idp/redirect_policy_test.go
+new file mode 100644
+index 0000000..5d17885
+--- /dev/null
++++ b/pkg/idp/redirect_policy_test.go
+@@ -0,0 +1,175 @@
++package idp
++
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"encoding/base64"
++	"encoding/json"
++	"net/http"
++	"net/http/cookiejar"
++	"net/url"
++	"strings"
++	"testing"
++
++	"github.com/ory/fosite"
++	"github.com/sigbit/mcp-auth-proxy/v2/pkg/repository"
++	"github.com/stretchr/testify/require"
++)
++
++func TestMCPRedirectRegistration(t *testing.T) {
++	server, _, _ := setupTestServer(t)
++	cases := []struct {
++		uri     string
++		allowed bool
++	}{
++		{"https://claude.ai/api/mcp/auth_callback", true},
++		{"https://claude.com/api/mcp/auth_callback", true},
++		{"https://client.example/callback?existing=query", true},
++		{"http://localhost:8080/callback", true},
++		{"http://LOCALHOST:8080/callback", true},
++		{"http://127.0.0.1:49152/callback", true},
++		{"http://127.20.30.40:49152/callback", true},
++		{"http://[::1]:49152/callback", true},
++		{"http://client.example/callback", false},
++		{"http://192.168.1.1/callback", false},
++		{"http://localhost.attacker.example/callback", false},
++		{"http://127.0.0.1.attacker.example/callback", false},
++		{"http://127.1/callback", false},
++		{"http://2130706433/callback", false},
++		{"http://[::1%25eth0]/callback", false},
++		{"http://localhost@attacker.example/callback", false},
++		{"https://user:password@client.example/callback", false},
++		{"https://client.example/callback#fragment", false},
++		{"https://client.example/callback#", false},
++		{"https:///callback", false},
++		{"https:client.example/callback", false},
++		{"/callback", false},
++		{"//client.example/callback", false},
++		{"javascript:alert(1)", false},
++		{"data:text/plain,callback", false},
++		{"file:///callback", false},
++		{"", false},
++	}
++	for _, tc := range cases {
++		t.Run(tc.uri, func(t *testing.T) {
++			body, err := json.Marshal(registrationRequest{RedirectURIs: []string{tc.uri}, TokenEndpointAuthMethod: "none"})
++			require.NoError(t, err)
++			response, err := http.Post(server.URL+RegistrationEndpoint, "application/json", bytes.NewReader(body))
++			require.NoError(t, err)
++			defer response.Body.Close()
++			if tc.allowed {
++				require.Equal(t, http.StatusCreated, response.StatusCode)
++			} else {
++				require.Equal(t, http.StatusBadRequest, response.StatusCode)
++				var result map[string]any
++				require.NoError(t, json.NewDecoder(response.Body).Decode(&result))
++				require.Equal(t, "invalid_redirect_uri", result["error"])
++				require.NotContains(t, result, "client_id")
++			}
++		})
++	}
++	for _, uris := range [][]string{nil, {"https://claude.ai/api/mcp/auth_callback", "http://attacker.example/callback"}} {
++		body, err := json.Marshal(registrationRequest{RedirectURIs: uris, TokenEndpointAuthMethod: "none"})
++		require.NoError(t, err)
++		response, err := http.Post(server.URL+RegistrationEndpoint, "application/json", bytes.NewReader(body))
++		require.NoError(t, err)
++		require.Equal(t, http.StatusBadRequest, response.StatusCode)
++		response.Body.Close()
++	}
++}
++
++func legacyPublicClient(t *testing.T, repo repository.Repository, id string, uris []string) *fosite.DefaultClient {
++	t.Helper()
++	client := &fosite.DefaultClient{ID: id, RedirectURIs: uris, GrantTypes: []string{"authorization_code", "refresh_token"}, ResponseTypes: []string{"code"}, Scopes: []string{"test"}, Audience: []string{"http://localhost:8080"}, Public: true}
++	require.NoError(t, repo.RegisterClient(context.Background(), client))
++	return client
++}
++
++func legacyAuthQuery(client *fosite.DefaultClient, redirect string) url.Values {
++	verifier := strings.Repeat("v", 43)
++	digest := sha256.Sum256([]byte(verifier))
++	q := url.Values{"client_id": {client.ID}, "response_type": {"code"}, "scope": {"test"}, "state": {"test-state"}, "code_challenge_method": {"S256"}, "code_challenge": {base64.RawURLEncoding.EncodeToString(digest[:])}}
++	if redirect != "" {
++		q.Set("redirect_uri", redirect)
++	}
++	return q
++}
++
++func TestMCPLegacyUnsafeRedirectsNeverReceiveCodesOrErrors(t *testing.T) {
++	server, repo, _ := setupTestServer(t)
++	client := legacyPublicClient(t, repo, "legacy-unsafe", []string{"http://attacker.example/callback"})
++	httpClient := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
++	for _, redirect := range []string{"", client.RedirectURIs[0]} {
++		for _, invalidField := range []string{"", "scope", "response_type", "state"} {
++			q := legacyAuthQuery(client, redirect)
++			if invalidField != "" {
++				q.Set(invalidField, "x")
++			}
++			response, err := httpClient.Get(server.URL + AuthorizationEndpoint + "?" + q.Encode())
++			require.NoError(t, err)
++			require.Equal(t, http.StatusBadRequest, response.StatusCode)
++			require.Empty(t, response.Header.Get("Location"), "unsafe callback must not receive protocol errors either")
++			response.Body.Close()
++		}
++	}
++}
++
++func TestMCPUnsafePersistedAuthorizationIsRejectedAtCallback(t *testing.T) {
++	server, repo, _ := setupTestServer(t)
++	safe := "https://claude.ai/api/mcp/auth_callback"
++	client := legacyPublicClient(t, repo, "legacy-inflight", []string{safe, "http://attacker.example/callback"})
++	jar, err := cookiejar.New(nil)
++	require.NoError(t, err)
++	httpClient := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
++	response, err := httpClient.Get(server.URL + AuthorizationEndpoint + "?" + legacyAuthQuery(client, safe).Encode())
++	require.NoError(t, err)
++	require.Equal(t, http.StatusFound, response.StatusCode)
++	location := response.Header.Get("Location")
++	response.Body.Close()
++	id := location[strings.LastIndex(location, "/")+1:]
++	stored, err := repo.GetAuthorizeRequest(context.Background(), id)
++	require.NoError(t, err)
++	request := stored.(*fosite.AuthorizeRequest)
++	request.RedirectURI, err = url.Parse(client.RedirectURIs[1])
++	require.NoError(t, err)
++	require.NoError(t, repo.DeleteAuthorizeRequest(context.Background(), id))
++	require.NoError(t, repo.CreateAuthorizeRequest(context.Background(), request))
++	response, err = httpClient.Post(server.URL+location, "application/x-www-form-urlencoded", nil)
++	require.NoError(t, err)
++	defer response.Body.Close()
++	require.Equal(t, http.StatusBadRequest, response.StatusCode)
++	require.Empty(t, response.Header.Get("Location"))
++	_, err = repo.GetAuthorizeRequest(context.Background(), id)
++	require.Error(t, err, "rejected in-flight authorization must be removed")
++}
++
++func TestMCPLegacySafeCallbackAndRefreshStillWork(t *testing.T) {
++	server, repo, _ := setupTestServer(t)
++	safe := "https://claude.ai/api/mcp/auth_callback"
++	client := legacyPublicClient(t, repo, "legacy-safe", []string{safe, "http://attacker.example/callback"})
++	q := legacyAuthQuery(client, safe)
++	callback := testAuthFlowWithURL(t, server.URL, server.URL+AuthorizationEndpoint+"?"+q.Encode())
++	form := url.Values{"grant_type": {"authorization_code"}, "client_id": {client.ID}, "code": {callback.Query().Get("code")}, "redirect_uri": {safe}, "code_verifier": {strings.Repeat("v", 43)}}
++	response, err := http.PostForm(server.URL+TokenEndpoint, form)
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, response.StatusCode)
++	var tokens map[string]any
++	require.NoError(t, json.NewDecoder(response.Body).Decode(&tokens))
++	response.Body.Close()
++	require.NotEmpty(t, tokens["access_token"])
++	refresh, ok := tokens["refresh_token"].(string)
++	require.True(t, ok)
++	require.NotEmpty(t, refresh)
++	response, err = http.PostForm(server.URL+TokenEndpoint, url.Values{"grant_type": {"refresh_token"}, "client_id": {client.ID}, "refresh_token": {refresh}})
++	require.NoError(t, err)
++	require.Equal(t, http.StatusOK, response.StatusCode)
++	response.Body.Close()
++	callback = testAuthFlowWithURL(t, server.URL, server.URL+AuthorizationEndpoint+"?"+q.Encode())
++	form.Set("code", callback.Query().Get("code"))
++	form.Set("redirect_uri", "https://other.example/callback")
++	response, err = http.PostForm(server.URL+TokenEndpoint, form)
++	require.NoError(t, err)
++	defer response.Body.Close()
++	require.Equal(t, http.StatusBadRequest, response.StatusCode)
++}
+diff --git a/pkg/proxy/challenge_test.go b/pkg/proxy/challenge_test.go
+new file mode 100644
+index 0000000..6c8503c
+--- /dev/null
++++ b/pkg/proxy/challenge_test.go
+@@ -0,0 +1,60 @@
++package proxy
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"testing"
++	"time"
++
++	"github.com/gin-gonic/gin"
++	"github.com/golang-jwt/jwt/v5"
++	"github.com/stretchr/testify/require"
++)
++
++func TestMCPBearerChallenges(t *testing.T) {
++	key, public, err := generateRSAKeyPair()
++	require.NoError(t, err)
++	for _, external := range []string{"https://auth.example", "https://auth.example/"} {
++		backend := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
++		proxy, err := NewProxyRouter(external, backend, public, http.Header{}, false, false, nil, "/userinfo")
++		require.NoError(t, err)
++		router := gin.New()
++		proxy.SetupRoutes(router)
++		for _, header := range []string{"", "Basic bad", "Bearer ", "Bearer invalid.jwt.token"} {
++			request := httptest.NewRequest(http.MethodPost, "/hackernews/mcp", nil)
++			request.Host = "attacker.example"
++			request.Header.Set("Authorization", header)
++			response := httptest.NewRecorder()
++			router.ServeHTTP(response, request)
++			require.Equal(t, http.StatusUnauthorized, response.Code)
++			require.Contains(t, response.Header().Get("WWW-Authenticate"), `Bearer resource_metadata="https://auth.example/.well-known/oauth-protected-resource"`)
++			if header == "Bearer " || header == "Bearer invalid.jwt.token" {
++				require.Contains(t, response.Header().Get("WWW-Authenticate"), `error="invalid_token"`)
++			}
++		}
++		for _, claims := range []jwt.MapClaims{
++			{"iss": external, "aud": external, "exp": time.Now().Add(-time.Hour).Unix()},
++			{"iss": "https://other.example", "aud": external, "exp": time.Now().Add(time.Hour).Unix()},
++			{"iss": external, "aud": "https://other.example", "exp": time.Now().Add(time.Hour).Unix()},
++			{"iss": external, "aud": external, "exp": time.Now().Add(time.Hour).Unix()},
++		} {
++			token, err := createJWT(key, claims)
++			require.NoError(t, err)
++			request := httptest.NewRequest(http.MethodPost, "/hackernews/mcp", nil)
++			request.Header.Set("Authorization", "Bearer "+token)
++			response := httptest.NewRecorder()
++			router.ServeHTTP(response, request)
++			if claims["iss"] == external && claims["aud"] == external && claims["exp"].(int64) > time.Now().Unix() {
++				require.Equal(t, http.StatusOK, response.Code)
++				require.Empty(t, response.Header().Get("WWW-Authenticate"))
++			} else {
++				require.Equal(t, http.StatusUnauthorized, response.Code)
++				require.Contains(t, response.Header().Get("WWW-Authenticate"), `error="invalid_token"`)
++			}
++		}
++		response := httptest.NewRecorder()
++		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, OauthProtectedResourceEndpoint, nil))
++		require.Equal(t, http.StatusOK, response.Code)
++		require.Empty(t, response.Header().Get("WWW-Authenticate"))
++	}
++}
+diff --git a/pkg/proxy/proxy.go b/pkg/proxy/proxy.go
+index e2757b3..811aeaa 100644
+--- a/pkg/proxy/proxy.go
++++ b/pkg/proxy/proxy.go
+@@ -66,8 +66,10 @@ func (p *ProxyRouter) handleProtectedResource(c *gin.Context) {
+ }
+ 
+ func (p *ProxyRouter) handleProxy(c *gin.Context) {
++	challenge := fmt.Sprintf("Bearer resource_metadata=%q", strings.TrimRight(p.externalURL, "/")+OauthProtectedResourceEndpoint)
+ 	authHeader := c.Request.Header.Get("Authorization")
+ 	if !strings.HasPrefix(authHeader, "Bearer ") {
++		c.Header("WWW-Authenticate", challenge)
+ 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+ 		return
+ 	}
+@@ -82,6 +84,7 @@ func (p *ProxyRouter) handleProxy(c *gin.Context) {
+ 	}, jwt.WithIssuer(p.externalURL), jwt.WithAudience(p.externalURL))
+ 
+ 	if err != nil || !token.Valid {
++		c.Header("WWW-Authenticate", challenge+`, error="invalid_token"`)
+ 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+ 		return
+ 	}
