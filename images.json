@@ -27,6 +27,7 @@
     "mcp-openbb",
     "litellm",
     "arc-runner",
-    "transmute"
+    "transmute",
+    "manyfold"
   ]
 }
