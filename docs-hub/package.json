@@ -22,7 +22,7 @@
     "clsx": "2.1.1",
     "leaflet": "1.9.4",
     "mermaid": "12.3.0",
-    "minimatch": "11.0.5",
+    "minimatch": "11.0.6",
     "pdfjs-dist": "6.5.438",
     "plotly.js-dist-min": "4.2.0",
     "react": "19.3.1",
