@@ -124,6 +124,40 @@ def test_exemption_does_not_carry_across_stages(tmp_path):
     assert run_hook(dockerfile).returncode == 1
 
 
+def test_prose_mentioning_the_word_still_counts_as_creation(tmp_path):
+    # Accepted residual: a real shell parser would see this is prose. The
+    # hook only guarantees token-level matching, and a false rejection on
+    # honest Dockerfiles is the worse failure — this test pins the known
+    # behavior so it is a documented choice, not an accident.
+    dockerfile = write(
+        tmp_path,
+        "FROM alpine\n"
+        'RUN echo "addgroup is documented here"\n'
+        "USER 1000\n",
+    )
+    assert run_hook(dockerfile).returncode == 0
+
+
+def test_package_name_containing_the_word_does_not_count(tmp_path):
+    dockerfile = write(
+        tmp_path,
+        "FROM alpine\n"
+        "RUN apt-get install --yes useradd-docs myaddgroupscript\n"
+        "USER 1000\n",
+    )
+    assert run_hook(dockerfile).returncode == 1
+
+
+def test_creation_after_metacharacters_counts(tmp_path):
+    dockerfile = write(
+        tmp_path,
+        "FROM alpine\n"
+        "RUN true && (addgroup -g 1000 app; adduser -u 1000 -G app -S -D app)\n"
+        "USER 1000\n",
+    )
+    assert run_hook(dockerfile).returncode == 0
+
+
 def test_mention_in_a_comment_does_not_count(tmp_path):
     dockerfile = write(
         tmp_path,

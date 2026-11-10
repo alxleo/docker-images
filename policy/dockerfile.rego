@@ -63,10 +63,19 @@ deny contains msg if {
 
 deny contains msg if {
 	_is_dockerfile
-	last_user_name in {"root", "0"}
+	_root_user_name
 	not "user_required" in exemptions
 	msg := sprintf("Final USER should not be root (found: %s). Use a non-root UID.", [last_user])
 }
+
+# last_user_name is lowercased and stripped of any ":gid". "0", "00", "000"
+# are all parsed as uid 0 by the builder, so match the all-zeros form
+# explicitly rather than the literal "0". Variable indirection
+# (USER ${RUN_USER}) is out of reach here by design — build args live in
+# .ci.json and are reviewed there.
+_root_user_name if last_user_name == "root"
+
+_root_user_name if regex.match(`^0+$`, last_user_name)
 
 # Check: EXPOSE implies HEALTHCHECK in the same stage
 deny contains msg if {

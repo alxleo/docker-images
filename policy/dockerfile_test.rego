@@ -18,8 +18,14 @@ test_deny_missing_user if {
 }
 
 test_deny_root_user_forms if {
-	every user in ["root", "0", "0:0", "root:root", "ROOT", "0:1000"] {
+	every user in ["root", "0", "00", "000", "0:0", "0:1000", "root:root", "ROOT", "ROOT:1000"] {
 		count(deny) == 1 with input as _stage([["from", ["alpine"]], ["user", [user]]])
+	}
+}
+
+test_allow_nonroot_numeric_user_that_starts_with_zero if {
+	every user in ["1000", "1000:1000", "app", "0x0"] {
+		count(deny) == 0 with input as _stage([["from", ["alpine"]], ["user", [user]]])
 	}
 }
 

@@ -83,12 +83,17 @@ for f in "$@"; do
             continue
             ;;
         RUN\ *)
-            case "$raw_line" in
-            *addgroup* | *adduser* | *useradd* | *groupadd*)
+            # Require the user-creation word as a COMMAND token, not a bare
+            # substring: package or file names containing the word (such as
+            # "useradd-docs" or "myaddgroupscript") must not set the flag.
+            # Residual, accepted: prose that echoes the bare word still
+            # counts — telling quoted strings from commands needs a real
+            # shell parser, and a false rejection here fails CI on honest
+            # Dockerfiles, which is worse than the review-time false
+            # acceptance.
+            if printf '%s\n' "$raw_line" | grep -qE '(^|[^A-Za-z0-9_-])(addgroup|adduser|useradd|groupadd)([^A-Za-z0-9_-]|$)'; then
                 saw_addgroup=1
-                ;;
-            *) ;;
-            esac
+            fi
             continue
             ;;
         USER\ *)

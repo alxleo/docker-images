@@ -4,6 +4,18 @@
 # same CVE anywhere else in the image still fails the scan. Every tool below
 # was already at its newest upstream release when the exception was added.
 vulnerabilities:
+  - id: CVE-2026-59873
+    paths:
+      - home/runner/externals/node20/lib/node_modules/npm/node_modules/tar/package.json
+    statement: >-
+      node-tar 6.2.1 extracts crafted archives without bounding gzip output
+      size (DoS). The path is the npm bundled inside upstream
+      actions-runner:2.338.2's own node20 runtime, only reachable when a CI
+      job feeds crafted archives to the runner-internal npm; the runner is
+      disposable and the blast radius is its availability. Fixed in npm's
+      next tar bundling; the actions-runner version in the path lapses this
+      exemption on its own. arc-runner-only: gitea-ci-runner has no such
+      path.
   - id: CVE-2025-68121
     paths:
       - opt/mise/installs/gitleaks/8.30.1/gitleaks

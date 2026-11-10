@@ -97,14 +97,8 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
-<<<<<<< HEAD
-| NixOS runner | `build-nixos-runner-image.yml` | push, dispatch | Build and publish the nixos-runner image from its Containerfile |
-| ToolHive fleet | `toolhive-fleet.yml` | PRs, push | Live-verify the MCP fleet catalog against running containers |
-||||||| parent of ce28ee4 (docs: bring CLAUDE.md in line with the repository)
-=======
 | NixOS runner | `build-nixos-runner-image.yml` | push main, PRs (path-filtered), dispatch | Build the NixOS runner image |
 | ToolHive fleet | `toolhive-fleet.yml` | push main, PRs (path-filtered), dispatch | Live MCP contract checks for the ToolHive fleet |
->>>>>>> ce28ee4 (docs: bring CLAUDE.md in line with the repository)
 
 ### Dockerfile Policies
 
