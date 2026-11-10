@@ -92,6 +92,38 @@ def test_hash_inside_a_command_is_not_a_comment(tmp_path):
     assert run_hook(dockerfile).returncode == 0
 
 
+def test_stage_scoped_exemption_comment_accepts_the_uid(tmp_path):
+    dockerfile = write(
+        tmp_path,
+        "FROM manyfold-solo\n"
+        "# user-has-group:exempt=1000 -- the base ships its app user at uid 1000\n"
+        "USER 1000:1000\n",
+    )
+    assert run_hook(dockerfile).returncode == 0
+
+
+def test_exemption_for_a_different_uid_still_fails(tmp_path):
+    dockerfile = write(
+        tmp_path,
+        "FROM alpine\n"
+        "# user-has-group:exempt=2000 -- some other base's user\n"
+        "USER 1000:1000\n",
+    )
+    assert run_hook(dockerfile).returncode == 1
+
+
+def test_exemption_does_not_carry_across_stages(tmp_path):
+    dockerfile = write(
+        tmp_path,
+        "FROM alpine AS build\n"
+        "# user-has-group:exempt=1000 -- build stage needs it\n"
+        "USER 1000\n"
+        "FROM alpine\n"
+        "USER 1000\n",
+    )
+    assert run_hook(dockerfile).returncode == 1
+
+
 def test_mention_in_a_comment_does_not_count(tmp_path):
     dockerfile = write(
         tmp_path,

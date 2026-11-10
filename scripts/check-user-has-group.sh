@@ -16,6 +16,11 @@
 #
 #   - `USER 0` / `USER 0:0` is accepted: root and its group always exist.
 #
+#   - A `# user-has-group:exempt=<uid> -- <reason>` comment in the same build
+#     stage accepts `USER <uid>` — same convention as the conftest
+#     `conftest:exempt=` markers. The reason must state why the base image is
+#     known to ship that uid. The exemption is stage-scoped like the rest.
+#
 # Build-stage scope: a `FROM` line starts a new stage; user/group created
 # in an earlier stage does not carry into a later one. The scanner resets
 # its "saw addgroup?" flag on each FROM.
@@ -34,8 +39,10 @@ for f in "$@"; do
     fi
 
     # Single forward pass through the file. Track whether we've seen a
-    # user-creation RUN in the current stage; reset on each FROM.
+    # user-creation RUN in the current stage, plus any exemption uids
+    # declared by comment in the current stage; reset on each FROM.
     saw_addgroup=0
+    stage_exempts=" "
     lineno=0
     logical=""
     start=0
@@ -46,7 +53,13 @@ for f in "$@"; do
         # never continued, and inside a continuation it is dropped.
         trimmed="${physical#"${physical%%[![:space:]]*}"}"
         case "$trimmed" in
-        \#*) continue ;;
+        \#*)
+            exempt_uid=$(printf '%s\n' "$trimmed" | sed -nE 's/^#[[:space:]]*user-has-group:exempt=([0-9]+).*/\1/p')
+            if [ -n "$exempt_uid" ]; then
+                stage_exempts="$stage_exempts$exempt_uid "
+            fi
+            continue
+            ;;
         *) ;;
         esac
         if [ -z "$logical" ]; then
@@ -66,6 +79,7 @@ for f in "$@"; do
         case "$raw_line" in
         FROM\ *)
             saw_addgroup=0
+            stage_exempts=" "
             continue
             ;;
         RUN\ *)
@@ -91,10 +105,17 @@ for f in "$@"; do
             *) ;;
             esac
 
-            # Numeric uid — require a preceding group/user creation in THIS stage.
+            # Numeric uid — require a preceding group/user creation in THIS
+            # stage, or an exemption comment for exactly this uid.
             if [ "$saw_addgroup" = 1 ]; then
                 continue
             fi
+            case "$stage_exempts" in
+            *" $user_part "*)
+                continue
+                ;;
+            *) ;;
+            esac
 
             # shellcheck disable=SC2016  # backticks in format strings are literal display, not command substitution
             printf '%s:%s — numeric USER %s without a preceding addgroup/adduser/useradd in this build stage\n' "$f" "$start" "$user_spec"
