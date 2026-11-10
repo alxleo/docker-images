@@ -21,9 +21,14 @@ updates:
       - /arc-runner
       - /caddy-cloudflare
       - /docs-hub
+      - /finrobot-mcp
+      - /homelab-observer
+      - /litellm
       - /mcp
       - /mcp-auth-proxy
       - /mcp-reddit
+      - /openbb-mcp
+      - /transmute
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
