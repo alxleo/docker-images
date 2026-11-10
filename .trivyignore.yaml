@@ -3,29 +3,29 @@
 vulnerabilities:
   - id: CVE-2026-116684
     paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.183.0~7877237f/uv.lock
+      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
     statement: >-
-      Semgrep 1.183.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
+      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
   - id: CVE-2026-116685
     paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.183.0~7877237f/uv.lock
+      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
     statement: >-
-      Semgrep 1.183.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
+      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
   - id: CVE-2026-116686
     paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.183.0~7877237f/uv.lock
+      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
     statement: >-
-      Semgrep 1.183.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
+      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
   - id: CVE-2026-59951
     paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.183.0~7877237f/uv.lock
+      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
     statement: >-
-      Semgrep 1.183.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
+      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
   - id: CVE-2026-114603
     paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.183.0~7877237f/uv.lock
+      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
     statement: >-
-      Semgrep 1.183.0 extracts only a locally generated traceparent; scanner CLI does not accept inbound tracestate. Upstream pins OpenTelemetry~=1.37.0.
+      Semgrep 1.184.0 extracts only a locally generated traceparent; scanner CLI does not accept inbound tracestate. Upstream pins OpenTelemetry~=1.37.0.
 
 # Conftest enforces these Dockerfile invariants with per-file exemptions.
 misconfigurations:
