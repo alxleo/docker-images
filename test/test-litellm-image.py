@@ -10,9 +10,9 @@ import jwt
 import pypdf
 from litellm.cost_calculator import response_cost_calculator
 from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.router import LiteLLM_Params
 from opentelemetry.sdk.trace import TracerProvider
 
