@@ -10,7 +10,7 @@
 # Every tool pin lives in mise.toml, which `mise install` reads below; this
 # file holds no tool versions.
 
-FROM ghcr.io/jdx/mise:2026.11.4@sha256:085be191bbe51dbe93894681b7f29f6c014ae267e7a365c0b8b6a2fdd882ac63 AS mise
+FROM ghcr.io/jdx/mise:2026.11.6@sha256:d4de1845114f6d73e90e15f7642885f74f3ca93074491038a2b9c43e4b897f21 AS mise
 
 # Pin the upstream multi-arch Bun index while retaining mise's tool metadata.
 # This helper stage is mounted into the final RUN and is never published.
