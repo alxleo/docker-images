@@ -13,6 +13,10 @@ rules:
   # on main (branches: [main] filter) -- same-repo scheduled workflow, no
   # untrusted code path. It exists so base-mirror refreshes rebuild images
   # (issue #168).
+  # workflow_run on maintenance.yml fires only after a main-branch run of
+  # build-images.yml; it checks out the default branch, holds read-only
+  # contents permission and uses no secrets.
   dangerous-triggers:
     ignore:
       - build-images.yml
+      - maintenance.yml

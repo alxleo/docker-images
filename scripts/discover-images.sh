@@ -44,7 +44,9 @@ for dockerfile in "$REPO_ROOT"/*/Dockerfile; do
     tag=$(echo "$ci_json" | jq -r '.tag // "latest"')
     platforms=$(echo "$ci_json" | jq -r '.platforms // "linux/amd64,linux/arm64"')
     build_args=$(echo "$ci_json" | jq -r '.build_args // ""')
-    watch_paths=$(echo "$ci_json" | jq -c '.watch_paths // []')
+    # Wrongly typed lists would make CI iterate nothing and pass; fail instead.
+    watch_paths=$(echo "$ci_json" | jq -ce --arg f "$name/.ci.json" \
+        '.watch_paths // [] | if type == "array" and all(type == "string") then . else error("\($f): watch_paths must be an array of strings") end')
     test_file="$name/test_${name//-/_}.py"
     if [[ ! -f "$REPO_ROOT/$test_file" ]]; then
         test_file=""

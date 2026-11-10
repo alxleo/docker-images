@@ -240,7 +240,8 @@ jobs:
           mapfile -t cmds < <(echo "$TEST_COMMANDS" | jq -r '.[]')
           for cmd in "${cmds[@]}"; do
             echo "::group::${cmd}"
-            bash -c "$cmd"
+            # Same flags as `just test-image` and the MCP test jobs.
+            bash -euo pipefail -c "$cmd"
             echo "::endgroup::"
           done
 

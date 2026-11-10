@@ -36,6 +36,14 @@ last_user := input[last_user_index].Value[0] if {
 	last_user_index != null
 }
 
+# USER takes user[:group]; only the user part decides who the process runs as.
+last_user_name := lower(split(last_user, ":")[0])
+
+# /root itself or anything beneath it (not /rootfs, /root-data, ...)
+_under_root(path) if path == "/root"
+
+_under_root(path) if startswith(path, "/root/")
+
 # Collect exemption comments from anywhere in the Dockerfile
 exemptions contains rule if {
 	some i
@@ -55,10 +63,19 @@ deny contains msg if {
 
 deny contains msg if {
 	_is_dockerfile
-	last_user in {"root", "0"}
+	_root_user_name
 	not "user_required" in exemptions
 	msg := sprintf("Final USER should not be root (found: %s). Use a non-root UID.", [last_user])
 }
+
+# last_user_name is lowercased and stripped of any ":gid". "0", "00", "000"
+# are all parsed as uid 0 by the builder, so match the all-zeros form
+# explicitly rather than the literal "0". Variable indirection
+# (USER ${RUN_USER}) is out of reach here by design — build args live in
+# .ci.json and are reviewed there.
+_root_user_name if last_user_name == "root"
+
+_root_user_name if regex.match(`^0+$`, last_user_name)
 
 # Check: EXPOSE implies HEALTHCHECK in the same stage
 deny contains msg if {
@@ -78,7 +95,7 @@ deny contains msg if {
 	cmd := lower(input[i].Cmd)
 	cmd in {"copy", "add"}
 	dest := input[i].Value[count(input[i].Value) - 1]
-	startswith(dest, "/root")
+	_under_root(dest)
 	not "no_root_paths" in exemptions
 	msg := sprintf(
 		"%s destination %s is under /root/ — inaccessible to non-root USER. Use /app/ or /usr/local/bin/ instead.",
@@ -92,7 +109,7 @@ deny contains msg if {
 	input[i].Stage == final_stage
 	lower(input[i].Cmd) == "workdir"
 	wd := input[i].Value[0]
-	startswith(wd, "/root")
+	_under_root(wd)
 	not "no_root_paths" in exemptions
 	msg := sprintf(
 		"WORKDIR %s is under /root/ — inaccessible to non-root USER. Use /app/ instead.",

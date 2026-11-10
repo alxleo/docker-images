@@ -1,0 +1,46 @@
+# Weekly image-scan exceptions for the runner toolchain (arc-runner links here:
+# it inherits these exact paths). Each entry names one binary at one version,
+# so a version bump changes the path and the exception lapses on its own; the
+# same CVE anywhere else in the image still fails the scan. Every tool below
+# was already at its newest upstream release when the exception was added.
+vulnerabilities:
+  - id: CVE-2026-59873
+    paths:
+      - home/runner/externals/node20/lib/node_modules/npm/node_modules/tar/package.json
+    statement: >-
+      node-tar 6.2.1 extracts crafted archives without bounding gzip output
+      size (DoS). The path is the npm bundled inside upstream
+      actions-runner:2.338.2's own node20 runtime, only reachable when a CI
+      job feeds crafted archives to the runner-internal npm; the runner is
+      disposable and the blast radius is its availability. Fixed in npm's
+      next tar bundling; the actions-runner version in the path lapses this
+      exemption on its own. arc-runner-only: gitea-ci-runner has no such
+      path.
+  - id: CVE-2025-68121
+    paths:
+      - opt/mise/installs/gitleaks/8.30.1/gitleaks
+    statement: >-
+      Go 1.24.11 crypto/tls session resumption accepts a resumed session after
+      the Config's RootCAs or ClientCAs are mutated. gitleaks 8.30.1 (latest)
+      builds no tls.Config and scans local files and git history.
+  - id: CVE-2025-68121
+    paths:
+      - opt/mise/installs/openobserve-cli/0.18.0/openobserve-cli
+    statement: >-
+      Same Go crypto/tls issue (Go 1.24.0). openobserve-cli 0.18.0 (latest)
+      never builds, clones or mutates a tls.Config; it uses net/http defaults.
+  - id: CVE-2026-33186
+    paths:
+      - opt/mise/installs/kube-linter/0.8.3/kube-linter
+    statement: >-
+      gRPC-Go server authorization bypass via a non-canonical :path. kube-linter
+      0.8.3 (latest) is a CLI that starts no gRPC server; grpc is a transitive
+      Kubernetes client dependency. Same rationale as caddy-cloudflare.
+  - id: CVE-2026-115905
+    paths:
+      - opt/mise/installs/npm-axe-core-cli/4.14.0~aube~8cc4f43ddc20f7c2/node_modules/.mise/selenium-webdriver@4.47.0/node_modules/selenium-webdriver/bin/selenium-manager.cdx.json
+    statement: >-
+      Rust zip: ZipStreamReader extracts by local-header names while ZipArchive
+      trusts the central directory. selenium-manager 0.4.47 (rust/src/files.rs)
+      inspects and extracts with ZipArchive and enclosed_name, never the stream
+      reader. @axe-core/cli 4.14.0 (latest) pins selenium-webdriver ~4.47.0.
