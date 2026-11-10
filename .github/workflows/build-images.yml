@@ -151,10 +151,10 @@ jobs:
           changed_dirs=$(echo "$changed_files" | cut -d/ -f1 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
           changed_files_json=$(echo "$changed_files" | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
-          # CI infra changed if build action, discovery scripts, either custom
-          # image workflow, or the shared image-test fixtures changed.
+          # CI infra changed if discovery scripts, either custom image
+          # workflow, or the shared image-test fixtures changed.
           ci_changed="false"
-          if grep -qE '^(\.github/actions/|scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-(images|custom-image)\.yml|conftest\.py$|pytest\.ini$)' <<<"$changed_files"; then
+          if grep -qE '^(scripts/(discover-images|select-custom-images|select-mcp-pipelines)\.sh|\.github/workflows/build-(images|custom-image)\.yml|conftest\.py$|pytest\.ini$)' <<<"$changed_files"; then
             ci_changed="true"
           fi
           include_watch_paths="false"
@@ -203,8 +203,7 @@ jobs:
   # Each selected image is expanded into one job per declared platform. PRs
   # load and test both native images. Trusted builds push each tested image by
   # digest, then publish the final tags only after every architecture succeeds.
-  # The existing composite action remains available to its other callers; this
-  # path avoids its test-build cache export so each image has one GHA export.
+  # This path skips the test-build cache export so each image has one GHA export.
   # ---------------------------------------------------------------------------
   resolve-custom-matrix:
     name: Resolve image versions
