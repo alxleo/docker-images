@@ -119,13 +119,13 @@
   {
     "name": "mcp-arxiv",
     "dockerfile": "Dockerfile.arxiv",
-    "build_args": "ARXIV_MCP_VERSION=0.7.2\nMCP_PROXY_VERSION=6.7.21\nUV_VERSION=0.13.6",
-    "tag": "0.7.2",
+    "build_args": "ARXIV_MCP_VERSION=0.8.2\nMCP_PROXY_VERSION=6.7.21\nUV_VERSION=0.13.6",
+    "tag": "0.8.2",
     "description": "Search and retrieve academic papers from arXiv",
     "contract": "mcp-contracts/mcp-arxiv.json",
     "test_commands": [
       "docker run --rm --entrypoint sh \"$IMAGE_REF\" -c \"python3 --version | grep -F 'Python 3.14.' && node --version | grep -E '^v26\\\\.'\"",
-      "docker run --rm -i --entrypoint python3 \"$IMAGE_REF\" - 0.7.2 < test/check-arxiv-runtime.py"
+      "docker run --rm -i --entrypoint python3 \"$IMAGE_REF\" - 0.8.2 < test/check-arxiv-runtime.py"
     ]
   },
   {

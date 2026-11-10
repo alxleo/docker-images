@@ -165,7 +165,7 @@
       "name": "mcp-arxiv",
       "port": 19112,
       "state": "ready",
-      "source": {"type": "uvx", "package": "arxiv-mcp-server", "version": "0.7.2"},
+      "source": {"type": "uvx", "package": "arxiv-mcp-server", "version": "0.8.2"},
       "build_with": ["mcp>=1.27,<2"],
       "args": ["--storage-path", "/data/papers"],
       "volumes": [
