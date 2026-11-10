@@ -8,7 +8,11 @@ import aiohttp
 import certifi
 import jwt
 import pypdf
+from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+from litellm.types.router import LiteLLM_Params
 from opentelemetry.sdk.trace import TracerProvider
+
+import litellm
 
 COMPROMISED_ROOT = "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b"
 
@@ -26,3 +30,24 @@ assert jwt.decode
 assert pypdf.PdfReader
 assert TracerProvider
 print(f"LiteLLM {version('litellm')}: proxy dependencies import successfully")
+
+
+# Exercise the installed provider catalogue and wildcard expansion offline.
+litellm.check_provider_endpoint = False
+litellm.models_by_provider["litellm_proxy"] = [
+    "litellm_proxy/local/chat",
+    "litellm_proxy/local/local/repeated",
+    "litellm_proxy/publisher/chat",
+    "ollama/gemma3:1b",
+    "meta-llama/Llama-3-8B",
+]
+assert get_known_models_from_wildcard(
+    "local/*", LiteLLM_Params(model="litellm_proxy/local/*")
+) == [
+    "local/chat",
+    "local/local/repeated",
+    "local/publisher/chat",
+    "local/gemma3:1b",
+    "local/meta-llama/Llama-3-8B",
+]
+print("Wildcard discovery preserves callable gateway ids and publisher paths")

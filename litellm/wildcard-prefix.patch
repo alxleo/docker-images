@@ -1,0 +1,15 @@
+--- a/litellm/proxy/auth/model_checks.py
++++ b/litellm/proxy/auth/model_checks.py
+@@ -57,7 +57,11 @@
+             # segment is an org rather than a provider (e.g. "meta-llama/Llama-3-8B") keep it.
+             leading, sep, model_suffix = model.partition("/")
+             if sep and leading in known_providers:
+-                model = f"{wildcard_provider_prefix}/{model_suffix}"
++                model = (
++                    model_suffix
++                    if model_suffix.startswith(f"{wildcard_provider_prefix}/")
++                    else f"{wildcard_provider_prefix}/{model_suffix}"
++                )
+             else:
+                 model = f"{wildcard_provider_prefix}/{model}"
+         suffix_appended_wildcard_models.append(model)

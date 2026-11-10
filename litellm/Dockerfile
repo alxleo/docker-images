@@ -42,3 +42,12 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
         "opentelemetry-instrumentation-asgi==0.66b2" \
         "protobuf>=5.29.5,<6" \
     && uv pip check --python /app/.venv/bin/python
+
+# https://github.com/BerriAI/litellm/issues/46384 tracks wildcard prefix repair.
+# Preserve a gateway namespace already present behind the provider prefix.
+# Remove this patch once the upstream release passes the wildcard image check.
+COPY wildcard-prefix.patch /tmp/wildcard-prefix.patch
+RUN apk add --no-cache --virtual .wildcard-patch patch \
+    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/wildcard-prefix.patch \
+    && rm /tmp/wildcard-prefix.patch \
+    && apk del .wildcard-patch
