@@ -1,58 +1,17 @@
 # syntax=docker/dockerfile:1.28
-# One pinned proxy image for the native Helm and workstation deployments.
-FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
-LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
-FROM ghcr.io/berriai/litellm:v1.108.3@sha256:f14d0a035d84d1a8bc98538faf5999e456641fd4cfa191822fd4be1934c1f4f6
+# Official signed Docker Hub mirror; publishing remains ghcr.io/alxleo/litellm.
+FROM docker.io/litellm/litellm:v1.108.4@sha256:17921779153960f086e2660994cc398fc76ed65c531765177803b9ae0a25d97a
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 
-# The upstream base pins these APK versions in /etc/apk/world, so ordinary
-# apk upgrade retains them: https://github.com/BerriAI/litellm/issues/47904.
-# These proxy deployments do not use the separately bundled AI admin agent,
-# but the package stays installed so /admin/mcp (enterprise-gated via
-# LITELLM_ENABLE_ADMIN_MCP) remains available. Its metadata pins mcp==2.2.0
-# while the venv ships mcp 2.3.0 — upstream's own lock override runs that
-# pair deliberately (https://github.com/BerriAI/litellm/pull/47034) and the
-# pin is stale on liteadmin-mcp main too — so align the stale pin before
-# the check. The grep makes a no-op sed (upstream fixed the pin) fail this
-# build, which is the signal to delete the workaround.
+# Discovery still lists uncallable doubled IDs and drops configured URL prefixes.
+# Wildcard tracking: https://github.com/BerriAI/litellm/issues/46384.
+# Local fixes stay in https://github.com/mossquartz731/litellm.
+# Retire each patch when an official release passes the native image checks.
+COPY --link *.patch /tmp/litellm-patches/
 # conftest:exempt=user_required -- upstream Prisma client generation requires its existing /app permissions
-RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
-    apk add --no-cache --upgrade \
-        "ca-certificates-bundle>=20260909-r3" \
-        "glibc-2.44>=2.44-r8" \
-        "glibc-2.44-locale-posix>=2.44-r8" \
-        "ld-linux-2.44>=2.44-r8" \
-        "libcrypt1-2.44>=2.44-r8" \
-    && apk upgrade --no-cache \
-    && rm -rf /opt/liteadmin \
-    && admin_meta=$(ls /app/.venv/lib/python3.*/site-packages/litellm_admin_mcp-*.dist-info/METADATA) \
-    && sed -E -i 's/^Requires-Dist: mcp ?== ?2\.2\.0/Requires-Dist: mcp>=2.2.0,<3/' "$admin_meta" \
-    && grep -q 'Requires-Dist: mcp>=2.2.0,<3' "$admin_meta" \
-    && uv pip install --python /app/.venv/bin/python --upgrade \
-        "certifi==2026.10.23" \
-        "PyJWT==2.15.1" \
-        "aiohttp==3.14.5" \
-        "pypdf==6.21.4" \
-        "opentelemetry-api==1.45.2" \
-        "opentelemetry-sdk==1.45.2" \
-        "opentelemetry-exporter-otlp==1.45.2" \
-        "opentelemetry-instrumentation==0.66b2" \
-        "opentelemetry-instrumentation-fastapi==0.66b2" \
-        "opentelemetry-instrumentation-asgi==0.66b2" \
-        "protobuf>=5.29.5,<6" \
-    && uv pip check --python /app/.venv/bin/python
-
-# https://github.com/BerriAI/litellm/issues/46384 tracks wildcard prefix repair.
-# Preserve a gateway namespace already present behind the provider prefix.
-# Remove this patch once the upstream release passes the wildcard image check.
-COPY wildcard-prefix.patch /tmp/wildcard-prefix.patch
-# https://github.com/BerriAI/litellm/blob/v1.108.3/litellm/llms/openai/chat/gpt_transformation.py
-# _fetch_model_ids discards api_base's path and probes the host root.
-# Remove this patch when native discovery passes the subpath image checks.
-COPY provider-discovery-path.patch /tmp/provider-discovery-path.patch
 RUN apk add --no-cache --virtual .wildcard-patch patch \
-    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/wildcard-prefix.patch \
-    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/provider-discovery-path.patch \
-    && rm /tmp/wildcard-prefix.patch /tmp/provider-discovery-path.patch \
+    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/wildcard-prefix.patch \
+    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/provider-discovery-path.patch \
+    && rm -rf /tmp/litellm-patches \
     && apk del .wildcard-patch
