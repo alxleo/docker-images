@@ -51,3 +51,20 @@ assert get_known_models_from_wildcard(
     "local/meta-llama/Llama-3-8B",
 ]
 print("Wildcard discovery preserves callable gateway ids and publisher paths")
+
+# The same provider id needs different public names for these two templates.
+litellm.models_by_provider["litellm_proxy"] = ["litellm_proxy/local/chat"]
+for upstream_template, expected_name in (
+    ("litellm_proxy/local/*", "local/chat"),
+    ("litellm_proxy/*", "local/local/chat"),
+):
+    params = LiteLLM_Params(model=upstream_template, api_key="offline")
+    names = get_known_models_from_wildcard("local/*", params)
+    assert names == [expected_name]
+    router = litellm.Router(model_list=[{
+        "model_name": "local/*",
+        "litellm_params": params.model_dump(exclude_none=True),
+    }])
+    resolved = router.get_available_deployment(model=names[0], messages=[{"role": "user", "content": "offline"}])
+    assert resolved["litellm_params"]["model"] == "litellm_proxy/local/chat"
+print("Both wildcard templates list names that route to the published upstream id")
