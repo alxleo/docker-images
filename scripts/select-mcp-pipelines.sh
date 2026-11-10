@@ -32,8 +32,7 @@ if [[ -n "$changed_paths" ]]; then
         esac
         case "$path" in
         mcp/* | mcp-images.json | mcp-defaults.json | caddy-cloudflare/* | \
-            test/Caddyfile.mcp-e2e | test/docker-compose.mcp-e2e.yml | \
-            test/test-mcp-e2e.sh)
+            test/Caddyfile.mcp-e2e | test/docker-compose.mcp-e2e.yml)
             e2e=true
             ;;
         *) ;;
