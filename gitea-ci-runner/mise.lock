@@ -81,21 +81,21 @@ checksum = "sha256:6e9c37098b293920aed28bfb51ab240e26d23bfdd9bbfecb3ad428ac16654
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64-musl-baseline.zip"
 
 [[tools.caddy]]
-version = "2.11.8"
+version = "2.11.9"
 backend = "aqua:caddyserver/caddy"
-specifiers = ["2.11.8"]
+specifiers = ["2.11.9"]
 
 [tools.caddy."platforms.linux-arm64"]
-checksum = "sha256:6781a68e090fecda8c563b5a3b00115e18d7134084099ae804a017622471bed1"
+checksum = "sha256:5e377cff994fc9362a6fcf695c53f226cfca3a3ef85bd3a3687cf252d6310165"
 checksum_source = "mise-versions"
-url = "https://github.com/caddyserver/caddy/releases/download/v2.11.8/caddy_2.11.8_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/707697363"
+url = "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/711594948"
 
 [tools.caddy."platforms.linux-x64"]
-checksum = "sha256:f032f8805e4df2ce5e1a8a624495c91e9ff763d8ff3ceddadd4784a07c472f40"
+checksum = "sha256:5b8cb7faf8726a2028ad96a66e54e6e81e8f361bc6175e5d22bbd997cc5177fb"
 checksum_source = "mise-versions"
-url = "https://github.com/caddyserver/caddy/releases/download/v2.11.8/caddy_2.11.8_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/707697419"
+url = "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/711594947"
 
 [[tools.chezmoi]]
 version = "2.74.0"
@@ -115,21 +115,21 @@ url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/69849583
 provenance = "cosign"
 
 [[tools.cilium-hubble]]
-version = "1.20.2"
+version = "v1.20.4"
 backend = "aqua:cilium/hubble"
-specifiers = ["1.20.2"]
+specifiers = ["v1.20.4"]
 
 [tools.cilium-hubble."platforms.linux-arm64"]
-checksum = "sha256:0711ae8bc3100a2c985bf8fb5c7d006ae6e31f4c9f3dc53ebc7d8504d76dc60d"
+checksum = "sha256:cccecf20e204c0bcbb2635c5efc9672fea0e33a58d01f04e94324caddb572250"
 checksum_source = "mise-versions"
-url = "https://github.com/cilium/hubble/releases/download/v1.20.2/hubble-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/cilium/hubble/releases/assets/616830259"
+url = "https://github.com/cilium/hubble/releases/download/v1.20.4/hubble-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/cilium/hubble/releases/assets/718589132"
 
 [tools.cilium-hubble."platforms.linux-x64"]
-checksum = "sha256:03f248a50cad11e728bf9383382392c57148fd6a19853ad359fb7598dae29312"
+checksum = "sha256:78ed68bd56d244bf2691ae4ba186d78e87e6814df58573d6de6089d0e5d7ddd8"
 checksum_source = "mise-versions"
-url = "https://github.com/cilium/hubble/releases/download/v1.20.2/hubble-linux-amd64.tar.gz"
-url_api = "https://api.github.com/repos/cilium/hubble/releases/assets/616830266"
+url = "https://github.com/cilium/hubble/releases/download/v1.20.4/hubble-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/cilium/hubble/releases/assets/718589147"
 
 [[tools.cloudflared]]
 version = "2026.10.7"
@@ -486,10 +486,10 @@ backend = "npm:@axe-core/cli"
 specifiers = ["4.14.0"]
 
 [[tools."npm:@mcpjam/cli"]]
-version = "6.0.1"
-aube = { path = ".mise/locks/npm-mcpjam-cli/6.0.1", digest = "sha256:dc96184452fdb3ac583dd215a027a3d1629b479bed596abbf67904b4404f9722" }
+version = "6.1.0"
+aube = { path = ".mise/locks/npm-mcpjam-cli/6.1.0", digest = "sha256:c27b25c5f5debf6d7a22e187ed14223cff9a4755a5062b2aa451645c45243969" }
 backend = "npm:@mcpjam/cli"
-specifiers = ["6.0.1"]
+specifiers = ["6.1.0"]
 
 [[tools."npm:actions-up"]]
 version = "2.0.0"
@@ -656,27 +656,27 @@ url = "https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_
 url_api = "https://api.github.com/repos/restic/restic/releases/assets/466999719"
 
 [[tools.ruff]]
-version = "0.17.3"
+version = "0.17.4"
 backend = "aqua:astral-sh/ruff"
-specifiers = ["0.17.3"]
+specifiers = ["0.17.4"]
 
 [tools.ruff."platforms.linux-arm64"]
-checksum = "sha256:3f4639152c0e42bb5938e6c23d53d527a38f3133e000102934518f90529fa299"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.3/ruff-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/679956412"
+checksum = "sha256:b939676db4532f748dc38c41361a29260f18b3e24a787d46d9278e449c25c2cf"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447221"
 provenance = "github-attestations"
 
 [tools.ruff."platforms.linux-x64"]
-checksum = "sha256:2b0890f5a55900af741f133918c2656919bbf18c2ab7741b4ca8403a90e647a9"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.3/ruff-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/679956535"
+checksum = "sha256:3ab2b34aeacdbc1ea5c529cdbda3e05792633d587228123fd09f3b5a0facb27a"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447482"
 provenance = "github-attestations"
 
 [[tools.semgrep]]
-version = "1.183.0"
+version = "1.184.0"
 backend = "pypi:semgrep"
-specifiers = ["1.183.0"]
-uv = { path = ".mise/locks/semgrep/1.183.0~7877237f", digest = "sha256:f27f6ae291346112981aa3d584abbe5aed9b52a4a5bbfad454260432a57b9e38" }
+specifiers = ["1.184.0"]
+uv = { path = ".mise/locks/semgrep/1.184.0~7877237f", digest = "sha256:f971c8ce3d55d58b691ba832f87180f7dbbd704743d67b67a83de19456b04a7a" }
 
 [tools.semgrep.options]
 python = "3.13"
@@ -784,20 +784,20 @@ url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets
 provenance = "github-attestations"
 
 [[tools.trivy]]
-version = "0.76.1"
+version = "0.76.2"
 backend = "aqua:aquasecurity/trivy"
-specifiers = ["0.76.1"]
+specifiers = ["0.76.2"]
 
 [tools.trivy."platforms.linux-arm64"]
-checksum = "sha256:e174dff2a6dba5e3ae41f8d0537a6324405bd08132497340304c6b20e0f16a1f"
-url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-ARM64.tar.gz"
-url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/662254480"
+checksum = "sha256:ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-ARM64.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/713401022"
 provenance = "cosign"
 
 [tools.trivy."platforms.linux-x64"]
-checksum = "sha256:c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0"
-url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz"
-url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/662254617"
+checksum = "sha256:bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/713401165"
 provenance = "cosign"
 
 [[tools.uv]]
@@ -827,20 +827,20 @@ uv = { path = ".mise/locks/yamllint/1.38.0~60b8ab58", digest = "sha256:78ffc591c
 python = "3.13"
 
 [[tools.yq]]
-version = "4.54.1"
+version = "4.54.2"
 backend = "aqua:mikefarah/yq"
-specifiers = ["4.54.1"]
+specifiers = ["4.54.2"]
 
 [tools.yq."platforms.linux-arm64"]
-checksum = "sha256:189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf1d57a71b"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_arm64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/597222603"
+checksum = "sha256:bd44211dcd29a5f0eb701d4b7eb5ccd0cfff3bd3966cb4f7f9bd5b13701d997e"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_arm64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419591"
 provenance = "cosign"
 
 [tools.yq."platforms.linux-x64"]
-checksum = "sha256:8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_amd64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/597222595"
+checksum = "sha256:44c7759059b4910827a0059a2757b22001e59360cdecdb2ef8dedc4b6c7e9f32"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_amd64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419583"
 provenance = "cosign"
 
 [[tools.zizmor]]
