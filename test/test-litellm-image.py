@@ -8,8 +8,11 @@ import aiohttp
 import certifi
 import jwt
 import pypdf
+from litellm.cost_calculator import response_cost_calculator
+from litellm.litellm_core_utils.core_helpers import process_response_headers
 from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.router import LiteLLM_Params
 from opentelemetry.sdk.trace import TracerProvider
 
@@ -86,3 +89,36 @@ for api_base, expected_url in (
 ):
     assert OpenAIGPTConfig._model_list_url(api_base) == expected_url
 print("Provider model discovery preserves configured subpaths without duplicate API versions")
+
+
+# An intermediary's notional receipt cannot replace server-owned token pricing.
+
+for receipt, call_type, base_model in (
+    (litellm.ModelResponse(model="subscription/gpt-6.1-sol", usage={
+        "prompt_tokens": 1000, "completion_tokens": 1000, "total_tokens": 2000,
+    }), "acompletion", "openai/gpt-6.1-sol"),
+    (ResponsesAPIResponse(id="offline", created_at=0, model="subscription/gpt-6.1-sol", output=[], usage={
+        "input_tokens": 1000, "output_tokens": 1000, "total_tokens": 2000,
+    }), "aresponses", "openai/gpt-6.1-sol"),
+    (litellm.ImageResponse(created=0, data=[{"b64_json": "offline"}], usage={
+        "input_tokens": 1000, "output_tokens": 1000, "total_tokens": 2000,
+        "input_tokens_details": {"text_tokens": 1000, "image_tokens": 0},
+    }), "aimage_generation", "openai/gpt-image-2"),
+):
+    params = {"size": "1024x1024", "quality": "low"} if "image" in call_type else {}
+    expected = response_cost_calculator(
+        response_object=receipt, model=base_model, base_model=base_model,
+        custom_llm_provider="openai", call_type=call_type, optional_params=params,
+    )
+    assert expected > 0
+    for cost in ("0", "123"):
+        receipt._hidden_params["additional_headers"] = process_response_headers({"x-litellm-response-cost": cost})
+        assert response_cost_calculator(
+            response_object=receipt, model=base_model, base_model=base_model,
+            custom_llm_provider="openai", call_type=call_type, optional_params=params,
+        ) == expected
+        assert response_cost_calculator(
+            response_object=receipt, model=base_model, custom_llm_provider="openai",
+            call_type=call_type, optional_params=params,
+        ) == float(cost)
+print("Configured token pricing survives zero or inflated upstream receipts for chat, Responses and images")
