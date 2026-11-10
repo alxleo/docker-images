@@ -8,6 +8,7 @@ import aiohttp
 import certifi
 import jwt
 import pypdf
+from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
 from litellm.types.router import LiteLLM_Params
 from opentelemetry.sdk.trace import TracerProvider
@@ -68,3 +69,20 @@ for upstream_template, expected_name in (
     resolved = router.get_available_deployment(model=names[0], messages=[{"role": "user", "content": "offline"}])
     assert resolved["litellm_params"]["model"] == "litellm_proxy/local/chat"
 print("Both wildcard templates list names that route to the published upstream id")
+
+for api_base, expected_url in (
+    (None, "https://api.openai.com/v1/models"),
+    ("https://example.test", "https://example.test/v1/models"),
+    ("https://example.test/v1/", "https://example.test/v1/models"),
+    ("https://example.test/gateway", "https://example.test/gateway/v1/models"),
+    ("https://example.test/gateway/v1", "https://example.test/gateway/v1/models"),
+    ("https://example.test/v1/chat/completions", "https://example.test/v1/models"),
+    ("https://example.test/gateway/v1/chat/completions/", "https://example.test/gateway/v1/models"),
+    ("https://example.test/v1/completions", "https://example.test/v1/models"),
+    ("https://example.test/gateway/completions/chat/completions", "https://example.test/gateway/completions/v1/models"),
+    ("http://[::1]:4000/gateway/", "http://[::1]:4000/gateway/v1/models"),
+    ("https://example.test/a%2Fb", "https://example.test/a%2Fb/v1/models"),
+    ("https://user:pass@example.test/gateway?token=discard#fragment", "https://example.test/gateway/v1/models"),
+):
+    assert OpenAIGPTConfig._model_list_url(api_base) == expected_url
+print("Provider model discovery preserves configured subpaths without duplicate API versions")

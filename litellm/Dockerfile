@@ -47,7 +47,12 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
 # Preserve a gateway namespace already present behind the provider prefix.
 # Remove this patch once the upstream release passes the wildcard image check.
 COPY wildcard-prefix.patch /tmp/wildcard-prefix.patch
+# https://github.com/BerriAI/litellm/blob/v1.108.3/litellm/llms/openai/chat/gpt_transformation.py
+# _fetch_model_ids discards api_base's path and probes the host root.
+# Remove this patch when native discovery passes the subpath image checks.
+COPY provider-discovery-path.patch /tmp/provider-discovery-path.patch
 RUN apk add --no-cache --virtual .wildcard-patch patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/wildcard-prefix.patch \
-    && rm /tmp/wildcard-prefix.patch \
+    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/provider-discovery-path.patch \
+    && rm /tmp/wildcard-prefix.patch /tmp/provider-discovery-path.patch \
     && apk del .wildcard-patch
