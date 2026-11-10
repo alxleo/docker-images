@@ -12,9 +12,15 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
+| `arc-runner` | GitHub Actions runner pool image for GARM, inheriting gitea-ci-runner | When GitHub-hosted runners cover the homelab's runner pool |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
+| `homelab-observer` | Runtime-only image for the private homelab observer MCP (source mounted by the deployment) | When the homelab observer deployment returns or is retired |
+| `litellm` | Patched LiteLLM LTS proxy for the homelab AI gateway and workstation control-plane | Upstream image needs no patches |
 | `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
+| `transmute` | Transmute app runtime with household quality and retention defaults | Never (custom application) |
+
+`nixos-runner-image` is not auto-discovered: it builds from its own `Containerfile` via `build-nixos-runner-image.yml`.
 
 ## MCP Service Images
 

@@ -79,9 +79,12 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
 | Build | `build-images.yml` | push main, PRs, dispatch, mirror refresh | Auto-discover, matrix build, test, push; gitleaks scan on PRs; a successful mirror run rebuilds everything |
+| Build custom image | `build-custom-image.yml` | reusable (`workflow_call`) | Per-image build/test/publish flow called per matrix entry |
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | weekly, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
+| NixOS runner | `build-nixos-runner-image.yml` | push, dispatch | Build and publish the nixos-runner image from its Containerfile |
+| ToolHive fleet | `toolhive-fleet.yml` | PRs, push | Live-verify the MCP fleet catalog against running containers |
 
 ### Dockerfile Policies
 
@@ -123,7 +126,7 @@ Header comment: upstream repo, issue link, what's fixed, when to remove.
 
 ### MCP images
 
-Edit `mcp-images.json` to add/update. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets` (optional).
+Edit `mcp-images.json` to add/update. Fields: `name`, `dockerfile`, `build_args`, `tag` (required); `description`, `secrets`, `contract`, `test_commands`, `smoke_env` (optional).
 
 `mcp-defaults.json` has runtime defaults (`health_path`, `health_port`, `mcp_endpoint`). Downstream repos read these.
 
