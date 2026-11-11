@@ -12,6 +12,7 @@
 | `query`, optional `objective`, `max_results`, `preferred_provider` | One read-only search; optionally prefer a provider before the default order; result count is passed where supported |
 | Provider quota error, including an MCP error inside HTTP 200 | Try the next account/provider and report the attempts |
 | HTTP 429 / rate-limit error | Cool down that slot, honoring `Retry-After` |
+| Rejected account key / OAuth reconnection needed | Skip that account temporarily; keep the shared pool usable |
 | Other errors | Return an error; do not silently change the request |
 | All slots unavailable | MCP tool error with the attempted slots |
 

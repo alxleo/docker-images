@@ -46,6 +46,11 @@ def test_native_mcp_quota_exception_selects_a_backup():
     assert server.exception_failure(MCPError(-32603, "Rate limit exceeded")) == ("rate_limited", 60)
 
 
+def test_one_disconnected_account_does_not_disable_the_shared_pool():
+    error = server.AccountReconnectRequired("Reconnect this shared account")
+    assert server.exception_failure(error) == ("reconnect_required", 300)
+
+
 def test_reload_keeps_cooldown_and_removes_revoked_accounts():
     accounts = server.accounts_from_json(json.dumps([account("one"), account("two", "test-two")]))
     pool = server.SearchPool(accounts)

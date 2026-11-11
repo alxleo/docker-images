@@ -55,6 +55,10 @@ QUOTA = re.compile(
 RATE = re.compile(r"rate.?limit|too many requests", re.IGNORECASE)
 
 
+class AccountReconnectRequired(ValueError):
+    """One contributed account needs attention; the rest of the pool remains usable."""
+
+
 class OAuthSeed(BaseModel):
     """Native MCPJam OAuth credential export; only public OAuth clients are supported."""
 
@@ -208,11 +212,15 @@ def exception_failure(exc: BaseException) -> tuple[str, float] | None:
         failures = [exception_failure(child) for child in exc.exceptions]
         return next((failure for failure in failures if failure is not None), None)
     if isinstance(exc, httpx2.HTTPStatusError):
+        if exc.response.status_code == 401:
+            return "account_unavailable", 300
         return quota_failure(
             exc.response.status_code, "", is_error=True, retry_after=exc.response.headers.get("retry-after")
         )
     if isinstance(exc, MCPError):
         return quota_failure(exc.error.code, exc.error.message, is_error=True)
+    if isinstance(exc, AccountReconnectRequired):
+        return "reconnect_required", 300
     return None
 
 
@@ -271,11 +279,11 @@ class OAuthStore:
 
     async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
         if client_info.client_id != self.seed.clientId or client_info.client_secret:
-            raise ValueError("Reconnect this account using a public OAuth client")
+            raise AccountReconnectRequired("Reconnect this account using a public OAuth client")
 
 
 async def reconnect_required(_url: str) -> None:
-    raise ValueError("The shared account requires OAuth reconnection")
+    raise AccountReconnectRequired("The shared account requires OAuth reconnection")
 
 
 async def preserve_quota_status(response: httpx2.Response) -> None:
@@ -297,12 +305,18 @@ async def call_provider(slot: Slot, arguments: dict[str, object]) -> CallToolRes
             storage=OAuthStore(slot.credential),
             redirect_handler=reconnect_required,
         )
+
+    async def response_hook(response: httpx2.Response) -> None:
+        await preserve_quota_status(response)
+        if slot.credential and slot.credential.api_key and response.status_code == 401:
+            response.raise_for_status()
+
     async with (
         httpx2.AsyncClient(
             headers=credential_headers(slot),
             auth=auth,
             timeout=20,
-            event_hooks={"response": [preserve_quota_status]},
+            event_hooks={"response": [response_hook]},
         ) as http,
         streamable_http_client(url, http_client=http) as streams,
         ClientSession(*streams) as session,
