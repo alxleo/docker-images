@@ -37,15 +37,17 @@ async def main():
         'type': 'object', 'properties': {'hold': {'type': 'boolean'}, 'fail': {'type': 'boolean'}},
     }, echo, server_id='fixture')
 
-    def auth(key, rpm=20, virtual=False):
+    registry.register_tool('fixture-blocked', 'Disallowed fixture', {'type': 'object'}, echo, server_id='fixture')
+
+    def auth(key, rpm=20, virtual=False, parallel=2, servers=None):
         return UserAPIKeyAuth(
-            api_key=key, max_parallel_requests=2, rpm_limit=rpm,
+            api_key=key, max_parallel_requests=parallel, rpm_limit=rpm,
             object_permission={
-                'object_permission_id': 'fixture', 'mcp_servers': ['fixture'], 'mcp_tool_search_enabled': virtual,
+                'object_permission_id': 'fixture', 'mcp_servers': servers or ['fixture'], 'mcp_tool_search_enabled': virtual,
             },
         )
 
-    async def invoke(caller, arguments=None, virtual=False):
+    async def invoke(caller, arguments=None, virtual=False, extra=None):
         request = Request({
             'type': 'http', 'method': 'POST', 'scheme': 'https',
             'path': '/mcp-rest/tools/call', 'root_path': '', 'query_string': b'',
@@ -54,15 +56,16 @@ async def main():
         payload = {'server_id': 'fixture', 'name': 'fixture-echo', 'arguments': arguments or {}}
         if virtual:
             payload = {'name': 'mcp_tool_call', 'arguments': {'tool_name': 'fixture-echo', 'arguments': arguments or {}}}
+        payload.update(extra or {})
         request._body = json.dumps(payload).encode()
         return await asyncio.create_task(rest_endpoints.call_tool_rest_api(request, user_api_key_dict=caller))
 
     for virtual in (False, True):
-        caller = auth(f'offline-rest-sequential-{virtual}', virtual=virtual)
+        caller = auth(f'offline-rest-sequential-{virtual}', virtual=virtual, parallel=1)
         for fail in (False, True, False, False):
             result = await invoke(caller, {'fail': fail}, virtual=virtual)
             assert result.is_error == fail, result
-    print('Direct and virtual REST calls passed at parallel=2, including tool-error release')
+    print('Direct and virtual REST calls passed at parallel=1, including tool-error release')
 
     caller = auth('offline-rest-concurrent')
     held = [asyncio.create_task(invoke(caller, {'hold': True})) for _ in range(2)]
@@ -79,8 +82,12 @@ async def main():
     assert not (await invoke(caller)).is_error
     print('Third concurrent REST call rejected; capacity recovered after completion')
 
-    caller = auth('offline-rest-rpm', rpm=3)
-    for _ in range(3):
+    caller = auth('offline-rest-rpm', rpm=3, parallel=1)
+    native = await asyncio.create_task(call_mcp_tool(
+        name='fixture-echo', arguments={}, mcp_servers=['fixture'], user_api_key_auth=caller,
+    ))
+    assert not native.is_error, native
+    for _ in range(2):
         assert not (await invoke(caller)).is_error
     try:
         await invoke(caller)
@@ -88,7 +95,24 @@ async def main():
         assert exc.status_code == 429, exc
     else:
         raise AssertionError('Completion incorrectly refunded the RPM charge')
-    print('REST RPM remains charged after completion')
+    print('Native and REST calls share one RPM allowance; completion does not refund it')
+
+    for caller, extra in (
+        (auth('offline-denied-tool'), {'name': 'fixture-blocked'}),
+        (auth('offline-denied-server', servers=['another-server']), {}),
+    ):
+        try:
+            await invoke(caller, extra=extra)
+        except HTTPException as exc:
+            assert exc.status_code == 403, exc
+        else:
+            raise AssertionError('REST bypassed tool/server permissions')
+    result = await invoke(auth('offline-resolved-authority'), extra={
+        'raw_headers': {'authorization': 'Bearer untrusted'},
+        'mcp_servers': ['another-server'], 'user_api_key_auth': None, 'wire_compat': 'modern',
+    })
+    assert not result.is_error, result
+    print('REST preserves tool/server denials and resolved authority over body fields')
 
     result = await call_mcp_tool(
         name='fixture-echo', arguments={}, mcp_servers=['fixture'], user_api_key_auth=auth('offline-native-control'),
