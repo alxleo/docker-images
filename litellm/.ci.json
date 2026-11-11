@@ -1,5 +1,6 @@
 {
   "watch_paths": [
-    "test/test-litellm-image.py"
+    "test/test-litellm-image.py",
+    "test/test-litellm-mcp-rest.py"
   ]
 }
