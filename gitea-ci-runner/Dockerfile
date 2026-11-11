@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
 # Purpose-built Gitea Actions job image for the homelab CI and deployment lanes.
 #

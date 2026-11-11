@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 # Upstream: https://github.com/transmute-app/transmute/tree/v2.1.1
 # Preserve filenames/layout and use household quality and retention defaults.
 # Drop each patch when its behavior is provided by upstream.
