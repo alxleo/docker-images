@@ -5,4 +5,10 @@ requires-python = ">=3.14,<3.15"
 dependencies = ["mcp[cli]==2.3.0"]
 
 [dependency-groups]
-dev = ["pytest==9.2.0"]
+dev = ["pytest==9.2.0", "pyright==1.1.411"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+venvPath = "."
+venv = ".venv"
+include = ["server.py", "healthcheck.py", "tests"]

@@ -25,7 +25,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
 from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, SecretStr, model_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -102,12 +102,13 @@ def accounts_from_json(value: str) -> list[Account]:
     seen: set[tuple[str, str]] = set()
     result = []
     for account in accounts:
-        identity = (
-            account.provider,
-            account.api_key.get_secret_value()
-            if account.api_key
-            else (account.oauth.refreshToken or account.oauth.accessToken).get_secret_value(),
-        )
+        if account.api_key:
+            credential = account.api_key.get_secret_value()
+        elif account.oauth:
+            credential = (account.oauth.refreshToken or account.oauth.accessToken).get_secret_value()
+        else:
+            raise ValueError("A contributed account has no credential")
+        identity = (account.provider, credential)
         if identity not in seen:
             seen.add(identity)
             result.append(account)
@@ -144,7 +145,7 @@ def make_slots(accounts: list[Account]) -> list[Slot]:
     ]
 
 
-def arguments_for(provider: Provider, query: str, objective: str, max_results: int) -> dict:
+def arguments_for(provider: Provider, query: str, objective: str, max_results: int) -> dict[str, object]:
     if provider == "parallel":
         return {"objective": objective, "search_queries": [query]}
     if provider == "exa":
@@ -262,7 +263,11 @@ class OAuthStore:
         temporary.replace(self.path)
 
     async def get_client_info(self) -> OAuthClientInformationFull:
-        return OAuthClientInformationFull(client_id=self.seed.clientId, token_endpoint_auth_method="none")
+        return OAuthClientInformationFull(
+            client_id=self.seed.clientId,
+            token_endpoint_auth_method="none",
+            redirect_uris=[AnyUrl("http://127.0.0.1/callback")],
+        )
 
     async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
         if client_info.client_id != self.seed.clientId or client_info.client_secret:
@@ -279,7 +284,7 @@ async def preserve_quota_status(response: httpx2.Response) -> None:
         response.raise_for_status()
 
 
-async def call_provider(slot: Slot, arguments: dict) -> CallToolResult:
+async def call_provider(slot: Slot, arguments: dict[str, object]) -> CallToolResult:
     url, tool = ENDPOINTS[slot.provider]
     auth = None
     if slot.credential and slot.credential.oauth:
@@ -287,7 +292,7 @@ async def call_provider(slot: Slot, arguments: dict) -> CallToolResult:
         auth = OAuthClientProvider(
             server_url=url,
             client_metadata=OAuthClientMetadata(
-                redirect_uris=["http://127.0.0.1/callback"], token_endpoint_auth_method="none"
+                redirect_uris=[AnyUrl("http://127.0.0.1/callback")], token_endpoint_auth_method="none"
             ),
             storage=OAuthStore(slot.credential),
             redirect_handler=reconnect_required,
@@ -323,7 +328,7 @@ class SearchPool:
 
     async def search(
         self, query: str, objective: str, max_results: int, preferred_provider: Provider | None = None
-    ) -> dict:
+    ) -> dict[str, object]:
         attempts = []
         slots = (
             sorted(self.slots, key=lambda slot: slot.provider != preferred_provider)
@@ -405,7 +410,7 @@ async def require_gateway_token(request: Request, call_next):
 @mcp.tool()
 async def search(
     query: str, objective: str = "", max_results: int = 5, preferred_provider: Provider | None = None
-) -> dict:
+) -> dict[str, object]:
     """Search the public web using free access, switching provider/account when quota is exhausted.
 
     Returns the provider and its original results. Optionally prefer a provider before trying the normal pool order.

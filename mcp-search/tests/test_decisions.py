@@ -11,6 +11,7 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult, TextContent
 
 spec = importlib.util.spec_from_file_location("search_server", Path(__file__).parents[1] / "server.py")
+assert spec is not None and spec.loader is not None
 server = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = server
 spec.loader.exec_module(server)

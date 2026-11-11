@@ -8,11 +8,18 @@ EXTENDS:
 # Use repo's own ruff config
 PYTHON_RUFF_CONFIG_FILE: ruff.toml
 
+# This component uses MCP 2; preserve the baseline environment for the other images.
+PYTHON_PYRIGHT_CONFIG_FILE: pyrightconfig.json
+PYTHON_PYRIGHT_PRE_COMMANDS:
+  - command: pip install uv==0.13.6 && uv sync --project mcp-search --frozen
+    cwd: workspace
+
 # Exclude git worktrees (agent sandboxes) and build artifacts
 ADDITIONAL_EXCLUDED_DIRECTORIES:
   - .claude
   - megalinter-reports
   - __pycache__
+  - .venv
   - .ruff_cache
   - .terraform
   - .terragrunt-cache
