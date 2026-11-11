@@ -129,8 +129,6 @@ async def check_mcp_rest_accounting():
     import json
 
     from fastapi import HTTPException
-    from starlette.requests import Request
-
     from litellm.proxy import proxy_server
     from litellm.proxy._experimental.mcp_server import rest_endpoints
     from litellm.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager as manager
@@ -138,6 +136,7 @@ async def check_mcp_rest_accounting():
     from litellm.proxy._experimental.mcp_server.tool_registry import global_mcp_tool_registry as registry
     from litellm.proxy._types import UserAPIKeyAuth
     from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from starlette.requests import Request
 
     proxy_server.proxy_logging_obj._init_litellm_callbacks()
     manager.registry["accounting"] = MCPServer(
