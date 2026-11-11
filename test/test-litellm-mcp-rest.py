@@ -6,14 +6,14 @@ import os
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'True'
 
 from fastapi import HTTPException
-from starlette.requests import Request
 from litellm.proxy import proxy_server
-from litellm.proxy._types import UserAPIKeyAuth
 from litellm.proxy._experimental.mcp_server import rest_endpoints
-from litellm.proxy._experimental.mcp_server.operations import call_mcp_tool
 from litellm.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager as manager
+from litellm.proxy._experimental.mcp_server.operations import call_mcp_tool
 from litellm.proxy._experimental.mcp_server.tool_registry import global_mcp_tool_registry as registry
+from litellm.proxy._types import UserAPIKeyAuth
 from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from starlette.requests import Request
 
 
 async def main():
