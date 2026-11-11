@@ -9,10 +9,11 @@ EXTENDS:
 PYTHON_RUFF_CONFIG_FILE: ruff.toml
 
 # This component uses MCP 2; preserve the baseline environment for the other images.
-PYTHON_PYRIGHT_CONFIG_FILE: pyrightconfig.json
+PYTHON_PYRIGHT_CONFIG_FILE: .github/pyrightconfig.json
 PYTHON_PYRIGHT_PRE_COMMANDS:
   - command: pip install uv==0.13.6 && uv sync --project mcp-search --frozen
     cwd: workspace
+    continue_if_failed: false
 
 # Exclude git worktrees (agent sandboxes) and build artifacts
 ADDITIONAL_EXCLUDED_DIRECTORIES:
