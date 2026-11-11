@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.28
 
 FROM ghcr.io/actions/actions-runner:2.338.2@sha256:759a1d94a15b05941aba5196974ff43fe15b4cbba29b694b35cbc32a1166b232 AS runner
-FROM ghcr.io/alxleo/gitea-ci-runner:latest@sha256:b840931abd80ee193a120ee8fac694d462c7d82b68e3f421f22e460176b47c1f
+FROM ghcr.io/alxleo/gitea-ci-runner:latest@sha256:23226ed785c9f642da12cfa951eff752cecac999f6c953ddc992ae08b62b0b93
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" \
       org.opencontainers.image.title="Disposable ARC runner" \
