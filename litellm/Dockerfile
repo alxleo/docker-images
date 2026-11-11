@@ -15,5 +15,6 @@ RUN apk add --no-cache --virtual .wildcard-patch patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/wildcard-prefix.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/provider-discovery-path.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/budget-pricing-identity.patch \
+    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/mcp-rest-accounting.patch \
     && rm -rf /tmp/litellm-patches \
     && apk del .wildcard-patch
