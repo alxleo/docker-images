@@ -1,5 +1,5 @@
 diff --git a/litellm/proxy/_experimental/mcp_server/rest_endpoints.py b/litellm/proxy/_experimental/mcp_server/rest_endpoints.py
-index b96b674..357a61e 100644
+index b96b674..263ebf6 100644
 --- a/litellm/proxy/_experimental/mcp_server/rest_endpoints.py
 +++ b/litellm/proxy/_experimental/mcp_server/rest_endpoints.py
 @@ -245,7 +245,7 @@ if MCP_AVAILABLE:
@@ -28,7 +28,7 @@ index b96b674..357a61e 100644
  
          reject_disallowed_mcp_client(request.headers, user_api_key_dict)
          try:
-@@ -1275,97 +1269,55 @@ if MCP_AVAILABLE:
+@@ -1275,97 +1269,60 @@ if MCP_AVAILABLE:
                  "model_group": f"MCP: {tool_name}",
              }
              data["metadata"] = model_metadata
@@ -139,8 +139,21 @@ index b96b674..357a61e 100644
 -                    guardrail_context=MCPRequestContext.resolve_guardrail_context(data),
 -                    requested_server_id=canonical_server_id,
 -                    incoming_bearer_token=MCPRequestHandler.get_guardrail_bearer_token(
--                        request.headers, user_api_key_dict
--                    ),
++            executed: Final = await call_mcp_tool(
++                **{
++                    **authenticated_data,
++                    "user_api_key_auth": user_api_key_dict,
++                    "mcp_auth_header": mcp_auth_header,
++                    "mcp_servers": [canonical_server_id],
++                    "mcp_server_auth_headers": mcp_server_auth_headers,
++                    "oauth2_headers": user_oauth_extra_headers or caller_oauth2_headers,
++                    "raw_headers": raw_headers_from_request,
++                    "client_ip": IPAddressUtils.get_mcp_client_ip(request),
++                    "wire_compat": WireCompat.LEGACY,
++                    "guardrail_context": MCPRequestContext.resolve_guardrail_context(authenticated_data),
++                    "incoming_bearer_token": MCPRequestHandler.get_guardrail_bearer_token(
+                         request.headers, user_api_key_dict
+                     ),
 -                )
 -                result: Final = complete_call_tool_result(executed, WireCompat.LEGACY)
 -            except Exception as e:
@@ -154,18 +167,9 @@ index b96b674..357a61e 100644
 -                result,
 -                _tool_start_time,
 -                datetime.now(),
-+            executed: Final = await call_mcp_tool(
-                 user_api_key_auth=user_api_key_dict,
+-                user_api_key_auth=user_api_key_dict,
 -                request_data=data,
-+                mcp_auth_header=mcp_auth_header,
-+                mcp_servers=[canonical_server_id],
-+                mcp_server_auth_headers=mcp_server_auth_headers,
-+                oauth2_headers=user_oauth_extra_headers or caller_oauth2_headers,
-+                raw_headers=raw_headers_from_request,
-+                client_ip=IPAddressUtils.get_mcp_client_ip(request),
-+                guardrail_context=MCPRequestContext.resolve_guardrail_context(authenticated_data),
-+                incoming_bearer_token=MCPRequestHandler.get_guardrail_bearer_token(request.headers, user_api_key_dict),
-+                **authenticated_data,
++                }
              )
 +            return complete_call_tool_result(executed, WireCompat.LEGACY)
          except MCPMissingUserEnvVarsError as e:
