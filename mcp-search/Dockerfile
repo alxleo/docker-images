@@ -1,4 +1,4 @@
-FROM ghcr.io/alxleo/base-images/python:3.14-alpine AS build
+FROM ghcr.io/alxleo/base-images/python:3.15-alpine AS build
 WORKDIR /app
 ENV UV_PYTHON_PREFERENCE=only-system
 RUN pip install --no-cache-dir uv==0.13.6
@@ -10,7 +10,7 @@ RUN apk add --no-cache patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.14/site-packages --strip=1 < /tmp/oauth-refresh.patch \
     && rm /tmp/oauth-refresh.patch
 
-FROM ghcr.io/alxleo/base-images/python:3.14-alpine
+FROM ghcr.io/alxleo/base-images/python:3.15-alpine
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
 ENV PATH="/app/.venv/bin:${PATH}"
 COPY --from=build /app/.venv /app/.venv
