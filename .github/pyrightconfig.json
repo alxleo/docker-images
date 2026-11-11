@@ -1,0 +1,10 @@
+{
+  "extends": "/opt/coding-standards/configs/pyrightconfig.json",
+  "executionEnvironments": [
+    {
+      "root": "../mcp-search",
+      "pythonVersion": "3.14",
+      "extraPaths": ["../mcp-search/.venv/lib/python3.14/site-packages"]
+    }
+  ]
+}

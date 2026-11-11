@@ -13,6 +13,8 @@ sops.yaml
 # Language artifacts
 node_modules/
 __pycache__/
+.venv/
+.pytest_cache/
 
 .claude/
 .Codex/
