@@ -28,6 +28,7 @@
     "litellm",
     "arc-runner",
     "transmute",
-    "manyfold"
+    "manyfold",
+    "mcp-search"
   ]
 }

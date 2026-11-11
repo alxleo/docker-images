@@ -1,0 +1,37 @@
+--- a/mcp/client/auth/oauth2.py
++++ b/mcp/client/auth/oauth2.py
+@@ -565,6 +565,8 @@
+         """Load stored tokens and client info."""
+         self.context.current_tokens = await self.context.storage.get_tokens()
+         self.context.client_info = await self.context.storage.get_client_info()
++        if self.context.current_tokens is not None:
++            self.context.update_token_expiry(self.context.current_tokens)
+         self._initialized = True
+ 
+     def _add_auth_header(self, request: httpx2.Request) -> None:
+@@ -610,7 +612,7 @@
+             # Capture protocol version from request headers
+             self.context.protocol_version = request.headers.get(MCP_PROTOCOL_VERSION_HEADER)
+ 
+-            if not self.context.is_token_valid() and self.context.can_refresh_token():
++            if self.context.oauth_metadata is not None and not self.context.is_token_valid() and self.context.can_refresh_token():
+                 # Try to refresh token
+                 refresh_request = await self._refresh_token()
+                 refresh_response = yield refresh_request
+@@ -734,6 +736,16 @@
+                         self.context.client_metadata.scope = union_scopes(prior_scope, challenged_scope)
+                     else:
+                         self.context.client_metadata.scope = challenged_scope
++
++                    # A restored token must discover its issuer before refreshing. A 401
++                    # also refreshes a token revoked before its advertised expiry.
++                    if response.status_code == 401 and self.context.can_refresh_token():
++                        refresh_response = yield await self._refresh_token()
++                        if await self._handle_refresh_response(refresh_response):
++                            self._add_auth_header(request)
++                            refreshed_response = yield request
++                            if refreshed_response.status_code != 401:
++                                return
+ 
+                     # Step 4: Register client or use URL-based client ID (CIMD)
+                     if not self.context.client_info:
