@@ -38,7 +38,7 @@
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "@types/three": "0.183.1"
   },
   "overrides": {
