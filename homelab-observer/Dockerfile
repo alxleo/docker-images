@@ -1,6 +1,6 @@
 # Runtime-only image for the private homelab observer MCP. The private source
 # is mounted read-only by the homelab deployment and is never copied here.
-ARG UV_VERSION=0.13.7
+ARG UV_VERSION=0.13.8
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
