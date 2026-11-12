@@ -24,7 +24,7 @@
 # Example run:
 #   docker run -p 8080:8080 mcp-youtube
 
-ARG UV_VERSION=0.13.7
+ARG UV_VERSION=0.13.8
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
