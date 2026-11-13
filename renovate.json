@@ -9,7 +9,7 @@
   "prHourlyLimit": 8,
   "prConcurrentLimit": 20,
   "constraints": {
-    "mise": "v2026.11.6"
+    "mise": "v2026.11.8"
   },
   "packageRules": [
     {
