@@ -2,6 +2,6 @@
   "name": "mise-npm-install",
   "private": true,
   "dependencies": {
-    "jscpd": "5.4.2"
+    "jscpd": "5.4.3"
   }
 }

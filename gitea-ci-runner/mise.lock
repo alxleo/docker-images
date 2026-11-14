@@ -98,20 +98,20 @@ url = "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11
 url_api = "https://api.github.com/repos/caddyserver/caddy/releases/assets/711594947"
 
 [[tools.chezmoi]]
-version = "2.74.0"
+version = "2.74.1"
 backend = "aqua:twpayne/chezmoi"
-specifiers = ["2.74.0"]
+specifiers = ["2.74.1"]
 
 [tools.chezmoi."platforms.linux-arm64"]
-checksum = "sha256:bf89495d1aab5e4fa0fc1ba9457837b34ee8dec9b787570f2de3e1c12a5835a5"
-url = "https://github.com/twpayne/chezmoi/releases/download/v2.74.0/chezmoi_2.74.0_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/698495649"
+checksum = "sha256:8c62619c4303770342e7c7e75d168b6cc6efee4ad5e4b994980de7cf794d68e2"
+url = "https://github.com/twpayne/chezmoi/releases/download/v2.74.1/chezmoi_2.74.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/733055363"
 provenance = "cosign"
 
 [tools.chezmoi."platforms.linux-x64"]
-checksum = "sha256:1b98a567f726f41540414aea4caf912699d53e248b29ccf8369cf553657b2374"
-url = "https://github.com/twpayne/chezmoi/releases/download/v2.74.0/chezmoi_2.74.0_linux-glibc_amd64.tar.gz"
-url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/698495837"
+checksum = "sha256:ae01c66b1a6dbf563667c63fbbd9986b3cfa3c98dd266ddee732f63e8af2e9d1"
+url = "https://github.com/twpayne/chezmoi/releases/download/v2.74.1/chezmoi_2.74.1_linux-glibc_amd64.tar.gz"
+url_api = "https://api.github.com/repos/twpayne/chezmoi/releases/assets/733055497"
 provenance = "cosign"
 
 [[tools.cilium-hubble]]
@@ -264,21 +264,21 @@ url_api = "https://api.github.com/repos/fluxcd/flux-schema/releases/assets/66958
 provenance = "github-attestations"
 
 [[tools."github:home-operations/flate"]]
-version = "0.6.5"
+version = "0.7.3"
 backend = "github:home-operations/flate"
-specifiers = ["0.6.5"]
+specifiers = ["v0.7.3"]
 
 [tools."github:home-operations/flate"."platforms.linux-arm64"]
-checksum = "sha256:7f514814890df4a095887943ae606be1a8af878606b7bd0575efe75402cd38dc"
+checksum = "sha256:345b8b679de439343003097b79aabec7d070c05e70eeca5c413193ba97aa368f"
 checksum_source = "mise-versions"
-url = "https://github.com/home-operations/flate/releases/download/v0.6.5/flate_0.6.5_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/home-operations/flate/releases/assets/541337295"
+url = "https://github.com/home-operations/flate/releases/download/v0.7.3/flate_0.7.3_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/home-operations/flate/releases/assets/727305352"
 
 [tools."github:home-operations/flate"."platforms.linux-x64"]
-checksum = "sha256:37eb0cd91a6752340754375743aa616c263cd8367ce594abd42ee955e1ec0099"
+checksum = "sha256:05d3c79447647e95329aa45c7035e7ebac3a120942972e78819deadc3bf0afeb"
 checksum_source = "mise-versions"
-url = "https://github.com/home-operations/flate/releases/download/v0.6.5/flate_0.6.5_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/home-operations/flate/releases/assets/541337294"
+url = "https://github.com/home-operations/flate/releases/download/v0.7.3/flate_0.7.3_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/home-operations/flate/releases/assets/727305354"
 
 [[tools."github:kubernetes-sigs/kwok"]]
 version = "0.8.0"
@@ -486,10 +486,10 @@ backend = "npm:@axe-core/cli"
 specifiers = ["4.14.0"]
 
 [[tools."npm:@mcpjam/cli"]]
-version = "6.1.0"
-aube = { path = ".mise/locks/npm-mcpjam-cli/6.1.0", digest = "sha256:c27b25c5f5debf6d7a22e187ed14223cff9a4755a5062b2aa451645c45243969" }
+version = "6.2.0"
+aube = { path = ".mise/locks/npm-mcpjam-cli/6.2.0", digest = "sha256:d6c01eb8d23f615bc9cdc0711fa530adc5d300dfaa979da66f1ee9a5b458fa78" }
 backend = "npm:@mcpjam/cli"
-specifiers = ["6.1.0"]
+specifiers = ["6.2.0"]
 
 [[tools."npm:actions-up"]]
 version = "2.0.0"
@@ -504,10 +504,10 @@ backend = "npm:dependency-cruiser"
 specifiers = ["18.7.2"]
 
 [[tools."npm:jscpd"]]
-version = "5.4.2"
-aube = { path = ".mise/locks/npm-jscpd/5.4.2", digest = "sha256:de55a23e436e347d070bdc7c62d0b2adf1465def4f7a410ce0786f37af67e094" }
+version = "5.4.3"
+aube = { path = ".mise/locks/npm-jscpd/5.4.3", digest = "sha256:2e1793140644f9a9aabf23cce4c37111bd06e8caecc5dc9dcdf8fb11de793713" }
 backend = "npm:jscpd"
-specifiers = ["5.4.2"]
+specifiers = ["5.4.3"]
 
 [[tools."npm:json-schema-to-typescript"]]
 version = "16.0.0"
@@ -673,10 +673,10 @@ url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447482
 provenance = "github-attestations"
 
 [[tools.semgrep]]
-version = "1.184.0"
+version = "1.185.0"
 backend = "pypi:semgrep"
-specifiers = ["1.184.0"]
-uv = { path = ".mise/locks/semgrep/1.184.0~7877237f", digest = "sha256:f971c8ce3d55d58b691ba832f87180f7dbbd704743d67b67a83de19456b04a7a" }
+specifiers = ["1.185.0"]
+uv = { path = ".mise/locks/semgrep/1.185.0~7877237f", digest = "sha256:010dd9b0b6b5df2d0ace782a4493721ee58fc0c1b676a842b633b7095fe79cc8" }
 
 [tools.semgrep.options]
 python = "3.13"
@@ -767,20 +767,20 @@ url = "https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.
 url_api = "https://api.github.com/repos/terraform-docs/terraform-docs/releases/assets/416956208"
 
 [[tools.tflint]]
-version = "0.65.0"
+version = "0.66.0"
 backend = "aqua:terraform-linters/tflint"
-specifiers = ["0.65.0"]
+specifiers = ["0.66.0"]
 
 [tools.tflint."platforms.linux-arm64"]
-checksum = "sha256:843017c47a98be1de4d88fa038daa293770fe25cd01656c4f08b2e30d1d3b3a0"
-url = "https://github.com/terraform-linters/tflint/releases/download/v0.65.0/tflint_linux_arm64.zip"
-url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/666566936"
+checksum = "sha256:1105a0a5ddee7cdac7957a3475571a946b839192ea1bc0c722c6c4686001067e"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.66.0/tflint_linux_arm64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/724463994"
 provenance = "github-attestations"
 
 [tools.tflint."platforms.linux-x64"]
-checksum = "sha256:d4c545ed2e29d6338604b586f34f544f380f70f243aa72f7b484713835eaec61"
-url = "https://github.com/terraform-linters/tflint/releases/download/v0.65.0/tflint_linux_amd64.zip"
-url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/666566850"
+checksum = "sha256:22be11cadc25cd02401e94c0ccc91aa63467debb8485c2a755d98f4c0a9d1e2e"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.66.0/tflint_linux_amd64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/724464090"
 provenance = "github-attestations"
 
 [[tools.trivy]]
@@ -827,20 +827,20 @@ uv = { path = ".mise/locks/yamllint/1.38.0~60b8ab58", digest = "sha256:78ffc591c
 python = "3.13"
 
 [[tools.yq]]
-version = "4.54.2"
+version = "4.54.3"
 backend = "aqua:mikefarah/yq"
-specifiers = ["4.54.2"]
+specifiers = ["4.54.3"]
 
 [tools.yq."platforms.linux-arm64"]
-checksum = "sha256:bd44211dcd29a5f0eb701d4b7eb5ccd0cfff3bd3966cb4f7f9bd5b13701d997e"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_arm64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419591"
+checksum = "sha256:89f69310b61b68d1245065a1241d1fc843f7a36cd6103ffd77ad987613bd1b67"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_arm64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219924"
 provenance = "cosign"
 
 [tools.yq."platforms.linux-x64"]
-checksum = "sha256:44c7759059b4910827a0059a2757b22001e59360cdecdb2ef8dedc4b6c7e9f32"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_amd64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419583"
+checksum = "sha256:129534601871538efe0ba4c5e62a34fb1d5f469bcb975c4fddeb467d82974973"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_amd64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219936"
 provenance = "cosign"
 
 [[tools.zizmor]]
