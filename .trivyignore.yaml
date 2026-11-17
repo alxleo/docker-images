@@ -26,6 +26,13 @@ vulnerabilities:
       - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
     statement: >-
       Semgrep 1.184.0 extracts only a locally generated traceparent; scanner CLI does not accept inbound tracestate. Upstream pins OpenTelemetry~=1.37.0.
+  - id: CVE-2026-126360
+    paths:
+      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
+    statement: >-
+      Semgrep 1.184.0 scan CLI extracts a traceparent assembled from its local
+      parent trace and span environment variables, not inbound HTTP headers.
+      Its optional server is never launched. Upstream pins OpenTelemetry~=1.37.0.
 
 # Conftest enforces these Dockerfile invariants with per-file exemptions.
 misconfigurations:

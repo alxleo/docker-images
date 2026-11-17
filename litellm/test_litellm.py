@@ -17,3 +17,10 @@ def test_mcp_rest_admission(docker, image_ref, repo_root):
     docker.run(
         "--network", "none", "--entrypoint", "/app/.venv/bin/python", image_ref, "-I", "-B", "-", input_text=script
     )
+
+
+def test_mcp_discovery_initialization(docker, image_ref, repo_root):
+    script = (repo_root / "test" / "test-litellm-mcp-discovery.py").read_text()
+    docker.run(
+        "--network", "none", "--entrypoint", "/app/.venv/bin/python", image_ref, "-I", "-B", "-", input_text=script
+    )
