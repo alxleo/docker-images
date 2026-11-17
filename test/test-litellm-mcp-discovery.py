@@ -8,19 +8,18 @@ from unittest.mock import patch
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'True'
 
 import anyio
-from mcp.server.context import ServerRequestContext
-from mcp.shared.subscriptions import ToolsListChanged, event_to_notification
-from mcp.types import ServerCapabilities, ToolsCapability
-
 from litellm.proxy._experimental.mcp_server import subscriptions
 from litellm.proxy._experimental.mcp_server.contracts import OperationContext
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from mcp.server.context import ServerRequestContext
+from mcp.shared.subscriptions import ToolsListChanged, event_to_notification
+from mcp.types import ServerCapabilities, ToolsCapability
 
 
 class CatalogSession:
     protocol_version = '2025-11-25'
-    server_capabilities = ServerCapabilities(tools=ToolsCapability(list_changed=True))
+    server_capabilities = ServerCapabilities(tools=ToolsCapability.model_validate({'listChanged': True}))
 
 
 class InProcessCatalog:
@@ -84,22 +83,21 @@ async def main():
             context, authorize, lambda auth, *_: auth.user_id,
         )
         with patch.object(subscriptions, '_listing', fingerprint):
-            async with anyio.create_task_group() as group:
-                async with owner.initializing(ctx):
-                    group.start_soon(owner.legacy_session, ctx, authorization)
-                    with anyio.fail_after(3):
-                        await owner.wait_initialized(ctx)
-                    for _ in range(4):
-                        await asyncio.sleep(0)
-                    assert sent == ['notifications/tools/list_changed'] * len(transitions), sent
-                    allowance = 1
-                    current = 'live-change-' + caller
-                    changed.clear()
-                    await targets[0].client.receive(event_to_notification(ToolsListChanged(), {}))
-                    with anyio.fail_after(3):
-                        await changed.wait()
-                    assert len(sent) == len(transitions) + 1, sent
-                    group.cancel_scope.cancel()
+            async with anyio.create_task_group() as group, owner.initializing(ctx):
+                group.start_soon(owner.legacy_session, ctx, authorization)
+                with anyio.fail_after(3):
+                    await owner.wait_initialized(ctx)
+                for _ in range(4):
+                    await asyncio.sleep(0)
+                assert sent == ['notifications/tools/list_changed'] * len(transitions), sent
+                allowance = 1
+                current = 'live-change-' + caller
+                changed.clear()
+                await targets[0].client.receive(event_to_notification(ToolsListChanged(), {}))
+                with anyio.fail_after(3):
+                    await changed.wait()
+                assert len(sent) == len(transitions) + 1, sent
+                group.cancel_scope.cancel()
 
     await exercise('alice', {2: 'after-first-connect', 3: 'after-second-connect'})
     await exercise('bob', {})
