@@ -50,10 +50,14 @@ async def main():
     async def exercise(caller, transitions):
         current = 'initial-' + caller
         checks = 0
-        allowance = 6
+        allowance = 4
         sent = []
+        snapshots = []
         changed = asyncio.Event()
-        context = OperationContext(_caller=UserAPIKeyAuth(user_id=caller))
+        context = OperationContext(
+            _caller=UserAPIKeyAuth(user_id=caller),
+            mcp_servers=tuple(target.server.server_id for target in targets),
+        )
 
         async def authorize():
             nonlocal checks, current
@@ -68,6 +72,8 @@ async def main():
             allowance -= 1
             if allowance < 0:
                 raise AssertionError('Subscription setup exhausted its isolated metadata allowance')
+            assert observed_context.mcp_servers == context.mcp_servers
+            snapshots.append(current)
             return current
 
         async def send(notification, **_kwargs):
@@ -89,19 +95,20 @@ async def main():
                     await owner.wait_initialized(ctx)
                 for _ in range(4):
                     await asyncio.sleep(0)
-                assert sent == ['notifications/tools/list_changed'] * len(transitions), sent
+                assert sent == ['notifications/tools/list_changed'] * bool(transitions), sent
+                assert snapshots[-1] == current
                 allowance = 1
                 current = 'live-change-' + caller
                 changed.clear()
                 await targets[0].client.receive(event_to_notification(ToolsListChanged(), {}))
                 with anyio.fail_after(3):
                     await changed.wait()
-                assert len(sent) == len(transitions) + 1, sent
+                assert len(sent) == bool(transitions) + 1, sent
                 group.cancel_scope.cancel()
 
     await exercise('alice', {2: 'after-first-connect', 3: 'after-second-connect'})
     await exercise('bob', {})
-    print('Bounded setup preserves distinct changes, live updates and caller-local snapshots')
+    print('Constant setup metadata work preserves final changes, live updates and full caller scope')
 
 
 asyncio.run(main())
