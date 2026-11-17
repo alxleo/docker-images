@@ -38,7 +38,7 @@ class InProcessCatalog:
         await operation(CatalogSession())
 
 
-async def parallel_setup():
+async def parallel_setup(*, fail_initial=False):
     connection_gate = asyncio.Barrier(3)
     catalog_gate = asyncio.Barrier(3)
     reads = 0
@@ -87,6 +87,8 @@ async def parallel_setup():
         reads += 1
         assert reads <= 6, 'Concurrent listeners repeated the shared catalog batch'
         await catalog_gate.wait()
+        if fail_initial:
+            raise ValueError('Isolated initial catalog failure')
         return type(event).__name__
 
     async def send(_notification, **_kwargs):
@@ -99,18 +101,28 @@ async def parallel_setup():
         method='notifications/initialized', request_id=None,
     )
     authorization = subscriptions.SubscriptionAuthorization(context, authorize, lambda auth, *_: auth.user_id)
-    with patch.object(subscriptions, '_listing', fingerprint):
-        async with anyio.create_task_group() as group, owner.initializing(ctx):
-            group.start_soon(owner.legacy_session, ctx, authorization)
-            with anyio.fail_after(3):
-                await owner.wait_initialized(ctx)
-            assert reads == 6 and active == 3
-            group.cancel_scope.cancel()
+    failed = False
+    try:
+        with patch.object(subscriptions, '_listing', fingerprint):
+            async with anyio.create_task_group() as group, owner.initializing(ctx):
+                group.start_soon(owner.legacy_session, ctx, authorization)
+                with anyio.fail_after(3):
+                    await owner.wait_initialized(ctx)
+                if not fail_initial:
+                    assert reads == 6 and active == 3
+                group.cancel_scope.cancel()
+    except* ValueError:
+        if not fail_initial:
+            raise
+        failed = True
+    assert failed == fail_initial
+    assert reads == (3 if fail_initial else 6)
     assert active == 0
 
 
 async def main():
     await parallel_setup()
+    await parallel_setup(fail_initial=True)
     targets = tuple(
         subscriptions.SubscriptionTarget(
             MCPServer(server_id=f'catalog-{n}', name=f'catalog-{n}', transport='http'),

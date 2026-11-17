@@ -6,7 +6,7 @@
          handler: Final = ListenHandler(bus, max_subscriptions=1, max_buffered_events=128)
 +        setup_catalogs: dict[ServerEvent, str | None] = {}
 +        ready_catalogs: dict[ServerEvent, str | None] = {}
-+        setup_lock: Final = asyncio.Lock()
++        setup_task: asyncio.Task[dict[ServerEvent, str | None]] | None = None
 +
 +        async def read_catalogs(
 +            events: tuple[ServerEvent, ...], snapshot_context: OperationContext
@@ -23,15 +23,22 @@
 
          async def check() -> OperationContext:
              fresh: Final = await authorize()
-@@ -547,7 +563,10 @@
+@@ -534,6 +550,7 @@
+             legacy: Final = LegacyNotifications()
+
+             async def connected(session: ClientSession) -> None:
++                nonlocal setup_task
+                 requested: Final = params.notifications
+                 if ctx.protocol_version != "2026-07-28" and not any(
+                     _supported_notifications(requested, session.server_capabilities or ServerCapabilities())
+@@ -547,7 +564,9 @@
                      for event in (ToolsListChanged(), PromptsListChanged(), ResourcesListChanged())
                      if event_matches(requested, frozenset(), event)
                  )
 -                baseline: Final = {event: await _listing(event, context) for event in requested_events}
-+                async with setup_lock:
-+                    missing: Final = tuple(event for event in requested_events if event not in setup_catalogs)
-+                    if missing:
-+                        setup_catalogs.update(await read_catalogs(missing, context))
++                if setup_task is None:
++                    setup_task = asyncio.create_task(read_catalogs(requested_events, context))
++                setup_catalogs.update(await setup_task)
                  stream: Final = (
                      listen(
                          session,
