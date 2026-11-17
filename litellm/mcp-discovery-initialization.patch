@@ -1,26 +1,41 @@
 --- a/litellm/proxy/_experimental/mcp_server/subscriptions.py
 +++ b/litellm/proxy/_experimental/mcp_server/subscriptions.py
-@@ -518,6 +518,8 @@
+@@ -518,6 +518,22 @@
              raise MCPError(code=-32602, message="Resource subscriptions require exactly one allowed server")
          bus: Final = _ListenerBus()
          handler: Final = ListenHandler(bus, max_subscriptions=1, max_buffered_events=128)
 +        setup_catalogs: dict[ServerEvent, str | None] = {}
 +        ready_catalogs: dict[ServerEvent, str | None] = {}
++        setup_lock: Final = asyncio.Lock()
++
++        async def read_catalogs(
++            events: tuple[ServerEvent, ...], snapshot_context: OperationContext
++        ) -> dict[ServerEvent, str | None]:
++            values: dict[ServerEvent, str | None] = {}
++
++            async def read(event: ServerEvent) -> None:
++                values[event] = await _listing(event, snapshot_context)
++
++            async with anyio.create_task_group() as batch:
++                for event in events:
++                    batch.start_soon(read, event)
++            return values
 
          async def check() -> OperationContext:
              fresh: Final = await authorize()
-@@ -547,7 +549,9 @@
+@@ -547,7 +563,10 @@
                      for event in (ToolsListChanged(), PromptsListChanged(), ResourcesListChanged())
                      if event_matches(requested, frozenset(), event)
                  )
 -                baseline: Final = {event: await _listing(event, context) for event in requested_events}
-+                for event in requested_events:
-+                    if event not in setup_catalogs:
-+                        setup_catalogs[event] = await _listing(event, context)
++                async with setup_lock:
++                    missing: Final = tuple(event for event in requested_events if event not in setup_catalogs)
++                    if missing:
++                        setup_catalogs.update(await read_catalogs(missing, context))
                  stream: Final = (
                      listen(
                          session,
-@@ -563,16 +567,13 @@
+@@ -563,16 +582,13 @@
                      events: Final = tuple(
                          event for event in requested_events if event_matches(subscription.honored, frozenset(), event)
                      )
@@ -39,7 +54,26 @@
                      async for event in subscription:
                          fresh = await check()
                          manager = operations.global_mcp_server_manager
-@@ -608,6 +609,19 @@
+@@ -596,9 +612,15 @@
+                 self._upstream_slots.release()
+
+         async with _listener_admission(targets), anyio.create_task_group() as group:
+-            honored: Final = tuple(
+-                [SubscriptionFilter.model_validate(await group.start(relay, target)) for target in targets]
+-            )
++            connected_filters: dict[int, SubscriptionFilter] = {}
++
++            async def connect(index: int, target: SubscriptionTarget) -> None:
++                connected_filters[index] = SubscriptionFilter.model_validate(await group.start(relay, target))
++
++            async with anyio.create_task_group() as connections:
++                for index, target in enumerate(targets):
++                    connections.start_soon(connect, index, target)
++            honored: Final = tuple(connected_filters[index] for index in range(len(targets)))
+             notifications: Final = SubscriptionFilter(
+                 tools_list_changed=any(item.tools_list_changed for item in honored) or None,
+                 prompts_list_changed=any(item.prompts_list_changed for item in honored) or None,
+@@ -608,6 +630,19 @@
                  )
                  or None,
              )
@@ -47,7 +81,7 @@
 +            setup_events: Final = tuple(
 +                event for event in setup_catalogs if event_matches(notifications, frozenset(), event)
 +            )
-+            ready_catalogs.update({event: await _listing(event, setup_context) for event in setup_events})
++            ready_catalogs.update(await read_catalogs(setup_events, setup_context))
 +
 +            async def publish_setup() -> None:
 +                await bus.ready.wait()

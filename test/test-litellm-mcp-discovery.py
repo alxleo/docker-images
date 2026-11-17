@@ -14,7 +14,12 @@ from litellm.proxy._types import UserAPIKeyAuth
 from litellm.types.mcp_server.mcp_server_manager import MCPServer
 from mcp.server.context import ServerRequestContext
 from mcp.shared.subscriptions import ToolsListChanged, event_to_notification
-from mcp.types import ServerCapabilities, ToolsCapability
+from mcp.types import (
+    PromptsCapability,
+    ResourcesCapability,
+    ServerCapabilities,
+    ToolsCapability,
+)
 
 
 class CatalogSession:
@@ -33,7 +38,79 @@ class InProcessCatalog:
         await operation(CatalogSession())
 
 
+async def parallel_setup():
+    connection_gate = asyncio.Barrier(3)
+    catalog_gate = asyncio.Barrier(3)
+    reads = 0
+    active = 0
+
+    class CompleteSession(CatalogSession):
+        server_capabilities = ServerCapabilities(
+            tools=ToolsCapability.model_validate({'listChanged': True}),
+            prompts=PromptsCapability.model_validate({'listChanged': True}),
+            resources=ResourcesCapability.model_validate({'listChanged': True}),
+        )
+
+    class GatedCatalog(InProcessCatalog):
+        async def run_with_session(self, operation, *, on_notification):
+            nonlocal active
+            self.receive = on_notification
+            active += 1
+            try:
+                await connection_gate.wait()
+                await operation(CompleteSession())
+            finally:
+                active -= 1
+
+    targets = tuple(
+        subscriptions.SubscriptionTarget(
+            MCPServer(server_id=f'parallel-{n}', name=f'parallel-{n}', transport='http'),
+            GatedCatalog(), f'credential-{n}',
+        )
+        for n in range(3)
+    )
+    context = OperationContext(
+        _caller=UserAPIKeyAuth(user_id='parallel'),
+        mcp_servers=tuple(target.server.server_id for target in targets),
+    )
+
+    async def authorize():
+        return context
+
+    async def resolve(observed_context):
+        assert observed_context is context
+        return targets
+
+    async def fingerprint(event, observed_context):
+        nonlocal reads
+        assert observed_context is context
+        reads += 1
+        assert reads <= 6, 'Concurrent listeners repeated the shared catalog batch'
+        await catalog_gate.wait()
+        return type(event).__name__
+
+    async def send(_notification, **_kwargs):
+        raise AssertionError('Unchanged catalogs must not emit a setup notification')
+
+    owner = subscriptions.GatewaySubscriptions(resolve_targets=resolve)
+    ctx = ServerRequestContext(
+        session=SimpleNamespace(client_params=object(), send_notification=send),
+        lifespan_context=None, protocol_version='2025-11-25',
+        method='notifications/initialized', request_id=None,
+    )
+    authorization = subscriptions.SubscriptionAuthorization(context, authorize, lambda auth, *_: auth.user_id)
+    with patch.object(subscriptions, '_listing', fingerprint):
+        async with anyio.create_task_group() as group, owner.initializing(ctx):
+            group.start_soon(owner.legacy_session, ctx, authorization)
+            with anyio.fail_after(3):
+                await owner.wait_initialized(ctx)
+            assert reads == 6 and active == 3
+            group.cancel_scope.cancel()
+    assert active == 0
+
+
 async def main():
+    await parallel_setup()
     targets = tuple(
         subscriptions.SubscriptionTarget(
             MCPServer(server_id=f'catalog-{n}', name=f'catalog-{n}', transport='http'),
