@@ -1,0 +1,31 @@
+--- a/litellm/proxy/_experimental/mcp_server/subscriptions.py
++++ b/litellm/proxy/_experimental/mcp_server/subscriptions.py
+@@ -518,6 +518,7 @@
+             raise MCPError(code=-32602, message="Resource subscriptions require exactly one allowed server")
+         bus: Final = _ListenerBus()
+         handler: Final = ListenHandler(bus, max_subscriptions=1, max_buffered_events=128)
++        setup_catalogs: dict[ServerEvent, str | None] = {}
+ 
+         async def check() -> OperationContext:
+             fresh: Final = await authorize()
+@@ -547,7 +548,9 @@
+                     for event in (ToolsListChanged(), PromptsListChanged(), ResourcesListChanged())
+                     if event_matches(requested, frozenset(), event)
+                 )
+-                baseline: Final = {event: await _listing(event, context) for event in requested_events}
++                for event in requested_events:
++                    if event not in setup_catalogs:
++                        setup_catalogs[event] = await _listing(event, context)
+                 stream: Final = (
+                     listen(
+                         session,
+@@ -568,7 +571,8 @@
+                     catalog.invalidate_discovery_lists(target.server.server_id)
+                     catalog._drop_listed_tools(target.server.server_id)  # pyright: ignore[reportPrivateUsage]  # refresh the setup snapshot through the same catalog owner as event delivery
+                     previous: Final = {event: await _listing(event, setup_context) for event in events}
+-                    setup_changes: Final = tuple(event for event in events if baseline[event] != previous[event])
++                    setup_changes: Final = tuple(event for event in events if setup_catalogs[event] != previous[event])
++                    setup_catalogs.update(previous)
+                     task_status.started(subscription.honored)
+                     await bus.ready.wait()
+                     for event in setup_changes:
