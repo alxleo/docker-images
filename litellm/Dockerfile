@@ -9,7 +9,7 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 # Provider fixes also live in https://github.com/mossquartz731/litellm.
 # MCP REST defers request hooks to tool admission to avoid acquiring two slots.
 # Explicit base_model pricing must also win over an upstream zero-cost receipt.
-# Legacy notification listeners share their caller-scoped initial catalog snapshot.
+# Legacy notification setup shares caller-scoped snapshots and runs independent reads concurrently.
 # Retire each patch when an official release passes the native image checks.
 COPY --link *.patch /tmp/litellm-patches/
 # conftest:exempt=user_required -- upstream Prisma client generation requires its existing /app permissions
