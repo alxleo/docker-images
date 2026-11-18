@@ -1,12 +1,18 @@
 --- a/litellm/proxy/_experimental/mcp_server/subscriptions.py
 +++ b/litellm/proxy/_experimental/mcp_server/subscriptions.py
-@@ -518,6 +518,22 @@
+@@ -518,6 +518,28 @@
              raise MCPError(code=-32602, message="Resource subscriptions require exactly one allowed server")
          bus: Final = _ListenerBus()
          handler: Final = ListenHandler(bus, max_subscriptions=1, max_buffered_events=128)
 +        setup_catalogs: dict[ServerEvent, str | None] = {}
 +        ready_catalogs: dict[ServerEvent, str | None] = {}
 +        setup_task: asyncio.Task[dict[ServerEvent, str | None]] | None = None
++        initializing_legacy: Final = ctx.protocol_version != "2026-07-28" and ctx.method == "notifications/initialized"
++        requested_events: Final = tuple(
++            event
++            for event in (ToolsListChanged(), PromptsListChanged(), ResourcesListChanged())
++            if event_matches(params.notifications, frozenset(), event)
++        )
 +
 +        async def read_catalogs(
 +            events: tuple[ServerEvent, ...], snapshot_context: OperationContext
@@ -23,7 +29,7 @@
 
          async def check() -> OperationContext:
              fresh: Final = await authorize()
-@@ -534,6 +550,7 @@
+@@ -534,6 +556,7 @@
              legacy: Final = LegacyNotifications()
 
              async def connected(session: ClientSession) -> None:
@@ -31,18 +37,25 @@
                  requested: Final = params.notifications
                  if ctx.protocol_version != "2026-07-28" and not any(
                      _supported_notifications(requested, session.server_capabilities or ServerCapabilities())
-@@ -547,7 +564,9 @@
-                     for event in (ToolsListChanged(), PromptsListChanged(), ResourcesListChanged())
-                     if event_matches(requested, frozenset(), event)
-                 )
+@@ -542,12 +565,11 @@
+                 ):
+                     task_status.started(SubscriptionFilter())
+                     return
+-                requested_events: Final = tuple(
+-                    event
+-                    for event in (ToolsListChanged(), PromptsListChanged(), ResourcesListChanged())
+-                    if event_matches(requested, frozenset(), event)
+-                )
 -                baseline: Final = {event: await _listing(event, context) for event in requested_events}
-+                if setup_task is None:
-+                    setup_task = asyncio.create_task(read_catalogs(requested_events, context))
-+                setup_catalogs.update(await setup_task)
++                # A protocol-ordered legacy client cannot list before this initialization barrier.
++                if not initializing_legacy:
++                    if setup_task is None:
++                        setup_task = asyncio.create_task(read_catalogs(requested_events, context))
++                    setup_catalogs.update(await setup_task)
                  stream: Final = (
                      listen(
                          session,
-@@ -563,16 +582,13 @@
+@@ -563,16 +585,13 @@
                      events: Final = tuple(
                          event for event in requested_events if event_matches(subscription.honored, frozenset(), event)
                      )
@@ -61,7 +74,7 @@
                      async for event in subscription:
                          fresh = await check()
                          manager = operations.global_mcp_server_manager
-@@ -596,9 +612,15 @@
+@@ -596,9 +615,15 @@
                  self._upstream_slots.release()
 
          async with _listener_admission(targets), anyio.create_task_group() as group:
@@ -80,20 +93,20 @@
              notifications: Final = SubscriptionFilter(
                  tools_list_changed=any(item.tools_list_changed for item in honored) or None,
                  prompts_list_changed=any(item.prompts_list_changed for item in honored) or None,
-@@ -608,6 +630,19 @@
+@@ -608,6 +633,19 @@
                  )
                  or None,
              )
 +            setup_context: Final = await check()
 +            setup_events: Final = tuple(
-+                event for event in setup_catalogs if event_matches(notifications, frozenset(), event)
++                event for event in requested_events if event_matches(notifications, frozenset(), event)
 +            )
 +            ready_catalogs.update(await read_catalogs(setup_events, setup_context))
 +
 +            async def publish_setup() -> None:
 +                await bus.ready.wait()
 +                for event in setup_events:
-+                    if setup_catalogs[event] != ready_catalogs[event]:
++                    if event in setup_catalogs and setup_catalogs[event] != ready_catalogs[event]:
 +                        await bus.publish(event)
 +
 +            group.start_soon(publish_setup)

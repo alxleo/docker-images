@@ -9,7 +9,7 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 # Provider fixes also live in https://github.com/mossquartz731/litellm.
 # MCP REST defers request hooks to tool admission to avoid acquiring two slots.
 # Explicit base_model pricing must also win over an upstream zero-cost receipt.
-# Legacy notification setup shares caller-scoped snapshots and runs independent reads concurrently.
+# Notification setup shares caller-scoped snapshots and runs independent reads concurrently.
 # Model discovery keeps offline providers off the API loop and uses a short metadata timeout.
 # Retire each patch when an official release passes the native image checks.
 COPY --link *.patch /tmp/litellm-patches/
