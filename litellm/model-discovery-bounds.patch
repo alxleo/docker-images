@@ -1,0 +1,54 @@
+--- a/litellm/llms/openai/chat/gpt_transformation.py
++++ b/litellm/llms/openai/chat/gpt_transformation.py
+@@ -871,6 +871,7 @@
+         response: Final = litellm.module_level_client.get(
+             url=OpenAIGPTConfig._model_list_url(api_base),
+             headers={"Authorization": f"Bearer {bearer_token}"},
++            timeout=2.0,
+         )
+         if response.status_code != 200:
+             raise Exception(f"Failed to get models: {response.text}")
+--- a/litellm/proxy/utils.py
++++ b/litellm/proxy/utils.py
+@@ -9589,7 +9589,8 @@
+     if not granted:
+         return frozenset()
+     return frozenset(
+-        get_complete_model_list(
++        await asyncio.to_thread(
++            get_complete_model_list,
+             key_models=granted,
+             team_models=(),
+             proxy_model_list=proxy_model_list,
+@@ -9724,7 +9725,8 @@
+     )
+ 
+     # Get complete model list
+-    complete_models: Final = get_complete_model_list(
++    complete_models: Final = await asyncio.to_thread(
++        get_complete_model_list,
+         key_models=granted_key_models,
+         team_models=granted_team_models,
+         proxy_model_list=proxy_model_list,
+--- a/litellm/proxy/proxy_server.py
++++ b/litellm/proxy/proxy_server.py
+@@ -11966,7 +11966,8 @@
+         # Get complete model list including wildcard routes if requested
+         from litellm.proxy.auth.model_checks import get_complete_model_list
+ 
+-        all_models = get_complete_model_list(
++        all_models = await asyncio.to_thread(
++            get_complete_model_list,
+             key_models=[],
+             team_models=[],
+             proxy_model_list=proxy_model_list,
+@@ -17424,7 +17425,8 @@
+         LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+     )
+     all_models_str: Final = (
+-        get_complete_model_list(
++        await asyncio.to_thread(
++            get_complete_model_list,
+             key_models=(),
+             team_models=(),
+             proxy_model_list=llm_router.get_model_names(),

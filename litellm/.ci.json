@@ -2,6 +2,7 @@
   "watch_paths": [
     "test/test-litellm-image.py",
     "test/test-litellm-mcp-discovery.py",
-    "test/test-litellm-mcp-rest.py"
+    "test/test-litellm-mcp-rest.py",
+    "test/test-litellm-model-discovery.py"
   ]
 }
