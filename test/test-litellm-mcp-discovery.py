@@ -19,9 +19,10 @@ from mcp.types import (
     PromptsCapability,
     ResourcesCapability,
     ServerCapabilities,
-    SubscriptionFilter,
-    SubscriptionsAcknowledgedNotification,
-    SubscriptionsListenRequestParams,
+    # These installed-image MCP 2 types are absent from the shared MCP 1 lint environment.
+    SubscriptionFilter,  # pyright: ignore[reportAttributeAccessIssue]
+    SubscriptionsAcknowledgedNotification,  # pyright: ignore[reportAttributeAccessIssue]
+    SubscriptionsListenRequestParams,  # pyright: ignore[reportAttributeAccessIssue]
     ToolsCapability,
 )
 
