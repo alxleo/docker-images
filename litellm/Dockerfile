@@ -13,8 +13,15 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 # Model discovery keeps offline providers off the API loop and uses a short metadata timeout.
 # Retire each patch when an official release passes the native image checks.
 COPY --link *.patch /tmp/litellm-patches/
+# Retire the package overlay when upstream supplies both security fixes.
+COPY --link requirements.txt /tmp/litellm-security-requirements.txt
 # conftest:exempt=user_required -- upstream Prisma client generation requires its existing /app permissions
 RUN apk add --no-cache --virtual .wildcard-patch patch \
+    && apk add --no-cache --upgrade 'nodejs-26>=26.13.1-r0' \
+    && /app/.venv/bin/python -m ensurepip \
+    && /app/.venv/bin/python -m pip install --no-cache-dir --no-deps -r /tmp/litellm-security-requirements.txt \
+    && /app/.venv/bin/python -m pip uninstall --yes pip \
+    && rm /tmp/litellm-security-requirements.txt \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/wildcard-prefix.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/provider-discovery-path.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/model-discovery-bounds.patch \
