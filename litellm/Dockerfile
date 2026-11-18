@@ -10,12 +10,14 @@ LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 # MCP REST defers request hooks to tool admission to avoid acquiring two slots.
 # Explicit base_model pricing must also win over an upstream zero-cost receipt.
 # Legacy notification setup shares caller-scoped snapshots and runs independent reads concurrently.
+# Model discovery keeps offline providers off the API loop and uses a short metadata timeout.
 # Retire each patch when an official release passes the native image checks.
 COPY --link *.patch /tmp/litellm-patches/
 # conftest:exempt=user_required -- upstream Prisma client generation requires its existing /app permissions
 RUN apk add --no-cache --virtual .wildcard-patch patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/wildcard-prefix.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/provider-discovery-path.patch \
+    && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/model-discovery-bounds.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/budget-pricing-identity.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/mcp-rest-admission.patch \
     && patch --batch --fuzz=0 --directory=/app/.venv/lib/python3.13/site-packages --strip=1 < /tmp/litellm-patches/mcp-discovery-initialization.patch \
