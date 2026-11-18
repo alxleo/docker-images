@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -18,6 +19,9 @@ from mcp.types import (
     PromptsCapability,
     ResourcesCapability,
     ServerCapabilities,
+    SubscriptionFilter,
+    SubscriptionsAcknowledgedNotification,
+    SubscriptionsListenRequestParams,
     ToolsCapability,
 )
 
@@ -38,11 +42,17 @@ class InProcessCatalog:
         await operation(CatalogSession())
 
 
-async def parallel_setup(*, fail_initial=False):
+async def parallel_setup(*, legacy=True, fail_snapshot=False):
     connection_gate = asyncio.Barrier(3)
     catalog_gate = asyncio.Barrier(3)
     reads = 0
     active = 0
+    checks = 0
+    current = 'before-connections'
+    sent = []
+    acknowledged = asyncio.Event()
+    changed = asyncio.Event()
+    expected_reads = 3 if legacy else 6
 
     class CompleteSession(CatalogSession):
         server_capabilities = ServerCapabilities(
@@ -75,6 +85,10 @@ async def parallel_setup(*, fail_initial=False):
     )
 
     async def authorize():
+        nonlocal checks, current
+        checks += 1
+        if checks == 2:
+            current = 'after-connections'
         return context
 
     async def resolve(observed_context):
@@ -85,44 +99,66 @@ async def parallel_setup(*, fail_initial=False):
         nonlocal reads
         assert observed_context is context
         reads += 1
-        assert reads <= 6, 'Concurrent listeners repeated the shared catalog batch'
+        assert reads <= expected_reads, 'Concurrent listeners repeated the shared catalog batch'
         await catalog_gate.wait()
-        if fail_initial:
-            raise ValueError('Isolated initial catalog failure')
-        return type(event).__name__
+        if fail_snapshot:
+            raise ValueError('Isolated catalog failure')
+        return current + type(event).__name__
 
-    async def send(_notification, **_kwargs):
-        raise AssertionError('Unchanged catalogs must not emit a setup notification')
+    async def send(notification, related_request_id=None, **_kwargs):
+        assert legacy or related_request_id == 'modern-listener'
+        if isinstance(notification, SubscriptionsAcknowledgedNotification):
+            acknowledged.set()
+        else:
+            sent.append(notification.method)
+            changed.set()
 
     owner = subscriptions.GatewaySubscriptions(resolve_targets=resolve)
     ctx = ServerRequestContext(
         session=SimpleNamespace(client_params=object(), send_notification=send),
-        lifespan_context=None, protocol_version='2025-11-25',
-        method='notifications/initialized', request_id=None,
+        lifespan_context=None, protocol_version='2025-11-25' if legacy else '2026-07-28',
+        method='notifications/initialized' if legacy else 'subscriptions/listen',
+        request_id=None if legacy else 'modern-listener',
     )
     authorization = subscriptions.SubscriptionAuthorization(context, authorize, lambda auth, *_: auth.user_id)
     failed = False
     try:
         with patch.object(subscriptions, '_listing', fingerprint):
-            async with anyio.create_task_group() as group, owner.initializing(ctx):
-                group.start_soon(owner.legacy_session, ctx, authorization)
-                with anyio.fail_after(3):
-                    await owner.wait_initialized(ctx)
-                if not fail_initial:
-                    assert reads == 6 and active == 3
+            initializing = owner.initializing(ctx) if legacy else nullcontext()
+            async with anyio.create_task_group() as group, initializing:
+                if legacy:
+                    group.start_soon(owner.legacy_session, ctx, authorization)
+                else:
+                    params = SubscriptionsListenRequestParams(notifications=SubscriptionFilter.model_validate({
+                        'toolsListChanged': True, 'promptsListChanged': True, 'resourcesListChanged': True,
+                    }))
+                    group.start_soon(owner.listen, ctx, params, authorization, authorization.owner)
+                with anyio.fail_after(12):
+                    if legacy:
+                        await owner.wait_initialized(ctx)
+                    else:
+                        await acknowledged.wait()
+                        while len(sent) < 3:
+                            changed.clear()
+                            await changed.wait()
+                if not fail_snapshot:
+                    assert reads == expected_reads and active == 3
+                    assert len(sent) == (0 if legacy else 3), sent
                 group.cancel_scope.cancel()
     except* ValueError:
-        if not fail_initial:
+        if not fail_snapshot:
             raise
         failed = True
-    assert failed == fail_initial
-    assert reads == (3 if fail_initial else 6)
+    assert failed == fail_snapshot
+    assert reads == (3 if fail_snapshot else expected_reads)
     assert active == 0
 
 
 async def main():
     await parallel_setup()
-    await parallel_setup(fail_initial=True)
+    await parallel_setup(fail_snapshot=True)
+    await parallel_setup(legacy=False)
+    await parallel_setup(legacy=False, fail_snapshot=True)
     targets = tuple(
         subscriptions.SubscriptionTarget(
             MCPServer(server_id=f'catalog-{n}', name=f'catalog-{n}', transport='http'),
@@ -139,7 +175,7 @@ async def main():
     async def exercise(caller, transitions):
         current = 'initial-' + caller
         checks = 0
-        allowance = 4
+        allowance = 1
         sent = []
         snapshots = []
         changed = asyncio.Event()
@@ -184,7 +220,7 @@ async def main():
                     await owner.wait_initialized(ctx)
                 for _ in range(4):
                     await asyncio.sleep(0)
-                assert sent == ['notifications/tools/list_changed'] * bool(transitions), sent
+                assert sent == [], sent
                 assert snapshots[-1] == current
                 allowance = 1
                 current = 'live-change-' + caller
@@ -192,7 +228,7 @@ async def main():
                 await targets[0].client.receive(event_to_notification(ToolsListChanged(), {}))
                 with anyio.fail_after(3):
                     await changed.wait()
-                assert len(sent) == bool(transitions) + 1, sent
+                assert len(sent) == 1, sent
                 group.cancel_scope.cancel()
 
     await exercise('alice', {2: 'after-first-connect', 3: 'after-second-connect'})
