@@ -42,10 +42,13 @@ repos:
         entry: shellcheck --severity=warning
         language: system
         types: [shell]
+      # This repo pins its own hadolint instead of using whatever copy the
+      # machine has. Upstream's `hadolint-docker` hook runs the image's latest
+      # tag whatever `rev` says, so the image is named here, by digest.
       - id: hadolint
         name: hadolint
-        entry: hadolint --failure-threshold warning
-        language: system
+        entry: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint --failure-threshold warning
+        language: docker_image
         files: 'Dockerfile'
         types: [dockerfile]
       - id: check-user-has-group
