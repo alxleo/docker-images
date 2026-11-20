@@ -29,6 +29,7 @@
     "arc-runner",
     "transmute",
     "manyfold",
-    "mcp-search"
+    "mcp-search",
+    "open-terminal-opencode"
   ]
 }

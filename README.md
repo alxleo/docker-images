@@ -19,6 +19,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `litellm` | Patched LiteLLM LTS proxy for the homelab AI gateway and workstation control-plane | Upstream image needs no patches |
 | `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
 | `transmute` | Transmute app runtime with household quality and retention defaults | Never (custom application) |
+| `open-terminal-opencode` | Upstream Open Terminal OpenShift image with the pinned OpenCode CLI for native ACP | An upstream Open Terminal OpenShift image includes OpenCode |
 
 `nixos-runner-image` is not auto-discovered: it builds from its own `Containerfile` via `build-nixos-runner-image.yml`.
 
