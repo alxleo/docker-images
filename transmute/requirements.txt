@@ -1,4 +1,4 @@
-Authlib==1.9.5
+Authlib==1.9.10
 brotli==1.2.1
 certifi==2026.10.23
 pip==26.3
