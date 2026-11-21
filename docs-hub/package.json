@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@astrojs/react": "7.1.7",
-    "@astrojs/starlight": "0.42.10",
+    "@astrojs/starlight": "0.43.1",
     "@excalidraw/excalidraw": "0.18.1",
     "@google/model-viewer": "4.4.0",
     "@scalar/api-reference": "1.78.0",
