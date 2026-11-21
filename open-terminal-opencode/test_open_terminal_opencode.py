@@ -1,4 +1,4 @@
-"""Exercise OpenCode's native Agent Client Protocol in the built image."""
+"""Check the agent and GitHub CLI in the built Open Terminal image."""
 
 import json
 
@@ -36,3 +36,28 @@ def test_opencode_initializes_acp_unprivileged(docker, image_ref):
     )
     reply = next(message for message in map(json.loads, output.splitlines()) if message.get("id") == 1)
     assert reply["result"]["protocolVersion"] == 1
+
+
+def test_github_cli_supports_open_terminal_fields_unprivileged(docker, image_ref):
+    fields = docker.run(
+        "--network",
+        "none",
+        "--read-only",
+        "--user",
+        "1000:1000",
+        "--env",
+        "GH_PROMPT_DISABLED=1",
+        "--entrypoint",
+        "/bin/sh",
+        image_ref,
+        "-ec",
+        """
+        gh --version
+        gh repo view --json 2>&1 || true
+        gh issue list --json 2>&1 || true
+        gh pr list --json 2>&1 || true
+        """,
+    ).splitlines()
+
+    assert any(line.startswith("gh version ") for line in fields)
+    assert {"nameWithOwner", "hasIssuesEnabled", "stateReason", "isDraft"} <= {line.strip() for line in fields}

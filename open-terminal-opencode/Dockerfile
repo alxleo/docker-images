@@ -12,6 +12,19 @@ RUN set -eu; \
     printf '%s  %s\n' "$digest" /tmp/opencode.tar.gz > /tmp/opencode.sha256; \
     sha256sum --check /tmp/opencode.sha256; \
     tar -xzf /tmp/opencode.tar.gz -C /tmp opencode
+RUN set -eu; \
+    version=2.105.0; \
+    case "$TARGETARCH" in \
+      amd64) digest=79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f ;; \
+      arm64) digest=b1278c75107423d818f1937fd92cafc9e5e9b606631568f68d7fb816f5885a02 ;; \
+      *) printf 'Unsupported architecture: %s\n' "$TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    archive="gh_${version}_linux_${TARGETARCH}"; \
+    curl --fail --silent --show-error --location --proto '=https' --max-time 120 \
+      "https://github.com/cli/cli/releases/download/v${version}/${archive}.tar.gz" -o /tmp/gh.tar.gz; \
+    printf '%s  %s\n' "$digest" /tmp/gh.tar.gz > /tmp/gh.sha256; \
+    sha256sum --check /tmp/gh.sha256; \
+    tar -xzf /tmp/gh.tar.gz -C /tmp --strip-components=2 "${archive}/bin/gh"
 
 FROM ${OPEN_TERMINAL_IMAGE}
 LABEL org.opencontainers.image.source=https://github.com/alxleo/docker-images
@@ -20,6 +33,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ripgrep \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=release --chmod=0755 /tmp/opencode /usr/local/bin/opencode
+COPY --from=release --chmod=0755 /tmp/gh /usr/local/bin/gh
 ENV OPENCODE_DISABLE_AUTOUPDATE=true
 # user-has-group:exempt=1001 -- restore the upstream OpenShift image's non-root user and root-group filesystem access
 USER 1001
