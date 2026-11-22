@@ -13,7 +13,8 @@ name: Maintenance
 # three-level workflow_run limit. A failed mirror still completes a
 # (skipped) build run, so the scan still happens that week.
 on:
-  workflow_run:
+  # Weekly scan follows the mirror-triggered build and reads published images.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ["Build Custom Images"]
     types: [completed]
     branches: [main]
@@ -37,7 +38,8 @@ jobs:
     # mirror-triggered run is the weekly rebuild.
     if: >-
       github.event_name != 'workflow_run' ||
-      github.event.workflow_run.event == 'workflow_run'
+      (github.event.workflow_run.event == 'workflow_run' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     outputs:
       custom: ${{ steps.custom.outputs.images }}
