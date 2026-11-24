@@ -26,6 +26,8 @@ def offline(docker, image_ref):
 
 def test_runner_user_and_home(offline):
     offline.bash('test "$(id -u)" = 1001; test "$HOME" = /home/runner; test -w "$HOME"; test -x /home/runner/run.sh')
+    # The linked Qt layer carries its own /opt entry; it must keep arc-runner's.
+    assert offline.bash("stat -c '%U:%G %a' /opt").strip() == "root:root 755"
 
 
 def test_project_mise_pins_install_offline(offline, pins):
