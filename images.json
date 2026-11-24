@@ -27,6 +27,7 @@
     "mcp-openbb",
     "litellm",
     "arc-runner",
+    "reading-room-runner",
     "transmute",
     "manyfold",
     "mcp-search",

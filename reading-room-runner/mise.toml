@@ -1,0 +1,20 @@
+# A copy of the reading-room repository's own pins, limited to what this image
+# bakes in. That repository owns these versions; when it moves one, copy the new
+# line here together with its entries from that repository's mise.lock. Until
+# then its CI downloads what this image lacks and prints a warning, so a stale
+# copy only costs time. Renovate leaves this directory alone for that reason.
+[tools]
+python = "3.12.14"
+uv = "0.12.6"
+shellcheck = "0.11.0"
+cmake = "4.4.4"
+actionlint = "1.7.12"
+node = "26.4.0"
+zig = "0.17.1"
+pixi = "v0.84.2"
+
+# The Qt SDKs the repository builds against. The compat line matches the
+# tablet's firmware, so it moves only when the firmware does.
+[env]
+QT_VERSION = "6.12.0"
+QT_COMPAT_VERSION = "6.10.3"
