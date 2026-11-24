@@ -25,6 +25,11 @@ ignore = [
     "ERA001",
 ]
 
+[lint.isort]
+# No target version is set, so the CI linter's older ruff assumes Python 3.10
+# and sorts tomllib as third-party while the pre-commit ruff calls it stdlib.
+extra-standard-library = ["tomllib"]
+
 [lint.per-file-ignores]
 # MCP servers bind to 0.0.0.0 inside a container -- expected
 "mcp-reddit/server.py" = ["S104"]
