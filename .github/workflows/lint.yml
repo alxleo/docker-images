@@ -1,9 +1,3 @@
-# Lint via coding-standards (MegaLinter) + repo-specific checks
-#
-# coding-standards auto-detects and runs: hadolint, shellcheck, yamllint,
-# actionlint, zizmor, ruff, lychee, gitleaks, semgrep, and more.
-# Repo-specific jobs: pytest (manifests, entrypoint, contracts, fleet), conftest.
-
 name: Lint
 
 concurrency:
@@ -22,18 +16,9 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  coding-standards:
+  megalinter:
+    # Keep the required status context during the implementation cutover.
     name: coding-standards
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: alxleo/coding-standards/docker-action@64ee4766d68ff95fb13467376368d05a80c0283a # main
-
-  stock-megalinter:
-    name: Stock MegaLinter (pilot)
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -52,23 +37,14 @@ jobs:
             lint-configs
           persist-credentials: false
       - name: Run stock MegaLinter
-        id: stock
-        continue-on-error: true
         uses: oxsecurity/megalinter/flavors/python@f2fe8c1cba37091848df3e524066c8c23ef353ed # v10.2.0
         env:
-          MEGALINTER_CONFIG: .github/stock-megalinter.yml
           SEMGREP_ENABLE_VERSION_CHECK: "0"
           SEMGREP_SEND_METRICS: "off"
           # Betterleaks launches Git against the runner-owned workspace.
           GIT_CONFIG_COUNT: "1"
           GIT_CONFIG_KEY_0: safe.directory
           GIT_CONFIG_VALUE_0: /github/workspace
-      - name: Record advisory results
-        if: always()
-        env:
-          STOCK_OUTCOME: ${{ steps.stock.outcome }}
-        run: printf 'Stock MegaLinter outcome (advisory) %s\n' "$STOCK_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-
   pytest:
     name: pytest
     runs-on: ubuntu-latest
