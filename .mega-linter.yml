@@ -1,54 +1,69 @@
-# Repo-specific MegaLinter overrides.
-# Extends the coding-standards baseline (ENABLE_LINTERS allowlist, configs, plugins).
-# Lists here REPLACE extended values (MegaLinter doesn't merge arrays),
-# so include base values when overriding list keys.
-EXTENDS:
-  - https://raw.githubusercontent.com/alxleo/coding-standards/main/.mega-linter-default.yml
+ENABLE_LINTERS:
+  - ACTION_ACTIONLINT
+  - ACTION_ZIZMOR
+  - API_SPECTRAL
+  - BASH_SHELLCHECK
+  - DOCKERFILE_HADOLINT
+  - JSON_V8R
+  - PYTHON_PYRIGHT
+  - PYTHON_RUFF
+  - REPOSITORY_BETTERLEAKS
+  - REPOSITORY_GIT_DIFF
+  - REPOSITORY_SEMGREP
+  - REPOSITORY_TRIVY
+  - YAML_V8R
+  - YAML_YAMLLINT
 
-# Use repo's own ruff config
-PYTHON_RUFF_CONFIG_FILE: ruff.toml
+DISABLE_ERRORS_LINTERS:
+  - JSON_V8R
+  - YAML_V8R
 
-# This component uses MCP 2; preserve the baseline environment for the other images.
+VALIDATE_ALL_CODEBASE: true
+FAIL_IF_MISSING_LINTER_IN_FLAVOR: true
+APPLY_FIXES: none
+ADDITIONAL_EXCLUDED_DIRECTORIES:
+  - .stock-megalinter-policy
+MARKDOWN_SUMMARY_REPORTER: true
+SHOW_ELAPSED_TIME: true
+GITHUB_COMMENT_REPORTER: false
+GITHUB_STATUS_REPORTER: false
+
+LINTER_RULES_PATH: .
+ACTION_ACTIONLINT_CONFIG_FILE: .github/actionlint.yaml
+ACTION_ZIZMOR_CONFIG_FILE: .zizmor.yml
+ACTION_ZIZMOR_ARGUMENTS:
+  - --offline
+API_SPECTRAL_CONFIG_FILE: .stock-megalinter-policy/lint-configs/.spectral.yaml
 PYTHON_PYRIGHT_CONFIG_FILE: .github/pyrightconfig.json
+PYTHON_PYRIGHT_ARGUMENTS:
+  - --level
+  - error
 PYTHON_PYRIGHT_PRE_COMMANDS:
-  - command: pip install uv==0.13.6 && uv sync --project mcp-search --frozen
+  - command: uv sync --project mcp-search --frozen
     cwd: workspace
     continue_if_failed: false
-
-# Exclude git worktrees (agent sandboxes) and build artifacts
-ADDITIONAL_EXCLUDED_DIRECTORIES:
-  - .claude
-  - megalinter-reports
-  - __pycache__
-  - .venv
-  - .ruff_cache
-  - .terraform
-  - .terragrunt-cache
-  - coverage
-  - .nyc_output
-  - .next
-  - .nuxt
-
-# Use native, path-scoped Trivy exceptions for upstream-pinned scanner dependencies.
-REPOSITORY_TRIVY_CUSTOM_ARGUMENTS:
-  - "--ignorefile"
-  - ".trivyignore.yaml"
-
-# dclint is for docker-compose files -- not applicable here. The baseline's
-# ENABLE_LINTERS lists it and wins by default, so let DISABLE_LINTERS win
-# (MegaLinter >= 10.2; see #124).
-ENABLE_DISABLE_LINTERS_PRIORITY: DISABLE
-DISABLE_LINTERS:
-  - DOCKERFILE_DCLINT
-
-# Semgrep arguments: must replicate base excludes since EXTENDS replaces arrays.
-# Rules load from the image's /rules directory, so semgrep reports them as
-# rules.<id>; --exclude-rule needs that full ID or it matches nothing.
+PYTHON_RUFF_CONFIG_FILE: ruff.toml
+REPOSITORY_BETTERLEAKS_CONFIG_FILE: .gitleaks.toml
+# Scan the full checkout's history using the same config as the required job.
+REPOSITORY_BETTERLEAKS_COMMAND_REMOVE_ARGUMENTS:
+  - dir
+REPOSITORY_BETTERLEAKS_ARGUMENTS:
+  - git
+REPOSITORY_BETTERLEAKS_FORWARD_EXCLUDED_DIRECTORIES: false
+REPOSITORY_SEMGREP_RULESETS:
+  - .stock-megalinter-policy/semgrep-rules
+  - p/security-audit
+  - p/trailofbits
 REPOSITORY_SEMGREP_ARGUMENTS:
-  - "--exclude-rule=rules.trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces"
-  - "--exclude-rule=rules.trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url"
-  - "--exclude-rule=rules.trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url"
-  - "--exclude-rule=rules.trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode"
-  # container-user-root false-positives on --user 0 in CI test commands and this config file
-  - "--exclude=*/.ci.json"
-  - "--exclude=.mega-linter.yml"
+  - --disable-version-check
+  - --metrics=off
+  - --no-rewrite-rule-ids
+  # The shared network rules cover these cases with the repository's exceptions.
+  - --exclude-rule=trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces
+  - --exclude-rule=trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url
+  - --exclude-rule=trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url
+  - --exclude-rule=trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode
+  - --exclude=*/.ci.json
+REPOSITORY_TRIVY_ARGUMENTS:
+  - --ignorefile
+  - .trivyignore.yaml

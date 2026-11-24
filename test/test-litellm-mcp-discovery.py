@@ -4,6 +4,7 @@ import asyncio
 import os
 from contextlib import nullcontext
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import patch
 
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'True'
@@ -14,15 +15,15 @@ from litellm.proxy._experimental.mcp_server.contracts import OperationContext
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.types.mcp_server.mcp_server_manager import MCPServer
 from mcp.server.context import ServerRequestContext
+from mcp.server.session import ServerSession
 from mcp.shared.subscriptions import ToolsListChanged, event_to_notification
 from mcp.types import (
     PromptsCapability,
     ResourcesCapability,
     ServerCapabilities,
-    # These installed-image MCP 2 types are absent from the shared MCP 1 lint environment.
-    SubscriptionFilter,  # pyright: ignore[reportAttributeAccessIssue]
-    SubscriptionsAcknowledgedNotification,  # pyright: ignore[reportAttributeAccessIssue]
-    SubscriptionsListenRequestParams,  # pyright: ignore[reportAttributeAccessIssue]
+    SubscriptionFilter,
+    SubscriptionsAcknowledgedNotification,
+    SubscriptionsListenRequestParams,
     ToolsCapability,
 )
 
@@ -115,8 +116,10 @@ async def parallel_setup(*, legacy=True, fail_snapshot=False):
             changed.set()
 
     owner = subscriptions.GatewaySubscriptions(resolve_targets=resolve)
+    # The in-process sink implements the session operations exercised here.
+    sink = cast(ServerSession, SimpleNamespace(client_params=object(), send_notification=send))
     ctx = ServerRequestContext(
-        session=SimpleNamespace(client_params=object(), send_notification=send),
+        session=sink,
         lifespan_context=None, protocol_version='2025-11-25' if legacy else '2026-07-28',
         method='notifications/initialized' if legacy else 'subscriptions/listen',
         request_id=None if legacy else 'modern-listener',
@@ -206,7 +209,7 @@ async def main():
             sent.append(notification.method)
             changed.set()
 
-        sink = SimpleNamespace(client_params=object(), send_notification=send)
+        sink = cast(ServerSession, SimpleNamespace(client_params=object(), send_notification=send))
         ctx = ServerRequestContext(
             session=sink, lifespan_context=None, protocol_version='2025-11-25',
             method='notifications/initialized', request_id=None,

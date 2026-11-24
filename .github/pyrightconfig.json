@@ -1,10 +1,24 @@
 {
-  "extends": "/opt/coding-standards/configs/pyrightconfig.json",
+  "typeCheckingMode": "standard",
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none",
+  "reportMissingTypeStubs": "none",
+  "pythonVersion": "3.11",
+  "venvPath": "../mcp-search",
+  "venv": ".venv",
+  "exclude": [
+    "**/node_modules",
+    "**/.venv",
+    "**/__pycache__",
+    "examples/"
+  ],
   "executionEnvironments": [
     {
       "root": "../mcp-search",
-      "pythonVersion": "3.14",
-      "extraPaths": ["../mcp-search/.venv/lib/python3.14/site-packages"]
+      "pythonVersion": "3.14"
+    },
+    {
+      "root": "../test"
     }
   ]
 }
