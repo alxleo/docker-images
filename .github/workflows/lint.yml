@@ -26,7 +26,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Detect Markdown-only changes
+        id: markdown-scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: git diff --name-only --no-renames HEAD^1 HEAD -- . ':(exclude,icase,glob)**/*.md' | awk 'END { print "markdown_only=" (NR == 0) }' >> "$GITHUB_OUTPUT"
       - name: Check out shared lint rules
+        if: steps.markdown-scope.outputs.markdown_only != '1'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: alxleo/coding-standards
@@ -37,6 +43,7 @@ jobs:
             lint-configs
           persist-credentials: false
       - name: Run stock MegaLinter
+        if: steps.markdown-scope.outputs.markdown_only != '1'
         uses: oxsecurity/megalinter/flavors/python@f2fe8c1cba37091848df3e524066c8c23ef353ed # v10.2.0
         env:
           SEMGREP_ENABLE_VERSION_CHECK: "0"
@@ -45,19 +52,29 @@ jobs:
           GIT_CONFIG_COUNT: "1"
           GIT_CONFIG_KEY_0: safe.directory
           GIT_CONFIG_VALUE_0: /github/workspace
+
   pytest:
     name: pytest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
           persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - name: Detect Markdown-only changes
+        id: markdown-scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: git diff --name-only --no-renames HEAD^1 HEAD -- . ':(exclude,icase,glob)**/*.md' | awk 'END { print "markdown_only=" (NR == 0) }' >> "$GITHUB_OUTPUT"
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
-      - run: pip install pytest pyyaml requests
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        run: pip install pytest pyyaml requests
       # Same suite as `just check` so local and CI verification agree
-      - run: >-
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        run: >-
           pytest -x
           test/test_manifests.py
           test/test_entrypoint.py
@@ -71,15 +88,25 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
           persist-credentials: false
-      - name: Install conftest
+      - name: Detect Markdown-only changes
+        id: markdown-scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: git diff --name-only --no-renames HEAD^1 HEAD -- . ':(exclude,icase,glob)**/*.md' | awk 'END { print "markdown_only=" (NR == 0) }' >> "$GITHUB_OUTPUT"
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        name: Install conftest
         run: |
           CONFTEST_VERSION=0.71.1
           curl -fsSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
             | sudo tar xz -C /usr/local/bin conftest
-      - name: OPA unit tests
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        name: OPA unit tests
         run: conftest verify -p policy/
-      - name: Test Dockerfile policies
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        name: Test Dockerfile policies
         run: conftest test --parser dockerfile -p policy/ -- */Dockerfile mcp/Dockerfile.*
-      - name: Test Compose policies
+      - if: steps.markdown-scope.outputs.markdown_only != '1'
+        name: Test Compose policies
         run: conftest test --parser yaml -p policy/ -- test/docker-compose*.yml examples/docker-compose.yml
