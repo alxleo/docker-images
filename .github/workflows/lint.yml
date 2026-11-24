@@ -41,13 +41,15 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check out shared Semgrep rules
+      - name: Check out shared lint rules
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: alxleo/coding-standards
           ref: 671b81a7d297fc81b56962b294ada8eb3f2587cd
           path: .stock-megalinter-policy
-          sparse-checkout: semgrep-rules
+          sparse-checkout: |
+            semgrep-rules
+            lint-configs
           persist-credentials: false
       - name: Run stock MegaLinter
         id: stock
@@ -57,11 +59,27 @@ jobs:
           MEGALINTER_CONFIG: .github/stock-megalinter.yml
           SEMGREP_ENABLE_VERSION_CHECK: "0"
           SEMGREP_SEND_METRICS: "off"
-      - name: Record advisory result
+      - name: Scan Git history with Betterleaks
+        id: history
+        continue-on-error: true
+        uses: docker://ghcr.io/betterleaks/betterleaks:v1.7.3@sha256:4522fe41a2d22f9bf9b4100c20488b79a5af5c37abc8f3d0cdccdcc47dac3523
+        env:
+          # Git sees the runner-owned workspace from inside the stock container.
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: safe.directory
+          GIT_CONFIG_VALUE_0: /github/workspace
+        with:
+          args: git --redact --verbose --config .gitleaks.toml .
+      - name: Record advisory results
         if: always()
         env:
           STOCK_OUTCOME: ${{ steps.stock.outcome }}
-        run: printf '\nStock MegaLinter step outcome (advisory) %s\n' "$STOCK_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          HISTORY_OUTCOME: ${{ steps.history.outcome }}
+        run: |
+          {
+            printf 'Stock MegaLinter outcome (advisory) %s\n\n' "$STOCK_OUTCOME"
+            printf 'Betterleaks Git-history outcome (advisory) %s\n' "$HISTORY_OUTCOME"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   pytest:
     name: pytest

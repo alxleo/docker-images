@@ -2,13 +2,21 @@
 ENABLE_LINTERS:
   - ACTION_ACTIONLINT
   - ACTION_ZIZMOR
+  - API_SPECTRAL
   - BASH_SHELLCHECK
   - DOCKERFILE_HADOLINT
+  - JSON_V8R
+  - PYTHON_PYRIGHT
   - PYTHON_RUFF
-  - REPOSITORY_BETTERLEAKS
+  - REPOSITORY_GIT_DIFF
   - REPOSITORY_SEMGREP
   - REPOSITORY_TRIVY
+  - YAML_V8R
   - YAML_YAMLLINT
+
+DISABLE_ERRORS_LINTERS:
+  - JSON_V8R
+  - YAML_V8R
 
 NATIVE_LINTERS:
   - ACTION_ACTIONLINT
@@ -33,13 +41,29 @@ ACTION_ACTIONLINT_CONFIG_FILE: .github/actionlint.yaml
 ACTION_ZIZMOR_CONFIG_FILE: .zizmor.yml
 ACTION_ZIZMOR_ARGUMENTS:
   - --offline
+API_SPECTRAL_CONFIG_FILE: .stock-megalinter-policy/lint-configs/.spectral.yaml
+PYTHON_PYRIGHT_CONFIG_FILE: .github/pyrightconfig.json
+PYTHON_PYRIGHT_ARGUMENTS:
+  - --level
+  - error
+PYTHON_PYRIGHT_PRE_COMMANDS:
+  - command: uv sync --project mcp-search --frozen
+    cwd: workspace
+    continue_if_failed: false
 PYTHON_RUFF_CONFIG_FILE: ruff.toml
-REPOSITORY_BETTERLEAKS_CONFIG_FILE: .gitleaks.toml
 REPOSITORY_SEMGREP_RULESETS:
   - .stock-megalinter-policy/semgrep-rules
+  - p/security-audit
+  - p/trailofbits
 REPOSITORY_SEMGREP_ARGUMENTS:
   - --disable-version-check
   - --metrics=off
+  - --no-rewrite-rule-ids
+  # The shared network rules cover these cases with the repository's exceptions.
+  - --exclude-rule=trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces
+  - --exclude-rule=trailofbits.generic.curl-unencrypted-url.curl-unencrypted-url
+  - --exclude-rule=trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url
+  - --exclude-rule=trailofbits.generic.postgres-insecure-sslmode.postgres-insecure-sslmode
   - --exclude=*/.ci.json
   - --exclude=.mega-linter.yml
 REPOSITORY_TRIVY_ARGUMENTS:
