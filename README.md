@@ -13,6 +13,7 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `arc-runner` | GitHub Actions runner pool image for GARM, inheriting gitea-ci-runner | When GitHub-hosted runners cover the homelab's runner pool |
+| `reading-room-runner` | arc-runner with the reading-room repository's Qt SDKs, Rust toolchain and mise tools baked in, so its jobs skip about 760 MB of downloads | When that repository leaves the homelab runner pool |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
 | `homelab-observer` | Runtime-only image for the private homelab observer MCP (source mounted by the deployment) | When the homelab observer deployment returns or is retired |

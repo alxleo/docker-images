@@ -108,6 +108,17 @@
         "gitea-ci-runner/.mise/locks/**"
       ],
       "enabled": false
+    },
+    {
+      "description": "The reading-room runner copies that repository's own pins, which it moves deliberately (its compat Qt matches the tablet's firmware). Only the base image digest updates here.",
+      "matchFileNames": [
+        "reading-room-runner/**"
+      ],
+      "matchManagers": [
+        "mise",
+        "pip_requirements"
+      ],
+      "enabled": false
     }
   ]
 }
