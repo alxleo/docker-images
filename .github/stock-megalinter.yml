@@ -8,6 +8,7 @@ ENABLE_LINTERS:
   - JSON_V8R
   - PYTHON_PYRIGHT
   - PYTHON_RUFF
+  - REPOSITORY_BETTERLEAKS
   - REPOSITORY_GIT_DIFF
   - REPOSITORY_SEMGREP
   - REPOSITORY_TRIVY
@@ -51,6 +52,13 @@ PYTHON_PYRIGHT_PRE_COMMANDS:
     cwd: workspace
     continue_if_failed: false
 PYTHON_RUFF_CONFIG_FILE: ruff.toml
+REPOSITORY_BETTERLEAKS_CONFIG_FILE: .gitleaks.toml
+# Scan the full checkout's history using the same config as the required job.
+REPOSITORY_BETTERLEAKS_COMMAND_REMOVE_ARGUMENTS:
+  - dir
+REPOSITORY_BETTERLEAKS_ARGUMENTS:
+  - git
+REPOSITORY_BETTERLEAKS_FORWARD_EXCLUDED_DIRECTORIES: false
 REPOSITORY_SEMGREP_RULESETS:
   - .stock-megalinter-policy/semgrep-rules
   - p/security-audit

@@ -59,27 +59,15 @@ jobs:
           MEGALINTER_CONFIG: .github/stock-megalinter.yml
           SEMGREP_ENABLE_VERSION_CHECK: "0"
           SEMGREP_SEND_METRICS: "off"
-      - name: Scan Git history with Betterleaks
-        id: history
-        continue-on-error: true
-        uses: docker://ghcr.io/betterleaks/betterleaks:v1.7.3@sha256:4522fe41a2d22f9bf9b4100c20488b79a5af5c37abc8f3d0cdccdcc47dac3523
-        env:
-          # Git sees the runner-owned workspace from inside the stock container.
+          # Betterleaks launches Git against the runner-owned workspace.
           GIT_CONFIG_COUNT: "1"
           GIT_CONFIG_KEY_0: safe.directory
           GIT_CONFIG_VALUE_0: /github/workspace
-        with:
-          args: git --redact --verbose --config .gitleaks.toml .
       - name: Record advisory results
         if: always()
         env:
           STOCK_OUTCOME: ${{ steps.stock.outcome }}
-          HISTORY_OUTCOME: ${{ steps.history.outcome }}
-        run: |
-          {
-            printf 'Stock MegaLinter outcome (advisory) %s\n\n' "$STOCK_OUTCOME"
-            printf 'Betterleaks Git-history outcome (advisory) %s\n' "$HISTORY_OUTCOME"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: printf 'Stock MegaLinter outcome (advisory) %s\n' "$STOCK_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
 
   pytest:
     name: pytest
