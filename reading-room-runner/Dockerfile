@@ -16,9 +16,11 @@ FROM ghcr.io/alxleo/arc-runner:latest-build.47@sha256:1ffa225d04865afb863ed8781c
 # install at the path the image keeps them at.
 #
 # Every build of the same Qt versions yields a byte-identical Qt layer, so a
-# base or tool update re-downloads only the small layers on each node: the
-# tree's timestamps are fixed here, and the final stage copies it as its own
-# layer independent of the base (COPY --link).
+# base or tool update re-downloads only the small layers on each node. The
+# finished tree moves under /tmp/qt-layer with every timestamp fixed, /opt
+# included, and the final stage copies that folder's contents as a layer of
+# its own (COPY --link); copying only the SDK folder would stamp the /opt
+# entry COPY creates with the build time.
 FROM runner AS qt
 ARG TARGETARCH
 # This stage only installs files for the final stage to copy; it never runs.
@@ -47,7 +49,9 @@ RUN set -eux; \
         touch "/opt/reading-room-qt/$version/$folder/.reading-room-sdk-v2-complete"; \
     done; \
     rm -f /tmp/aqtinstall.log; \
-    find /opt/reading-room-qt -exec touch --no-dereference --date=@0 {} +
+    mkdir -p /tmp/qt-layer/opt; \
+    mv /opt/reading-room-qt /tmp/qt-layer/opt/; \
+    find /tmp/qt-layer -mindepth 1 -exec touch --no-dereference --date=@0 {} +
 
 FROM runner
 
@@ -61,7 +65,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Read-only and root-owned: the repository's installer only reads this tree.
 # The jobs put the repository's own runtime libraries first when they run Qt;
 # the system GLib lets qmake answer a query in the image without them.
-COPY --link --from=qt /opt/reading-room-qt /opt/reading-room-qt
+COPY --link --from=qt /tmp/qt-layer/ /
 RUN set -eux; \
     apt-get update; \
     apt-get install --no-install-recommends --yes libglib2.0-0t64; \
