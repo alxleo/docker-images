@@ -10,7 +10,7 @@
       "name": "deduplicate_strings"
     },
     {
-      "input_schema_sha256": "sha256:e59285d34adcf10c811a6d992a92ab7cdbfc612cfe0e005acdd080ad5f525d66",
+      "input_schema_sha256": "sha256:88874a7977cb3f16d5d4789b01f8473d6bc298d3a08bc79f07aa604b99d9d454",
       "name": "extract_pdf"
     },
     {
