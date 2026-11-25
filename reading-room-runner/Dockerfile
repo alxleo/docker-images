@@ -11,7 +11,7 @@
 
 # The :latest tag lets Renovate move the digest when arc-runner publishes; a
 # build tag never changes digest, so Renovate would leave it pinned for good.
-FROM ghcr.io/alxleo/arc-runner:latest@sha256:7e84052c68008b9468fd1fa17877a9cd89e50f58b2f7092b772fbc9063bbdded AS runner
+FROM ghcr.io/alxleo/arc-runner:latest@sha256:aa328f94fb09534350260f7c07c129747611313578c02a444297c5eab30f0954 AS runner
 
 # The Qt SDKs install in their own stage, so the installer and its archives
 # never reach the image. aqt writes the install path into qmake, so they
