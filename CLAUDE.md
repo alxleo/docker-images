@@ -52,7 +52,6 @@ one file path inside the image (so a tool version bump expires it), plain
 |------|---------|-----|
 | `node:26-alpine` | Dockerfile.npm, Dockerfile.python, Dockerfile.slack, transmute (frontend stage) | Smallest viable Node base, no setuid binaries |
 | `node:26-slim` | Dockerfile.arxiv proxy stage | Supplies a glibc Node binary for the python-slim final image |
-| `python:3.14-alpine` | homelab-observer | Pure Python deps, Alpine viable |
 | `python:3.15-alpine` | mcp-reddit | Pure Python deps, Alpine viable |
 | `python:3.14-slim` | finrobot-mcp, openbb-mcp, Dockerfile.arxiv | glibc wheels (pymupdf in Dockerfile.arxiv) |
 | `alpine:3.23` | mcp-auth-proxy (runtime) | Supplies /bin/sh for secret-loading entrypoints |
@@ -97,7 +96,6 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
-| NixOS runner | `build-nixos-runner-image.yml` | push main, PRs (path-filtered), dispatch | Build the NixOS runner image |
 | ToolHive fleet | `toolhive-fleet.yml` | push main, PRs (path-filtered), dispatch | Live MCP contract checks for the ToolHive fleet |
 
 ### Dockerfile Policies

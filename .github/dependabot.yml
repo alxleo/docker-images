@@ -21,7 +21,6 @@ updates:
       - /arc-runner
       - /caddy-cloudflare
       - /finrobot-mcp
-      - /homelab-observer
       - /litellm
       - /mcp
       - /mcp-auth-proxy

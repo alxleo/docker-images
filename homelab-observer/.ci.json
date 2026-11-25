@@ -1,5 +1,0 @@
-{
-  "name": "homelab-observer",
-  "platforms": "linux/amd64,linux/arm64",
-  "tag": "1.0.0"
-}

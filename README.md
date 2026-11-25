@@ -15,13 +15,10 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 | `reading-room-runner` | arc-runner with the reading-room repository's Qt SDKs, Rust toolchain and mise tools baked in, so its jobs skip about 760 MB of downloads | When that repository leaves the homelab runner pool |
 | `mcp-reddit` | Custom Reddit search server backed by SearXNG and archives | Reddit restores viable personal API access |
 | `finrobot-mcp` | FinRobot V2 API plus a restricted OpenAPI MCP facade | FinRobot V2 ships a supported MCP server |
-| `homelab-observer` | Runtime-only image for the private homelab observer MCP (source mounted by the deployment) | When the homelab observer deployment returns or is retired |
 | `litellm` | Patched LiteLLM LTS proxy for the homelab AI gateway and workstation control-plane | Upstream image needs no patches |
 | `mcp-openbb` | OpenBB native Streamable HTTP MCP with SEC, FRED, ECB, IMF, CBOE, Nasdaq, BLS, Federal Reserve, and Yahoo Finance extensions | OpenBB ships a native image with the same policy controls |
 | `transmute` | Transmute app runtime with household quality and retention defaults | Never (custom application) |
 | `open-terminal-opencode` | Upstream Open Terminal OpenShift image with the pinned OpenCode CLI for native ACP | An upstream Open Terminal OpenShift image includes OpenCode |
-
-`nixos-runner-image` is not auto-discovered: it builds from its own `Containerfile` via `build-nixos-runner-image.yml`.
 
 ## Retired Images
 
@@ -31,6 +28,9 @@ images receive no new builds or security updates.
 | Image | Replacement |
 |-------|-------------|
 | `docs-hub` | Service retired. |
+| `homelab-observer` | Observer workload retired. |
+| `mcp-sequential-thinking` | Run `@modelcontextprotocol/server-sequential-thinking` directly or via the ToolHive fleet. |
+| `nixos-runner` | The GARM VM runner image is retired. |
 | `mcp-context7` | Use Context7's hosted MCP at `https://mcp.context7.com/mcp`, with the API key header or the provider's OAuth endpoint. [Context7 setup](https://github.com/upstash/context7/blob/master/packages/mcp/README.md) |
 | `mcp-exa` | Use Exa's hosted MCP at `https://mcp.exa.ai/mcp` for web search and page fetching. [Exa setup](https://exa.ai/docs/get-started/exa-mcp) |
 | `mcp-firecrawl` | Use Firecrawl's hosted MCP at `https://mcp.firecrawl.dev/v2/mcp` for scraping and crawling. [Firecrawl setup](https://docs.firecrawl.dev/mcp-server) |
@@ -98,8 +98,7 @@ gateway exposure.
 
 The ToolHive plan runs Hacker News and Sequential Thinking directly from their
 pinned upstream packages. Their contracts remain here as runtime acceptance
-oracles. Wrapper images remain published until downstream consumers complete
-their cutover.
+oracles. The Hacker News legacy proxy fixture remains in the end-to-end tests.
 
 Secret-bearing plans use ToolHive's read-only environment provider. Consumers
 set `TOOLHIVE_SECRETS_PROVIDER=environment` and expose only the named

@@ -35,13 +35,6 @@
     "contract": "mcp-contracts/mcp-searxng.json"
   },
   {
-    "name": "mcp-sequential-thinking",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2.0.0",
-    "tag": "2.0.0",
-    "description": "Structured step-by-step reasoning via MCP"
-  },
-  {
     "name": "mcp-confluence",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=@aashari/mcp-server-atlassian-confluence@3.3.0",
