@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
 # The ARC runner with the reading-room repository's CI toolchain already in
 # place, so its jobs stop downloading about 760 MB on every run.
