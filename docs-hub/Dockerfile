@@ -7,24 +7,27 @@ RUN npm ci --ignore-scripts && npm cache clean --force
 FROM ghcr.io/alxleo/base-images/alpine:3.23 AS renderers
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 ARG TARGETARCH
-ARG D2_VERSION=0.9.0
-ARG D2_AMD64_SHA256=5669ddc46b99e942cc96078f4a4e36d5e62103348f4c05179ede27802fdd87a9
-ARG D2_ARM64_SHA256=ac2c028697199479acb321db1e3d68caee9f2ba492ed73caa3cd13f3829bf913
-ARG PLANTUML_VERSION=1.2026.9
+# renovate: depName=terrastruct/d2
+ARG D2_VERSION=v0.9.0
+ARG D2_CHECKSUMS_SHA256=0e6997fa55b922741e32cb29aaf8a985b4a5d7b2caa85b08bfd0ef0607a48a71
+# renovate: depName=plantuml/plantuml
+ARG PLANTUML_VERSION=v1.2026.9
 ARG PLANTUML_SHA256=aa4a1d06f8911c4b842beff4828dd955be431692b631a312d04c0e9fab9581de
 RUN apk add --no-cache ca-certificates curl \
     && case "${TARGETARCH}" in \
-         amd64) D2_SHA256="${D2_AMD64_SHA256}" ;; \
-         arm64) D2_SHA256="${D2_ARM64_SHA256}" ;; \
+         amd64|arm64) ;; \
          *) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
        esac \
-    && curl -fsSL -o /tmp/d2.tar.gz \
-       "https://github.com/terrastruct/d2/releases/download/v${D2_VERSION}/d2-v${D2_VERSION}-linux-${TARGETARCH}.tar.gz" \
-    && echo "${D2_SHA256}  /tmp/d2.tar.gz" | sha256sum -c - \
+    && d2_release="https://github.com/terrastruct/d2/releases/download/${D2_VERSION}" \
+    && d2_asset="d2-${D2_VERSION}-linux-${TARGETARCH}.tar.gz" \
+    && curl -fsSL -o /tmp/d2-checksums "${d2_release}/SHA256SUMS" \
+    && echo "${D2_CHECKSUMS_SHA256}  /tmp/d2-checksums" | sha256sum -c - \
+    && curl -fsSL -o /tmp/d2.tar.gz "${d2_release}/${d2_asset}" \
+    && awk -v asset="${d2_asset}" '$2 == asset { print $1 "  /tmp/d2.tar.gz" }' /tmp/d2-checksums | sha256sum -c - \
     && tar -xzf /tmp/d2.tar.gz -C /tmp \
-    && install -m 0755 "/tmp/d2-v${D2_VERSION}/bin/d2" /usr/local/bin/d2 \
+    && install -m 0755 "/tmp/d2-${D2_VERSION}/bin/d2" /usr/local/bin/d2 \
     && curl -fsSL -o /opt/plantuml.jar \
-       "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml.jar" \
+       "https://github.com/plantuml/plantuml/releases/download/${PLANTUML_VERSION}/plantuml.jar" \
     && echo "${PLANTUML_SHA256}  /opt/plantuml.jar" | sha256sum -c - \
     && rm -rf /tmp/d2*
 
