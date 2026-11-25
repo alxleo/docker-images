@@ -14,7 +14,8 @@ WORKDIR /app
 # uv to system-only keeps it from silently provisioning a managed CPython
 # whose binary would not exist in the runtime stage's copied venv.
 ENV UV_PYTHON_PREFERENCE=only-system
-RUN pip install --no-cache-dir uv==0.13.6
+COPY build-requirements.txt /tmp/build-requirements.txt
+RUN pip install --no-cache-dir --requirement /tmp/build-requirements.txt
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
