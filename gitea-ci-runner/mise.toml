@@ -17,7 +17,7 @@ python = ["3.13.18", "3.14.10"]
 node = ["24.22.2", "26.13.0"]
 # The Dockerfile replaces mise's bun with the digest-pinned upstream binary and
 # fails the build if its version differs from this pin.
-bun = "1.4.4"
+bun = "1.4.5"
 uv = "0.13.7"
 just = "1.59.0"
 bats = "1.14.0"
