@@ -20,16 +20,16 @@ FROM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb472
 # The pinned Gitea image supplies the reviewed Docker client, Compose, Buildx,
 # and Git LFS binaries without bringing its runner tool cache or daemon into
 # the final image.
-FROM docker.gitea.com/runner-images:ubuntu-latest@sha256:b96ba465021b1a4c6a1c9e79220c2b9bfad0f29b09dbb528bbfb35411443a3a4 AS runner-tools
+FROM docker.gitea.com/runner-images:ubuntu-26.04@sha256:203ba5eff144b485821fc41c47f29ed24333304660e953e8983b9b852e013ca0 AS runner-tools
 
 # Ubuntu publishes a multi-platform index; pinning the mirrored index keeps
 # amd64 and arm64 jobs on the same reviewed release.
-FROM ghcr.io/alxleo/base-images/ubuntu:24.04@sha256:216fe06e54496e8e8e11cda1a33e65c9fd3b11a7a5babefc0cad6776ac066a58
+FROM ghcr.io/alxleo/base-images/ubuntu:26.04@sha256:c202756ac899790f16463da49f57a89b442a4f86e789b78d37819c8400bf15e8
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images" \
       org.opencontainers.image.title="Gitea CI runner job image" \
       org.opencontainers.image.description="Pinned homelab CI and deployment toolchain for Gitea Actions jobs" \
-      org.opencontainers.image.base.name="ghcr.io/alxleo/base-images/ubuntu:24.04"
+      org.opencontainers.image.base.name="ghcr.io/alxleo/base-images/ubuntu:26.04"
 
 # mise npm tools expose their shims under /opt/mise/shims; the Node and Python
 # bin paths keep both pinned majors and their npm/npx entry points available
