@@ -35,7 +35,7 @@ vulnerabilities:
     statement: >-
       gRPC-Go server authorization bypass via a non-canonical :path. kube-linter
       0.8.3 (latest) is a CLI that starts no gRPC server; grpc is a transitive
-      Kubernetes client dependency. Same rationale as caddy-cloudflare.
+      Kubernetes client dependency.
   - id: CVE-2026-115905
     paths:
       - opt/mise/installs/npm-axe-core-cli/4.14.0~aube~8cc4f43ddc20f7c2/node_modules/.mise/selenium-webdriver@4.47.0/node_modules/selenium-webdriver/bin/selenium-manager.cdx.json

@@ -16,12 +16,9 @@ PLATFORMS="linux/amd64,linux/arm64"
 
 images=(
     "alpine:3.23"
-    "caddy:2.11"
-    "caddy:2.11-builder"
     "golang:1.26-alpine"
     "golang:1.26-bookworm"
     "node:26-alpine"
-    "node:26-slim"
     "python:3.14-alpine"
     "python:3.14-slim"
     "python:3.15-alpine"

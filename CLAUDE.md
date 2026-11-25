@@ -42,8 +42,8 @@ one file path inside the image (so a tool version bump expires it), plain
 
 | Type | How | Examples |
 |------|-----|---------|
-| **Custom images** | `*/Dockerfile` + pytest module + optional `.ci.json` | caddy-cloudflare, mcp-reddit |
-| **MCP images** | `mcp-images.json` -> purpose-fit Dockerfile | mcp-brave, mcp-arxiv |
+| **Custom images** | `*/Dockerfile` + pytest module + optional `.ci.json` | mcp-reddit, transmute |
+| **MCP images** | `mcp-images.json` -> purpose-fit Dockerfile | mcp-brave, mcp-slack |
 | **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose) |
 
 ### Base Image Strategy
@@ -51,18 +51,15 @@ one file path inside the image (so a tool version bump expires it), plain
 | Base | Used by | Why |
 |------|---------|-----|
 | `node:26-alpine` | Dockerfile.npm, Dockerfile.python, Dockerfile.slack, transmute (frontend stage) | Smallest viable Node base, no setuid binaries |
-| `node:26-slim` | Dockerfile.arxiv proxy stage | Supplies a glibc Node binary for the python-slim final image |
-| `python:3.14-alpine` | homelab-observer | Pure Python deps, Alpine viable |
 | `python:3.15-alpine` | mcp-reddit | Pure Python deps, Alpine viable |
-| `python:3.14-slim` | finrobot-mcp, openbb-mcp, Dockerfile.arxiv | glibc wheels (pymupdf in Dockerfile.arxiv) |
+| `python:3.14-slim` | finrobot-mcp, openbb-mcp | glibc wheels |
 | `alpine:3.23` | mcp-auth-proxy (runtime) | Supplies /bin/sh for secret-loading entrypoints |
 | `golang:1.26-bookworm` | mcp-auth-proxy, Dockerfile.slack (build stages) | Build stages that rebuild upstream Go sources |
-| `caddy:2.11` / `2.11-builder` | caddy-cloudflare | xcaddy plugin build |
 | `ubuntu:24.04` | gitea-ci-runner (arc-runner inherits it) | CI runner base |
 
 All images build multi-arch (amd64 + arm64) and have `HEALTHCHECK` where they
-`EXPOSE`. All have a non-root `USER` except the four with a recorded
-`conftest:exempt=user_required` reason: caddy-cloudflare, litellm,
+`EXPOSE`. All have a non-root `USER` except the three with a recorded
+`conftest:exempt=user_required` reason: litellm,
 mcp-auth-proxy and transmute.
 
 ### Versioning
@@ -97,7 +94,6 @@ This auto-links GHCR packages to the repo so `GITHUB_TOKEN` can push.
 | Lint | `lint.yml` | push, PRs | coding-standards (MegaLinter), conftest, pytest |
 | Maintenance | `maintenance.yml` | after the weekly mirror rebuild, dispatch | Trivy vuln scan, dockle CIS scan |
 | Mirror | `mirror-base-images.yml` | weekly, dispatch | GHCR base image mirrors |
-| NixOS runner | `build-nixos-runner-image.yml` | push main, PRs (path-filtered), dispatch | Build the NixOS runner image |
 | ToolHive fleet | `toolhive-fleet.yml` | push main, PRs (path-filtered), dispatch | Live MCP contract checks for the ToolHive fleet |
 
 ### Dockerfile Policies
@@ -151,7 +147,7 @@ Edit `mcp-images.json` to add/update. Fields: `name`, `dockerfile`, `build_args`
 just check
 
 # Build one image and run its pytest module against that exact local image
-just test-image caddy-cloudflare
+just test-image mcp-reddit
 
 # Mirror base images (run after bumping a base image version)
 bash scripts/mirror-base-images.sh

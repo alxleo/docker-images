@@ -1,9 +1,0 @@
-{
-  "tag": "2.11",
-  "build_args": "CADDY_VERSION=2.11",
-  "watch_paths": [
-    "test/Caddyfile.test",
-    "test/docker-compose.test.yml",
-    "test/test-caddy-routing.sh"
-  ]
-}

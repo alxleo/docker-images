@@ -238,16 +238,13 @@ class TestCustomImagesManifest:
         assert selected("test/test-native-mcp-image-smoke.sh") == {
             "mcp-reddit",
         }
-        assert selected("test/docker-compose.test.yml") == {"caddy-cloudflare"}
+        assert selected("test/docker-compose.test.yml") == set()
         assert selected(
-            "test/docker-compose.test.yml", include_watch_paths=False
+            "test/test-native-mcp-image-smoke.sh", include_watch_paths=False
         ) == set()
-        assert selected(
-            "caddy-cloudflare/Dockerfile", include_watch_paths=False
-        ) == {"caddy-cloudflare"}
-        assert selected(
-            "caddy-cloudflare/test_caddy_cloudflare.py", include_watch_paths=False
-        ) == {"caddy-cloudflare"}
+        assert selected("mcp-reddit/Dockerfile", include_watch_paths=False) == {
+            "mcp-reddit",
+        }
         assert selected("README.md", ci_changed=True) == {
             entry["name"] for entry in CUSTOM_IMAGES
         }
@@ -292,6 +289,10 @@ class TestMCPPipelineRouting:
             "mcp": False,
             "e2e": False,
         }
+        assert self.selected("mcp-contracts/mcp-arxiv.json") == {
+            "mcp": False,
+            "e2e": False,
+        }
         assert self.selected("scripts/toolhive-fleet.py") == {
             "mcp": False,
             "e2e": False,
@@ -307,7 +308,7 @@ class TestMCPPipelineRouting:
             "e2e": False,
         }
         assert self.selected("mcp/entrypoint.py") == {"mcp": True, "e2e": True}
-        assert self.selected("caddy-cloudflare/Dockerfile") == {
+        assert self.selected("test/Caddyfile.test") == {
             "mcp": False,
             "e2e": True,
         }

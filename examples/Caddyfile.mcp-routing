@@ -8,7 +8,7 @@
 #   4. CORS + Private Network Access for browser-based MCP clients
 #   5. Accept header fix for MCP SDK quirk
 #
-# TLS: Uses Cloudflare DNS-01 for wildcard certs (caddy-cloudflare image)
+# TLS: Set the surrounding site's TLS policy in the deployment.
 # Health: /health endpoint not shadowed by routes (handle {} ordering)
 
 # --- 1. Basic MCP route with health check ---

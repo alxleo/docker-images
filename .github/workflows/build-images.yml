@@ -306,7 +306,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
-      smoke_matrix: ${{ steps.set-matrix.outputs.smoke_matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -314,14 +313,6 @@ jobs:
       - id: set-matrix
         run: |
           echo "matrix=$(jq -c '.' mcp-images.json)" >> "$GITHUB_OUTPUT"
-          # The published Python canary uses the same versions and runtime tests.
-          smoke_matrix=$(jq -c '
-            [.[] | select(.name == "mcp-arxiv")] + [{
-              name: "mcp-hackernews",
-              dockerfile: "Dockerfile.npm",
-              build_args: "MCP_PACKAGE=mcp-hacker-news@1.0.3"
-            }]' mcp-images.json)
-          echo "smoke_matrix=$smoke_matrix" >> "$GITHUB_OUTPUT"
 
   mcp-images:
     name: MCP ${{ matrix.name }}
@@ -422,19 +413,15 @@ jobs:
             "${contract_args[@]}" "${smoke_env[@]}"
 
   # Smoke test: validates entrypoint.py -> mcp-proxy -> MCP server chain
-  # Runs 2 canary images (1 npm, 1 Python) through the full MCP handshake.
+  # Exercises the Hacker News npm fixture through the full MCP handshake.
   # No API keys needed — initialize and tools/list work without auth.
   mcp-smoke-test:
-    name: MCP smoke (${{ matrix.name }})
-    needs: [discover, load-mcp-matrix, mcp-images]
+    name: MCP smoke (mcp-hackernews)
+    needs: mcp-images
     if: >-
       always() &&
       needs.mcp-images.result == 'success'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.load-mcp-matrix.outputs.smoke_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -443,25 +430,15 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: mcp
-          file: mcp/${{ matrix.dockerfile }}
-          build-args: ${{ matrix.build_args }}
+          file: mcp/Dockerfile.npm
+          build-args: MCP_PACKAGE=mcp-hacker-news@1.0.3
           platforms: linux/amd64
           push: false
           load: true
-          tags: test-${{ matrix.name }}:latest
-      - name: Verify runtime
-        if: toJson(matrix.test_commands) != 'null'
-        env:
-          IMAGE_REF: test-${{ matrix.name }}:latest
-          TEST_COMMANDS: ${{ toJson(matrix.test_commands) }}
-        run: |
-          mapfile -t cmds < <(jq -r '.[]' <<< "$TEST_COMMANDS")
-          for cmd in "${cmds[@]}"; do
-            bash -euo pipefail -c "$cmd"
-          done
+          tags: test-mcp-hackernews:latest
       - name: Start container
         env:
-          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_NAME: mcp-hackernews
         run: |
           docker run -d --name "${IMAGE_NAME}" \
             -e MCP_STARTUP_JITTER=0 \
@@ -469,27 +446,24 @@ jobs:
             "test-${IMAGE_NAME}:latest"
       - name: Run smoke tests
         env:
-          IMAGE_NAME: ${{ matrix.name }}
-          CONTRACT: ${{ matrix.contract }}
-        run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080 "${CONTRACT}"
+          IMAGE_NAME: mcp-hackernews
+        run: bash test/test-mcp-smoke.sh "${IMAGE_NAME}" 8080
       - name: Dump smoke logs on failure
         if: failure()
         env:
-          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_NAME: mcp-hackernews
         run: docker logs "${IMAGE_NAME}" 2>&1 | tail -100
       - name: Cleanup smoke container
         if: always()
         env:
-          IMAGE_NAME: ${{ matrix.name }}
+          IMAGE_NAME: mcp-hackernews
         run: docker rm -f "${IMAGE_NAME}" || true
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
-        if: matrix.name == 'mcp-hackernews'
       - name: Tool filtering + secret tests
-        if: matrix.name == 'mcp-hackernews'
         env:
-          TEST_MCP_IMAGE: test-${{ matrix.name }}:latest
+          TEST_MCP_IMAGE: test-mcp-hackernews:latest
         run: uv run --with pytest --with requests -- python -m pytest test/test_tool_filtering.py -v --tb=short
       - name: Dump remaining container logs on failure
         if: failure()
@@ -500,7 +474,7 @@ jobs:
           done
 
   # E2E stack test: full Caddy -> mcp-proxy -> MCP server contract validation
-  # Spins up Caddy + both test-only canaries (npm: hackernews, Python: arxiv).
+  # Runs stock Caddy against the Hacker News fixture.
   # Tests: health endpoint contract (/ping), prefix stripping, MCP protocol
   # handshake, session headers, TLS with internal certs, service discovery.
   # This is the contract test that downstream repos (homelab) depend on.
@@ -522,11 +496,12 @@ jobs:
           enable-cache: false
       - name: Unit tests (no Docker)
         run: uv run --with pytest --with pyyaml --with requests -- python -m pytest test/test_manifests.py test/test_entrypoint.py -v
-      - name: Validate MCP E2E Caddyfile
+      - name: Verify stock Caddy routing
         run: |
-          docker run --rm -v "${{ github.workspace }}/test:/test" \
-            caddy:2.11 \
-            caddy validate --config /test/Caddyfile.mcp-e2e --adapter caddyfile
+          compose=(docker compose -p caddy-routing -f test/docker-compose.test.yml)
+          trap '"${compose[@]}" down -v' EXIT
+          "${compose[@]}" up -d --wait
+          bash test/test-caddy-routing.sh
       - name: Run E2E stack tests
         run: uv run --with pytest --with pyyaml --with requests -- python -m pytest test/test_mcp_stack.py -v --tb=short
       - name: Dump logs on failure

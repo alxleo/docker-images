@@ -1,8 +1,7 @@
 services:
   caddy:
-    # The caddy-cloudflare image under test, never a separate build of it.
-    image: ${IMAGE_REF:?IMAGE_REF must name the caddy-cloudflare image under test}
-    ports: ["8080:80"]
+    image: docker.io/library/caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    ports: ["127.0.0.1:${CADDY_TEST_PORT:-8080}:80"]
     volumes:
       - ./Caddyfile.test:/etc/caddy/Caddyfile
   echo:
