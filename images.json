@@ -1,9 +1,7 @@
 {
   "registry": "ghcr.io/alxleo",
   "images": [
-    "caddy-cloudflare",
     "mcp-auth-proxy",
-    "mcp-arxiv",
     "mcp-brave",
     "mcp-confluence",
     "mcp-jira",

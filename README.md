@@ -8,7 +8,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 
 | Image | Why | Remove when |
 |-------|-----|-------------|
-| `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + Sablier plugins | Never (plugins aren't in upstream) |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `arc-runner` | GitHub Actions runner pool image for GARM, inheriting gitea-ci-runner | When GitHub-hosted runners cover the homelab's runner pool |
@@ -27,15 +26,17 @@ images receive no new builds or security updates.
 
 | Image | Replacement |
 |-------|-------------|
+| `caddy-cloudflare` | The routing tests use stock Caddy. Deployments that use plugins need their own module build. |
 | `docs-hub` | Service retired. |
 | `homelab-observer` | Observer workload retired. |
-| `mcp-sequential-thinking` | Run `@modelcontextprotocol/server-sequential-thinking` directly or via the ToolHive fleet. |
-| `nixos-runner` | The GARM VM runner image is retired. |
+| `mcp-arxiv` | Run `arxiv-mcp-server` via the ToolHive fleet with its pinned Python runtime and paper storage. |
 | `mcp-context7` | Use Context7's hosted MCP at `https://mcp.context7.com/mcp`, with the API key header or the provider's OAuth endpoint. [Context7 setup](https://github.com/upstash/context7/blob/master/packages/mcp/README.md) |
 | `mcp-exa` | Use Exa's hosted MCP at `https://mcp.exa.ai/mcp` for web search and page fetching. [Exa setup](https://exa.ai/docs/get-started/exa-mcp) |
 | `mcp-firecrawl` | Use Firecrawl's hosted MCP at `https://mcp.firecrawl.dev/v2/mcp` for scraping and crawling. [Firecrawl setup](https://docs.firecrawl.dev/mcp-server) |
 | `mcp-jina` | Use Jina's hosted MCP at `https://mcp.jina.ai/v1`. `include_tools` can restrict it to reader and screenshot tools. [Jina setup](https://github.com/jina-ai/MCP) |
+| `mcp-sequential-thinking` | Run `@modelcontextprotocol/server-sequential-thinking` directly or via the ToolHive fleet. |
 | `mcp-tavily` | Use Tavily's hosted MCP at `https://mcp.tavily.com/mcp/` for search and extraction. [Tavily setup](https://docs.tavily.com/documentation/mcp) |
+| `nixos-runner` | The GARM VM runner image is retired. |
 
 ## MCP Service Images
 
@@ -195,9 +196,8 @@ Base images mirrored to `ghcr.io/alxleo/base-images/` -- zero Docker Hub depende
 | Suite | What | Trigger |
 |-------|------|---------|
 | Per-image tests | `<image>/test_<image>.py` (pytest against `IMAGE_REF`) | Image changes |
-| Caddy routing E2E | Snippet imports, handle_path, redirects | caddy-cloudflare changes |
-| MCP E2E stack | Full Caddy -> mcp-proxy -> MCP server chain | MCP or caddy changes |
-| MCP smoke | Standalone health + MCP initialize | MCP canaries (npm + Python) |
+| MCP E2E stack | Stock Caddy routing and the full Caddy -> mcp-proxy -> MCP server chain | MCP runtime, Caddy fixtures, or shared CI changes |
+| MCP smoke | Standalone health + MCP initialize plus tool filtering and secret tests | Legacy MCP runtime or shared CI changes |
 
 Run the fast local preflight before pushing:
 

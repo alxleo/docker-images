@@ -22,7 +22,6 @@ if [[ -n "$changed_paths" ]]; then
         case "$path" in
         mcp/* | mcp-images.json | mcp-defaults.json | \
             scripts/mcp-contract.py | test/run-mcp-image-smoke.sh | \
-            test/check-arxiv-runtime.py | \
             test/test-mcp-smoke.sh | test/test_entrypoint.py | \
             test/test_mcp_contract.py | test/test_mcp_stack.py | \
             test/test_tool_filtering.py)
@@ -31,8 +30,9 @@ if [[ -n "$changed_paths" ]]; then
         *) ;;
         esac
         case "$path" in
-        mcp/* | mcp-images.json | mcp-defaults.json | caddy-cloudflare/* | \
-            test/Caddyfile.mcp-e2e | test/docker-compose.mcp-e2e.yml)
+        mcp/* | mcp-images.json | mcp-defaults.json | test/conftest.py | test/test_mcp_stack.py | \
+            test/Caddyfile.mcp-e2e | test/docker-compose.mcp-e2e.yml | \
+            test/Caddyfile.test | test/docker-compose.test.yml | test/test-caddy-routing.sh)
             e2e=true
             ;;
         *) ;;

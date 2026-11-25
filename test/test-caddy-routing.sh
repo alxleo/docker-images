@@ -8,14 +8,16 @@
 # (Caddy redir pos 10 > handle_path pos 27) before deploy.
 set -euo pipefail
 
-BASE="http://localhost:8080"
+BASE="http://localhost:${CADDY_TEST_PORT:-8080}"
+body_file=$(mktemp)
+trap 'rm "$body_file"' EXIT
 FAIL=0
 
 check() {
     local desc="$1" url="$2" expect_code="$3" expect_body="${4:-}"
     local code body
-    code=$(curl -s -o /tmp/test-body -w '%{http_code}' --max-time 5 "$url")
-    body=$(cat /tmp/test-body)
+    code=$(curl -s -o "$body_file" -w '%{http_code}' --max-time 5 "$url")
+    body=$(cat "$body_file")
     if [[ "$code" != "$expect_code" ]]; then
         echo "FAIL: $desc — expected $expect_code, got $code"
         FAIL=1

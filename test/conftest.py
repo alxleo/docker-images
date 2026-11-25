@@ -84,13 +84,9 @@ def stack(tmp_path_factory):
         logs = compose("logs")
         pytest.fail(f"Caddy never became ready:\n{logs.stdout}\n{logs.stderr}")
 
-    # Wait for backends through Caddy
-    for service in ("hackernews", "arxiv"):
-        if not _wait_for_url(f"{HTTP_BASE}/{service}{HEALTH_PATH}"):
-            logs = compose("logs", f"mcp-{service}")
-            pytest.fail(
-                f"{service} backend never became ready:\n{logs.stdout}\n{logs.stderr}"
-            )
+    if not _wait_for_url(f"{HTTP_BASE}/hackernews{HEALTH_PATH}"):
+        logs = compose("logs", "mcp-hackernews")
+        pytest.fail(f"Hacker News backend never became ready:\n{logs.stdout}\n{logs.stderr}")
 
     yield {
         "http_base": HTTP_BASE,

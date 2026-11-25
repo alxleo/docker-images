@@ -1,6 +1,6 @@
 services:
   caddy:
-    build: ../caddy-cloudflare
+    image: docker.io/library/caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
     ports:
       - "127.0.0.1:${MCP_E2E_HTTP_PORT:-8080}:80"
       - "127.0.0.1:${MCP_E2E_HTTPS_PORT:-8443}:443"
@@ -11,8 +11,6 @@ services:
     depends_on:
       mcp-hackernews:
         condition: service_started
-      mcp-arxiv:
-        condition: service_started
 
   # Test-only npm canary; this wrapper is not part of the published image fleet.
   mcp-hackernews:
@@ -21,14 +19,6 @@ services:
       dockerfile: Dockerfile.npm
       args:
         MCP_PACKAGE: mcp-hacker-news@1.0.3
-    environment:
-      MCP_STARTUP_JITTER: "0"
-
-  # Python-based canary
-  mcp-arxiv:
-    build:
-      context: ../mcp
-      dockerfile: Dockerfile.arxiv
     environment:
       MCP_STARTUP_JITTER: "0"
 

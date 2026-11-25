@@ -1,8 +1,7 @@
 """
 MCP E2E stack tests — contract validation for downstream consumers.
 
-Tests the full Caddy → mcp-proxy → MCP server chain with both
-npm (hackernews) and Python (arxiv) canaries.
+Tests the full Caddy → mcp-proxy → MCP server chain with the Hacker News npm fixture.
 
 This is the contract test that downstream repos (homelab) depend on:
 - Health endpoint: GET /ping → 200 "pong"
@@ -27,8 +26,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _MCP_DEFAULTS = json.loads((_REPO_ROOT / "mcp-defaults.json").read_text())
 HEALTH_PATH = _MCP_DEFAULTS["health_path"]
 
-# Both canary types: npm and Python Dockerfiles
-MCP_SERVICES = ["hackernews", "arxiv"]
+SERVICE = "hackernews"
 
 # Caddy admin API (health probe status)
 CADDY_ADMIN = f"http://localhost:{os.getenv('MCP_E2E_ADMIN_PORT', '2019')}"
@@ -36,7 +34,6 @@ CADDY_ADMIN = f"http://localhost:{os.getenv('MCP_E2E_ADMIN_PORT', '2019')}"
 # Map from Caddy upstream address to service name for readable assertions
 EXPECTED_UPSTREAMS = {
     "mcp-hackernews:8080": "hackernews",
-    "mcp-arxiv:8080": "arxiv",
 }
 
 
@@ -57,20 +54,18 @@ class TestHealthContract:
         assert r.status_code == 200
         assert r.text == "OK"
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_ping_through_caddy(self, stack, service):
+    def test_ping_through_caddy(self, stack):
         """Health endpoint returns 200 'pong' through Caddy prefix stripping."""
         r = requests.get(
-            f"{stack['http_base']}/{service}{HEALTH_PATH}", timeout=5
+            f"{stack['http_base']}/{SERVICE}{HEALTH_PATH}", timeout=5
         )
         assert r.status_code == 200
         assert r.text == "pong"
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_ping_through_caddy_tls(self, stack, service):
+    def test_ping_through_caddy_tls(self, stack):
         """Same contract holds over TLS."""
         r = requests.get(
-            f"{stack['https_base']}/{service}{HEALTH_PATH}",
+            f"{stack['https_base']}/{SERVICE}{HEALTH_PATH}",
             timeout=5,
             verify=False,
         )
@@ -142,48 +137,43 @@ class TestMCPProtocol:
     """MCP protocol handshake through the full Caddy → mcp-proxy chain.
 
     Validates initialize (capabilities), session headers, and tools/list
-    for both npm and Python canaries over HTTP and HTTPS.
+    over HTTP and HTTPS.
     """
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_initialize_http(self, stack, service):
-        result, _ = mcp_initialize(stack["http_base"], service)
-        assert result is not None, f"{service}: no valid JSON response"
-        assert "result" in result, f"{service}: no result key: {result}"
-        assert "capabilities" in result["result"], f"{service}: no capabilities"
+    def test_initialize_http(self, stack):
+        result, _ = mcp_initialize(stack["http_base"], SERVICE)
+        assert result is not None, f"{SERVICE}: no valid JSON response"
+        assert "result" in result, f"{SERVICE}: no result key: {result}"
+        assert "capabilities" in result["result"], f"{SERVICE}: no capabilities"
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_session_header(self, stack, service):
-        _, session_id = mcp_initialize(stack["http_base"], service)
+    def test_session_header(self, stack):
+        _, session_id = mcp_initialize(stack["http_base"], SERVICE)
         if session_id is None:
-            warnings.warn(f"{service}: no Mcp-Session-Id header (stateless mode)")
+            warnings.warn(f"{SERVICE}: no Mcp-Session-Id header (stateless mode)")
             pytest.skip("Server running in stateless mode")
         assert session_id
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_tools_list_http(self, stack, service):
-        _, session_id = mcp_initialize(stack["http_base"], service)
+    def test_tools_list_http(self, stack):
+        _, session_id = mcp_initialize(stack["http_base"], SERVICE)
         if session_id is None:
             pytest.skip("No session ID")
 
-        result = mcp_tools_list(stack["http_base"], service, session_id)
-        assert result is not None, f"{service}: no tools/list response"
+        result = mcp_tools_list(stack["http_base"], SERVICE, session_id)
+        assert result is not None, f"{SERVICE}: no tools/list response"
         tools = result.get("result", {}).get("tools", [])
-        assert len(tools) > 0, f"{service}: tools/list returned no tools"
+        assert len(tools) > 0, f"{SERVICE}: tools/list returned no tools"
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_initialize_https(self, stack, service):
-        result, _ = mcp_initialize(stack["https_base"], service)
-        assert result is not None, f"{service} HTTPS: no valid JSON response"
+    def test_initialize_https(self, stack):
+        result, _ = mcp_initialize(stack["https_base"], SERVICE)
+        assert result is not None, f"{SERVICE} HTTPS: no valid JSON response"
         assert "capabilities" in result.get("result", {})
 
-    @pytest.mark.parametrize("service", MCP_SERVICES)
-    def test_tools_list_https(self, stack, service):
-        _, session_id = mcp_initialize(stack["https_base"], service)
+    def test_tools_list_https(self, stack):
+        _, session_id = mcp_initialize(stack["https_base"], SERVICE)
         if session_id is None:
             pytest.skip("No session ID")
 
-        result = mcp_tools_list(stack["https_base"], service, session_id)
+        result = mcp_tools_list(stack["https_base"], SERVICE, session_id)
         assert result is not None
         tools = result.get("result", {}).get("tools", [])
         assert len(tools) > 0
@@ -203,8 +193,7 @@ class TestRouting:
         )
         assert r.status_code == 200
         data = r.json()
-        assert "hackernews" in data["services"]
-        assert "arxiv" in data["services"]
+        assert data["services"] == {SERVICE: f"/{SERVICE}/"}
 
     def test_fallback_redirect(self, stack):
         r = requests.get(

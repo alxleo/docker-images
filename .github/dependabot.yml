@@ -19,7 +19,6 @@ updates:
   - package-ecosystem: docker
     directories:
       - /arc-runner
-      - /caddy-cloudflare
       - /finrobot-mcp
       - /litellm
       - /mcp
