@@ -27,26 +27,6 @@
     ]
   },
   {
-    "name": "mcp-tavily",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=tavily-mcp@0.2.22",
-    "tag": "0.2.22",
-    "description": "AI-optimized web search and content extraction",
-    "secrets": [
-      "TAVILY_API_KEY"
-    ]
-  },
-  {
-    "name": "mcp-context7",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=@upstash/context7-mcp@4.4.4",
-    "tag": "4.4.4",
-    "description": "Library documentation lookup with version awareness",
-    "secrets": [
-      "CONTEXT7_API_KEY"
-    ]
-  },
-  {
     "name": "mcp-searxng",
     "dockerfile": "Dockerfile.npm",
     "build_args": "MCP_PACKAGE=mcp-searxng@2.9.0",
@@ -60,26 +40,6 @@
     "build_args": "MCP_PACKAGE=@modelcontextprotocol/server-sequential-thinking@2.0.0",
     "tag": "2.0.0",
     "description": "Structured step-by-step reasoning via MCP"
-  },
-  {
-    "name": "mcp-firecrawl",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=firecrawl-mcp@3.36.0",
-    "tag": "3.36.0",
-    "description": "Web scraping and crawling with JS rendering",
-    "secrets": [
-      "FIRECRAWL_API_KEY"
-    ]
-  },
-  {
-    "name": "mcp-jina",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=mcp-remote@0.16.0",
-    "tag": "0.16.0",
-    "description": "URL to clean markdown conversion",
-    "secrets": [
-      "JINA_API_KEY"
-    ]
   },
   {
     "name": "mcp-confluence",
@@ -145,16 +105,6 @@
     "secrets": [
       "GOOGLE_API_KEY",
       "OPENAI_API_KEY"
-    ]
-  },
-  {
-    "name": "mcp-exa",
-    "dockerfile": "Dockerfile.npm",
-    "build_args": "MCP_PACKAGE=exa-mcp-server@3.4.2",
-    "tag": "3.4.2",
-    "description": "Semantic web search, code search, and company research",
-    "secrets": [
-      "EXA_API_KEY"
     ]
   },
   {

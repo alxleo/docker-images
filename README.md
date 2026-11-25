@@ -10,7 +10,6 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 |-------|-----|-------------|
 | `caddy-cloudflare` | Caddy + Cloudflare DNS + docker-proxy + Sablier plugins | Never (plugins aren't in upstream) |
 | `mcp-auth-proxy` | OAuth proxy on Alpine runtime (homelab compose needs /bin/sh for secret-loading entrypoint) | Upstream ships an image with /bin/sh and `*_FILE` env-var support |
-| `docs-hub` | Starlight documentation aggregation, visual viewers, read-only API, and MCP | Never (custom application) |
 | `gitea-ci-runner` | Pinned Python, Node, lint, Kubernetes, and automation CLIs for Gitea Actions | When the homelab workflows no longer need a shared job image |
 | `arc-runner` | GitHub Actions runner pool image for GARM, inheriting gitea-ci-runner | When GitHub-hosted runners cover the homelab's runner pool |
 | `reading-room-runner` | arc-runner with the reading-room repository's Qt SDKs, Rust toolchain and mise tools baked in, so its jobs skip about 760 MB of downloads | When that repository leaves the homelab runner pool |
@@ -24,9 +23,23 @@ Auto-discovered from `*/Dockerfile`. Per-image config in optional `.ci.json` fil
 
 `nixos-runner-image` is not auto-discovered: it builds from its own `Containerfile` via `build-nixos-runner-image.yml`.
 
+## Retired Images
+
+The previously published GHCR tags are available for existing pins. These
+images receive no new builds or security updates.
+
+| Image | Replacement |
+|-------|-------------|
+| `docs-hub` | Service retired. |
+| `mcp-context7` | Use Context7's hosted MCP at `https://mcp.context7.com/mcp`, with the API key header or the provider's OAuth endpoint. [Context7 setup](https://github.com/upstash/context7/blob/master/packages/mcp/README.md) |
+| `mcp-exa` | Use Exa's hosted MCP at `https://mcp.exa.ai/mcp` for web search and page fetching. [Exa setup](https://exa.ai/docs/get-started/exa-mcp) |
+| `mcp-firecrawl` | Use Firecrawl's hosted MCP at `https://mcp.firecrawl.dev/v2/mcp` for scraping and crawling. [Firecrawl setup](https://docs.firecrawl.dev/mcp-server) |
+| `mcp-jina` | Use Jina's hosted MCP at `https://mcp.jina.ai/v1`. `include_tools` can restrict it to reader and screenshot tools. [Jina setup](https://github.com/jina-ai/MCP) |
+| `mcp-tavily` | Use Tavily's hosted MCP at `https://mcp.tavily.com/mcp/` for search and extraction. [Tavily setup](https://docs.tavily.com/documentation/mcp) |
+
 ## MCP Service Images
 
-16 containerized MCP servers driven by [`mcp-images.json`](mcp-images.json).
+The build matrix reads [`mcp-images.json`](mcp-images.json).
 The shared legacy images follow this pattern:
 - npm-based: `mcp/Dockerfile.npm` | Python-based: `mcp/Dockerfile.python`
 - Shared `mcp/entrypoint.py` handles mcp-proxy startup, tool filtering, and secret injection
@@ -75,10 +88,10 @@ FinRobot state persists under `/home/app/.finrobot`, with
 
 ## ToolHive MCP Fleet
 
-[`mcp-fleet.json`](mcp-fleet.json) is the forward runtime catalog for all 17
-repository MCPs. It pins ToolHive, MCPJam, Node 26, Python 3.14, packages,
-ports, secret references, networks, mounts, and removal criteria for the two
-workloads that still depend on a legacy wrapper. Homelab can consume this
+[`mcp-fleet.json`](mcp-fleet.json) describes MCP runtime configurations, including
+direct upstream connections and packages. It pins ToolHive, MCPJam, Node 26,
+Python 3.14, packages, ports, secret references, networks, mounts, and removal
+criteria for the two workloads that still depend on a legacy wrapper. Homelab can consume this
 catalog without inheriting image-generation or tool-filter logic; it remains
 responsible for secret values, host paths, Docker networks, supervision, and
 gateway exposure.
@@ -198,7 +211,7 @@ shared MCP image from `mcp-images.json`:
 
 ```bash
 just test-image mcp-auth-proxy
-just test-image mcp-context7
+just test-image mcp-hackernews
 ```
 
 Credential-free shared MCP images get a live initialize + `tools/list` smoke

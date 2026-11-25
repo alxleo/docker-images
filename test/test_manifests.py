@@ -248,7 +248,6 @@ class TestCustomImagesManifest:
         assert selected(
             "caddy-cloudflare/test_caddy_cloudflare.py", include_watch_paths=False
         ) == {"caddy-cloudflare"}
-        assert selected("docs-hub/package.json") == {"docs-hub"}
         assert selected("README.md", ci_changed=True) == {
             entry["name"] for entry in CUSTOM_IMAGES
         }
