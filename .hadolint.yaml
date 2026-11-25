@@ -22,13 +22,13 @@ ignored:
   - DL3016
 
   # DL3018: Pin versions in apk add (e.g., apk add curl=8.5.0-r0)
-  # Triggered by: mcp/Dockerfile.npm, mcp-auth-proxy, pihole-exporter, docs-hub
+  # Triggered by: mcp/Dockerfile.npm, mcp-auth-proxy, pihole-exporter
   # Why ignored: Same as DL3008 — Alpine removes old versions from repos.
   # Revisit when: Same as DL3008
   - DL3018
 
   # DL3059: Multiple consecutive RUN instructions (should merge for smaller image)
-  # Triggered by: dagu-ops/Dockerfile, docs-hub/Dockerfile
+  # Triggered by: dagu-ops/Dockerfile
   # Why ignored: Intentional — separate RUN commands create distinct Docker cache
   #   layers. Merging them would bust the cache on any change.
   # Revisit when: Never — this is by design for build performance

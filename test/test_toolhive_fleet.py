@@ -24,16 +24,15 @@ def fleet():
 
 def test_fleet_covers_published_and_direct_repository_mcps(fleet):
     assert toolhive_fleet.validate_fleet(fleet) == []
-    assert len(fleet["servers"]) == 17
-    assert sum(server["state"] == "ready" for server in fleet["servers"]) == 15
-    assert sum(server["state"] == "legacy-wrapper" for server in fleet["servers"]) == 2
+    legacy = {server["name"] for server in fleet["servers"] if server["state"] == "legacy-wrapper"}
+    assert legacy == {"mcp-youtube", "mcp-zen"}
 
 
 def test_runtime_and_package_drift_fail_closed(fleet):
     changed = copy.deepcopy(fleet)
     changed["runtimes"]["npx"] = "node:26-slim"
-    context7 = next(server for server in changed["servers"] if server["name"] == "mcp-context7")
-    context7["source"]["version"] = "3.2.6"
+    brave = next(server for server in changed["servers"] if server["name"] == "mcp-brave")
+    brave["source"]["version"] = "1.0.0"
 
     errors = toolhive_fleet.validate_fleet(changed)
 
@@ -41,7 +40,7 @@ def test_runtime_and_package_drift_fail_closed(fleet):
     assert any("differs from image manifest" in error for error in errors)
 
 
-@pytest.mark.parametrize("name", ["mcp-context7", "mcp-hackernews", "mcp-sequential-thinking"])
+@pytest.mark.parametrize("name", ["mcp-brave", "mcp-hackernews", "mcp-sequential-thinking"])
 def test_published_or_contracted_mcp_cannot_disappear_from_forward_fleet(fleet, name):
     changed = copy.deepcopy(fleet)
     changed["servers"] = [server for server in changed["servers"] if server["name"] != name]

@@ -11,17 +11,6 @@
   "constraints": {
     "mise": "v2026.11.6"
   },
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["docs-hub/Dockerfile"],
-      "matchStrings": [
-        "# renovate: depName=(?<depName>[^\\s]+)\\r?\\nARG [A-Z0-9]+_VERSION=(?<currentValue>v[^\\s]+)\\r?\\nARG [A-Z0-9_]+_SHA256=(?<currentDigest>[a-f0-9]{64})(?:\\r?\\n|$)"
-      ],
-      "datasourceTemplate": "github-release-attachments",
-      "versioningTemplate": "semver-coerced"
-    }
-  ],
   "packageRules": [
     {
       "matchManagers": ["pip_requirements"],

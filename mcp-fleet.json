@@ -49,20 +49,6 @@
       "secrets": [{"name": "SLACK_MCP_XOXP_TOKEN", "target": "SLACK_MCP_XOXP_TOKEN"}]
     },
     {
-      "name": "mcp-tavily",
-      "port": 19103,
-      "state": "ready",
-      "source": {"type": "npx", "package": "tavily-mcp", "version": "0.2.22"},
-      "secrets": [{"name": "TAVILY_API_KEY", "target": "TAVILY_API_KEY"}]
-    },
-    {
-      "name": "mcp-context7",
-      "port": 19104,
-      "state": "ready",
-      "source": {"type": "npx", "package": "@upstash/context7-mcp", "version": "4.4.4"},
-      "secrets": [{"name": "CONTEXT7_API_KEY", "target": "CONTEXT7_API_KEY"}]
-    },
-    {
       "name": "mcp-searxng",
       "port": 19105,
       "state": "ready",
@@ -89,13 +75,6 @@
       },
       "contract": "mcp-contracts/mcp-sequential-thinking.json",
       "allow_tools": ["sequentialthinking"]
-    },
-    {
-      "name": "mcp-firecrawl",
-      "port": 19107,
-      "state": "ready",
-      "source": {"type": "npx", "package": "firecrawl-mcp", "version": "3.36.0"},
-      "secrets": [{"name": "FIRECRAWL_API_KEY", "target": "FIRECRAWL_API_KEY"}]
     },
     {
       "name": "mcp-jina",
@@ -226,13 +205,6 @@
         "tracer",
         "version"
       ]
-    },
-    {
-      "name": "mcp-exa",
-      "port": 19114,
-      "state": "ready",
-      "source": {"type": "npx", "package": "exa-mcp-server", "version": "3.4.2"},
-      "secrets": [{"name": "EXA_API_KEY", "target": "EXA_API_KEY"}]
     },
     {
       "name": "mcp-karakeep",

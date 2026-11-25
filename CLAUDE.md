@@ -42,7 +42,7 @@ one file path inside the image (so a tool version bump expires it), plain
 
 | Type | How | Examples |
 |------|-----|---------|
-| **Custom images** | `*/Dockerfile` + pytest module + optional `.ci.json` | caddy-cloudflare, docs-hub, mcp-reddit |
+| **Custom images** | `*/Dockerfile` + pytest module + optional `.ci.json` | caddy-cloudflare, mcp-reddit |
 | **MCP images** | `mcp-images.json` -> purpose-fit Dockerfile | mcp-brave, mcp-arxiv |
 | **Patched upstream** | Clone at tag + minimal fix | mcp-auth-proxy (Alpine runtime — /bin/sh required by homelab compose) |
 
@@ -50,12 +50,12 @@ one file path inside the image (so a tool version bump expires it), plain
 
 | Base | Used by | Why |
 |------|---------|-----|
-| `node:26-alpine` | Dockerfile.npm, Dockerfile.python, Dockerfile.slack, docs-hub, transmute (frontend stage) | Smallest viable Node base, no setuid binaries |
+| `node:26-alpine` | Dockerfile.npm, Dockerfile.python, Dockerfile.slack, transmute (frontend stage) | Smallest viable Node base, no setuid binaries |
 | `node:26-slim` | Dockerfile.arxiv proxy stage | Supplies a glibc Node binary for the python-slim final image |
 | `python:3.14-alpine` | homelab-observer | Pure Python deps, Alpine viable |
 | `python:3.15-alpine` | mcp-reddit | Pure Python deps, Alpine viable |
 | `python:3.14-slim` | finrobot-mcp, openbb-mcp, Dockerfile.arxiv | glibc wheels (pymupdf in Dockerfile.arxiv) |
-| `alpine:3.23` | mcp-auth-proxy (runtime), docs-hub | Already Alpine; mcp-auth-proxy needs /bin/sh for homelab compose entrypoint (see alxleo/homelab#401) |
+| `alpine:3.23` | mcp-auth-proxy (runtime) | Supplies /bin/sh for secret-loading entrypoints |
 | `golang:1.26-bookworm` | mcp-auth-proxy, Dockerfile.slack (build stages) | Build stages that rebuild upstream Go sources |
 | `caddy:2.11` / `2.11-builder` | caddy-cloudflare | xcaddy plugin build |
 | `ubuntu:24.04` | gitea-ci-runner (arc-runner inherits it) | CI runner base |
