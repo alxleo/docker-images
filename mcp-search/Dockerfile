@@ -1,7 +1,8 @@
 FROM ghcr.io/alxleo/base-images/python:3.14-alpine AS build
 WORKDIR /app
 ENV UV_PYTHON_PREFERENCE=only-system
-RUN pip install --no-cache-dir uv==0.13.6
+COPY build-requirements.txt /tmp/build-requirements.txt
+RUN pip install --no-cache-dir --requirement /tmp/build-requirements.txt
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 # Retire when the SDK refreshes restored/401-rejected tokens using discovered AS metadata.

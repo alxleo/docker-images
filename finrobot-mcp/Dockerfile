@@ -10,7 +10,7 @@ ENV HOME=/home/app \
     FINROBOT_MCP_PORT=8080 \
     FINROBOT_API_URL=http://127.0.0.1:8000
 
-COPY pyproject.toml uv.lock /opt/finrobot-dependencies/
+COPY pyproject.toml uv.lock build-requirements.txt /opt/finrobot-dependencies/
 
 # Refresh vendor security packages, including the CA store, before fetching Python dependencies.
 # hadolint ignore=DL3005
@@ -18,7 +18,7 @@ RUN apt-get update \
     && apt-get upgrade --no-install-recommends -y \
     && apt-get install --no-install-recommends -y git \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade "pip==26.2.2" "uv==0.13.6" \
+    && pip install --no-cache-dir --upgrade --requirement /opt/finrobot-dependencies/build-requirements.txt \
     && uv export --quiet --directory /opt/finrobot-dependencies --frozen --no-dev --no-emit-project --output-file /tmp/finrobot-requirements.txt \
     && uv pip install --system --no-cache-dir --requirement /tmp/finrobot-requirements.txt \
     && uv pip check --system \

@@ -16,6 +16,7 @@ ENV HOME=/home/app \
 
 COPY disable_mutating_tools.py /tmp/disable_mutating_tools.py
 COPY patch_provider_sources.py /tmp/patch_provider_sources.py
+COPY build-requirements.txt requirements.txt /tmp/
 COPY healthcheck.py /app/healthcheck.py
 
 # The runtime consumes the vendor's security updates before installing providers.
@@ -23,21 +24,9 @@ COPY healthcheck.py /app/healthcheck.py
 RUN apt-get update \
     && apt-get upgrade --no-install-recommends -y \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade "pip==26.2.2" \
-    && pip install --no-cache-dir \
-        "certifi>=2026.10.19" \
-        "pillow>=13.0.0" \
-        "openbb-core==2.0.1" \
-        "openbb-mcp-server==2.0.1" \
-        "openbb-sec==2.0.0" \
-        "openbb-fred==2.0.0" \
-        "openbb-ecb==2.0.0" \
-        "openbb-imf==3.0.0" \
-        "openbb-cboe==2.0.0" \
-        "openbb-nasdaq==2.0.0" \
-        "openbb-bls==2.0.0" \
-        "openbb-yfinance==2.1.0" \
-        "openbb-federal-reserve==2.0.0" \
+    && pip install --no-cache-dir --upgrade --requirement /tmp/build-requirements.txt \
+    && pip install --no-cache-dir --requirement /tmp/requirements.txt \
+    && rm /tmp/build-requirements.txt /tmp/requirements.txt \
     && pip check \
     && pip uninstall --yes pip \
     && python /tmp/patch_provider_sources.py \

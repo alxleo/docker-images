@@ -13,6 +13,12 @@
   },
   "packageRules": [
     {
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["openbb-mcp/requirements.txt"],
+      "matchPackageNames": ["openbb-*"],
+      "groupName": "OpenBB runtime"
+    },
+    {
       "description": "FinRobot provider SDKs and the MCP facade share Pydantic AI constraints and must resolve as one runtime cohort.",
       "matchManagers": [
         "pep621"
