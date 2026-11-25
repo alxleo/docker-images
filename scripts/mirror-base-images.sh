@@ -23,6 +23,7 @@ images=(
     "python:3.14-slim"
     "python:3.15-alpine"
     "ubuntu:24.04"
+    "ubuntu:26.04"
 )
 
 # A manual run may select one declared image. Validate before logging in so a

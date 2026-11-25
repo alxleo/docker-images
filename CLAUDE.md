@@ -55,7 +55,7 @@ one file path inside the image (so a tool version bump expires it), plain
 | `python:3.14-slim` | finrobot-mcp, openbb-mcp | glibc wheels |
 | `alpine:3.23` | mcp-auth-proxy (runtime) | Supplies /bin/sh for secret-loading entrypoints |
 | `golang:1.26-bookworm` | mcp-auth-proxy, Dockerfile.slack (build stages) | Build stages that rebuild upstream Go sources |
-| `ubuntu:24.04` | gitea-ci-runner (arc-runner inherits it) | CI runner base |
+| `ubuntu:26.04` | gitea-ci-runner (arc-runner inherits it) | CI runner base |
 
 All images build multi-arch (amd64 + arm64) and have `HEALTHCHECK` where they
 `EXPOSE`. All have a non-root `USER` except the three with a recorded

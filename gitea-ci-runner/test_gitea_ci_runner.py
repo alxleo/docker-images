@@ -87,6 +87,10 @@ def test_job_user_and_writable_paths(job):
     )
 
 
+def test_job_uses_ubuntu_26_04(job):
+    assert job.exec("lsb_release", "-rs").strip() == "26.04"
+
+
 def test_no_prepared_tool_is_missing(job):
     assert job.exec("mise", "ls", "--missing").strip() == ""
 
