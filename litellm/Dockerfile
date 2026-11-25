@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.28
 # Official signed Docker Hub mirror; publishing remains ghcr.io/alxleo/litellm.
-FROM docker.io/litellm/litellm:v1.108.5@sha256:008a5916c0a0ca6f4f6ad64969f6a4ef6f03ce885a639f3d97fd53665754ce48
+FROM docker.io/litellm/litellm:1.111.0@sha256:ce00096d012719d58c52cecfa373f7c6256dd1b0ff08f6fa607e10e9628f1f46
 
 LABEL org.opencontainers.image.source="https://github.com/alxleo/docker-images"
 
