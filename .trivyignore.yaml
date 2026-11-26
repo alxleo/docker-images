@@ -1,51 +1,12 @@
 # Version-scoped native dependency exceptions; a Semgrep version change expires them.
 # Keep the upstream pins and scan all other packages and paths.
 vulnerabilities:
-  - id: CVE-2026-116684
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
-  - id: CVE-2026-116685
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
-  - id: CVE-2026-116686
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
-  - id: CVE-2026-59951
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 uses the scan CLI; its optional MCP server is never launched and it has no MCP client. Upstream pins mcp==1.29.0.
-  - id: CVE-2026-114603
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 extracts only a locally generated traceparent; scanner CLI does not accept inbound tracestate. Upstream pins OpenTelemetry~=1.37.0.
-  - id: CVE-2026-126360
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 scan CLI extracts a traceparent assembled from its local
-      parent trace and span environment variables, not inbound HTTP headers.
-      Its optional server is never launched. Upstream pins OpenTelemetry~=1.37.0.
   - id: CVE-2026-115563
     paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
+      - gitea-ci-runner/.mise/locks/semgrep/1.186.0~7877237f/uv.lock
     statement: >-
-      Semgrep 1.184.0 uses the scan CLI; this advisory is in the MCP SDK's
-      OAuth client, and Semgrep has no MCP client. Upstream pins mcp==1.29.0.
-  - id: CVE-2026-132276
-    paths:
-      - gitea-ci-runner/.mise/locks/semgrep/1.184.0~7877237f/uv.lock
-    statement: >-
-      Semgrep 1.184.0 matches its own and the scanned repository's ignore
-      globs against that checkout's file names; CI scans only its own
-      repositories, so neither the patterns nor the names are untrusted input.
+      The scans use the Semgrep CLI without the MCP SDK's OAuth client.
+      Upstream Semgrep 1.186.0 pins mcp==1.29.0.
 
 # Conftest enforces these Dockerfile invariants with per-file exemptions.
 misconfigurations:

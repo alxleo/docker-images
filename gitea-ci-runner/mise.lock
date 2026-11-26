@@ -673,10 +673,10 @@ url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447482
 provenance = "github-attestations"
 
 [[tools.semgrep]]
-version = "1.184.0"
+version = "1.186.0"
 backend = "pypi:semgrep"
-specifiers = ["1.184.0"]
-uv = { path = ".mise/locks/semgrep/1.184.0~7877237f", digest = "sha256:f971c8ce3d55d58b691ba832f87180f7dbbd704743d67b67a83de19456b04a7a" }
+specifiers = ["1.186.0"]
+uv = { path = ".mise/locks/semgrep/1.186.0~7877237f", digest = "sha256:0977311714bc1e8b9f741764911780833b53ab7a4cb24cba1935efa42864a9d1" }
 
 [tools.semgrep.options]
 python = "3.13"

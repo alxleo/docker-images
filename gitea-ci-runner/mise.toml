@@ -25,7 +25,7 @@ chezmoi = "2.74.0"
 
 pre-commit = "4.7.0"
 ruff = "0.17.4"
-semgrep = { version = "1.184.0", python = "3.13" }
+semgrep = { version = "1.186.0", python = "3.13" }
 shellcheck = "0.11.0"
 shfmt = "3.14.1"
 yamllint = { version = "1.38.0", python = "3.13" }
