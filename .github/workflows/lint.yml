@@ -31,7 +31,7 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: bash
         run: git diff --name-only --no-renames HEAD^1 HEAD -- . ':(exclude,icase,glob)**/*.md' | awk 'END { print "markdown_only=" (NR == 0) }' >> "$GITHUB_OUTPUT"
-      - name: Check out shared lint rules
+      - name: Check out shared lint config
         if: steps.markdown-scope.outputs.markdown_only != '1'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,15 +39,12 @@ jobs:
           ref: 671b81a7d297fc81b56962b294ada8eb3f2587cd
           path: .stock-megalinter-policy
           sparse-checkout: |
-            semgrep-rules
             lint-configs
           persist-credentials: false
       - name: Run stock MegaLinter
         if: steps.markdown-scope.outputs.markdown_only != '1'
         uses: oxsecurity/megalinter/flavors/python@f2fe8c1cba37091848df3e524066c8c23ef353ed # v10.2.0
         env:
-          SEMGREP_ENABLE_VERSION_CHECK: "0"
-          SEMGREP_SEND_METRICS: "off"
           # Betterleaks launches Git against the runner-owned workspace.
           GIT_CONFIG_COUNT: "1"
           GIT_CONFIG_KEY_0: safe.directory
