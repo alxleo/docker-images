@@ -1,4 +1,4 @@
-ARG OPEN_TERMINAL_IMAGE=ghcr.io/open-webui/open-terminal:0.17.20-openshift@sha256:3e6e9746d861a79a4f2a1d8554c807c9adc93947624988b28901586bd19c9928
+ARG OPEN_TERMINAL_IMAGE=ghcr.io/open-webui/open-terminal:0.18.8-openshift@sha256:bd101ec3e487475ec3868edd2bea48bfd377701ea86135b3a7e9d74fc7a16407
 FROM ${OPEN_TERMINAL_IMAGE} AS release
 ARG TARGETARCH
 RUN set -eu; \
