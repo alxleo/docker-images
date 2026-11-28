@@ -1,0 +1,55 @@
+diff --git a/backend/background/cleanup.py b/backend/background/cleanup.py
+index 610b4be..a1a2aa6 100644
+--- a/backend/background/cleanup.py
++++ b/backend/background/cleanup.py
+@@ -16,2 +16,3 @@ from db.conversion_job_db import TERMINAL_STATUSES
+ from core import delete_file_and_metadata, get_settings
++from .conversion_queue import INTERRUPTED_CONVERSION_ERROR
+
+@@ -44,4 +45,3 @@ def file_cleanup_logic(file_db: FileDB, delete_relation: Callable[[str], None] |
+             if now - created_at > ttl_minutes * 60:  # If the file was created more than the TTL seconds ago
+-                # Serialize the active-job check with queue writes, including jobs
+-                # submitted after the initial expired-file listing.
++                # Serialize cleanup with queue writes and keep interrupted inputs for the retry window.
+                 with file_db.conn:
+@@ -50,3 +50,5 @@ def file_cleanup_logic(file_db: FileDB, delete_relation: Callable[[str], None] |
+                         f"SELECT 1 FROM {jobs.TABLE_NAME} WHERE source_file_id = ? "
+-                        "AND status IN ('queued', 'running') LIMIT 1", (file['id'],)
++                        "AND (status IN ('queued', 'running') "
++                        "OR (status = 'failed' AND error_message = ? AND completed_at >= datetime('now', ?))) LIMIT 1",
++                        (file['id'], INTERRUPTED_CONVERSION_ERROR, f"-{ttl_minutes} minutes"),
+                     ).fetchone() for jobs in job_dbs):
+diff --git a/backend/background/conversion_queue.py b/backend/background/conversion_queue.py
+index 54cb64e..72fb0f6 100644
+--- a/backend/background/conversion_queue.py
++++ b/backend/background/conversion_queue.py
+@@ -11,5 +11,4 @@ Design notes:
+     crash the worker thread.
+-- On startup, ``recover_running_jobs`` is called to move any jobs left in
+-    ``running`` state back to ``queued`` so the worker retries them from
+-    scratch after an interrupted process restart.
++- On startup, ``recover_running_jobs`` fails interrupted conversions.
++    The user can retry them after resolving the cause.
+ """
+@@ -36,2 +35,3 @@ logger = logging.getLogger(__name__)
+
++INTERRUPTED_CONVERSION_ERROR = "Conversion interrupted by a service restart. Retry the job to start over."
+
+@@ -118,14 +118,7 @@ def _process_job(
+ def recover_running_jobs() -> int:
+-    """Move stale ``running`` jobs back to ``queued`` on startup.
+-
+-    A job in ``running`` state at process boot means the previous worker
+-    was interrupted before it could record a terminal status. The work is
+-    not resumable in place, so we reset those jobs to a fresh queued state
+-    and let the worker retry them from scratch. Returns the number of
+-    recovered jobs.
+-    """
++    """Fail interrupted conversions before starting the queue workers."""
+     job_db = ConversionJobDB()
+-    affected = job_db.requeue_running_jobs()
++    affected = job_db.fail_running_jobs(INTERRUPTED_CONVERSION_ERROR)
+     if affected:
+-        logger.warning("Re-queued %d stale running job(s) on startup", affected)
++        logger.warning("Marked %d interrupted conversion job(s) failed on startup", affected)
+     return affected
