@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.28
 # Upstream: https://github.com/transmute-app/transmute/tree/v2.1.1
-# Preserve filenames/layout and use household quality and retention defaults.
+# Preserve filenames/layout, set quality and retention defaults, and recover interrupted conversions.
 # Drop each patch when its behavior is provided by upstream.
 FROM --platform=$BUILDPLATFORM ghcr.io/alxleo/base-images/node:26-alpine AS frontend
 # hadolint ignore=DL3018
@@ -10,8 +10,9 @@ RUN git clone --branch v2.1.1 --depth 1 --filter=blob:none --sparse \
     && test "$(git -C /src rev-parse HEAD)" = 7de1265fbfbbfd073c5c9a65ed1f7e45bc3ca50c \
     && git -C /src sparse-checkout set frontend backend/converters backend/background backend/db backend/services backend/api/routes
 WORKDIR /src
-COPY download-filename.patch fixed-layout-epub.patch retention-quality.patch /tmp/
+COPY download-filename.patch fixed-layout-epub.patch retention-quality.patch interrupted-conversion.patch /tmp/
 RUN git apply /tmp/download-filename.patch /tmp/fixed-layout-epub.patch /tmp/retention-quality.patch
+RUN git apply /tmp/interrupted-conversion.patch
 WORKDIR /src/frontend
 COPY download.test.ts src/utils/download.test.ts
 RUN npm ci && npm test -- src/utils/download.test.ts && npm run build
@@ -36,6 +37,7 @@ RUN apt-get update \
 COPY --from=frontend /src/frontend/dist /app/frontend/dist
 COPY --from=frontend /src/backend/converters/calibre_convert.py /app/backend/converters/calibre_convert.py
 COPY --from=frontend /src/backend/background/cleanup.py /app/backend/background/cleanup.py
+COPY --from=frontend /src/backend/background/conversion_queue.py /app/backend/background/conversion_queue.py
 COPY --from=frontend /src/backend/db/settings_db.py /app/backend/db/settings_db.py
 COPY --from=frontend /src/backend/db/file_db.py /app/backend/db/file_db.py
 COPY --from=frontend /src/backend/services/conversion_service.py /app/backend/services/conversion_service.py

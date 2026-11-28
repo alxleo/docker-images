@@ -21,6 +21,7 @@ from api.schemas import CompressionJobCreateRequest, ConversionJobCreateRequest
 from authlib.jose import JsonWebSignature
 from authlib.jose.errors import JoseError
 from background.cleanup import cleanup_once, job_cleanup_logic
+from background.conversion_queue import recover_running_jobs
 from converters.pillow_convert import PillowConverter
 from core import get_settings
 from db import (
@@ -242,8 +243,43 @@ def check_cleanup_admission_races():
     print("Cleanup/submission/retry interleavings reject expired inputs and preserve retried active jobs in both queues")
 
 
+def check_interrupted_conversion_recovery():
+    originals = FileDB()
+    queue = ConversionJobDB()
+    owner = {"uuid": "retention-fixture"}
+    identifier, path = retention_file(originals, 25)
+    interrupted = queue.insert_job({"user_id": owner["uuid"], "source_file_id": identifier, "output_format": "pdf"})
+    assert queue.claim_next_queued_job()["id"] == interrupted["id"]
+    waiting_id, _ = retention_file(originals, 25)
+    waiting = queue.insert_job({"user_id": owner["uuid"], "source_file_id": waiting_id, "output_format": "pdf"})
+
+    assert recover_running_jobs() == 1
+    assert recover_running_jobs() == 0
+    recovered = queue.get_job(interrupted["id"])
+    assert recovered["status"] == "failed" and "interrupted" in recovered["error_message"]
+    assert queue.get_job(waiting["id"])["status"] == "queued"
+
+    cleanup_once()
+    assert path.exists() and originals.get_file_metadata(identifier) is not None
+    retried = conversion_jobs.retry_job(interrupted["id"], file_db=originals, job_db=queue, current_user=owner)
+    assert retried["status"] == "queued" and retried["source_file_id"] == identifier
+    queue.cancel_queued_job(waiting["id"], owner["uuid"])
+
+    assert queue.claim_next_queued_job()["id"] == interrupted["id"]
+    assert recover_running_jobs() == 1
+    with queue.conn:
+        queue.conn.execute(
+            f"UPDATE {queue.TABLE_NAME} SET completed_at = '2000-01-01 00:00:00' WHERE id = ?",
+            (interrupted["id"],),
+        )
+    cleanup_once()
+    assert not path.exists() and queue.get_job(interrupted["id"]) is None
+    print("Startup failed interrupted conversions, preserved their inputs for native retry, and expired them after retention")
+
+
 check_retention()
 check_cleanup_admission_races()
+check_interrupted_conversion_recovery()
 
 
 with TestClient(create_app()) as client:
